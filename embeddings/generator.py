@@ -164,7 +164,7 @@ def generate_embeddings_for_database(limit=None):
 
 if __name__ == "__main__":
   # Test embedding generation with 5 products
-  embeddings_data = generate_embeddings_for_database(limit=100)
+  embeddings_data = generate_embeddings_for_database()
   
   print(f"📊 Sample embedding data:")
   if embeddings_data:

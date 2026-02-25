@@ -1,0 +1,201 @@
+🔄 Loading embedding models...
+   (First time takes 5-10 minutes to download)
+
+📦 Loading CLIP model...
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+✅ CLIP loaded
+
+📦 Loading text model...
+✅ Text model loaded
+
+🎉 All models ready!
+
+⚠️  Image test skipped: HTTPSConnectionPool(host='via.placeholder.com', port=443): Max retries exceeded with url: /400x400.png?text=Test (Caused by NameResolutionError("HTTPSConnection(host='via.placeholder.com', port=443): Failed to resolve 'via.placeholder.com' ([Errno 8] nodename nor servname provided, or not known)"))
+
+🎉 Models working correctly!
+
+======================================================================
+ENRICHED SEARCH QUALITY TEST
+Testing embeddings from CLAUDE-ENRICHED text
+======================================================================
+🔌 Connecting to Qdrant at localhost:6333...
+✅ Connected
+
+✅ Collection exists: vintage_images
+
+✅ Collection exists: vintage_text
+
+
+Query: 'silk evening dress'
+  Expected: Should find silk dresses
+  ------------------------------------------------------------
+  1. Afternoon dress
+     Score: 0.729
+     Era: N/A
+  2. Afternoon dress
+     Score: 0.712
+     Era: N/A
+  3. Dress
+     Score: 0.699
+     Era: N/A
+
+Query: 'wool coat'
+  Expected: Should find wool outerwear
+  ------------------------------------------------------------
+  1. Jacket
+     Score: 0.647
+     Era: N/A
+  2. Jacket
+     Score: 0.645
+     Era: N/A
+  3. Coat
+     Score: 0.603
+     Era: N/A
+
+Query: 'cotton bonnet'
+  Expected: Should find cotton headwear
+  ------------------------------------------------------------
+  1. Bonnet
+     Score: 0.671
+     Era: N/A
+  2. Bonnet
+     Score: 0.649
+     Era: N/A
+  3. Bonnet
+     Score: 0.648
+     Era: N/A
+
+Query: 'Victorian era dress'
+  Expected: Should find 1800s items
+  ------------------------------------------------------------
+  1. Dress
+     Score: 0.727
+     Era: N/A
+  2. Evening dress
+     Score: 0.711
+     Era: 1880s
+  3. Dress
+     Score: 0.709
+     Era: N/A
+
+Query: '18th century gown'
+  Expected: Should find 1700s items
+  ------------------------------------------------------------
+  1. Dressing gown
+     Score: 0.677
+     Era: N/A
+  2. Fashion plate
+     Score: 0.668
+     Era: 1790s
+  3. Robe
+     Score: 0.662
+     Era: 1700s
+
+Query: '1920s evening wear'
+  Expected: Should find 1920s items
+  ------------------------------------------------------------
+  1. Evening headdress
+     Score: 0.650
+     Era: 1920s
+  2. Evening dress
+     Score: 0.614
+     Era: 1880s
+  3. Dress
+     Score: 0.606
+     Era: N/A
+
+Query: 'Art Deco fashion'
+  Expected: Should find Art Deco period items
+  ------------------------------------------------------------
+  1. Stays
+     Score: 0.552
+     Era: 1700s
+  2. Evening headdress
+     Score: 0.534
+     Era: 1920s
+  3. Fashion plate
+     Score: 0.520
+     Era: N/A
+
+Query: 'French haute couture'
+  Expected: Should find French items
+  ------------------------------------------------------------
+  1. Jacket
+     Score: 0.591
+     Era: N/A
+  2. Dress
+     Score: 0.591
+     Era: N/A
+  3. Dress
+     Score: 0.590
+     Era: N/A
+
+Query: 'American colonial clothing'
+  Expected: Should find American items
+  ------------------------------------------------------------
+  1. Dress shirt
+     Score: 0.650
+     Era: N/A
+  2. Dress
+     Score: 0.639
+     Era: N/A
+  3. Waistcoat
+     Score: 0.638
+     Era: N/A
+
+Query: 'dark academia aesthetic'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Ensemble
+     Score: 0.624
+     Era: 1800s
+  2. Collar
+     Score: 0.558
+     Era: 1800s
+  3. Shawl
+     Score: 0.520
+     Era: 1800s
+
+Query: 'cottagecore dress'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Robe
+     Score: 0.682
+     Era: 1700s
+  2. Vest
+     Score: 0.677
+     Era: 1800s
+  3. Ensemble
+     Score: 0.677
+     Era: 1900s
+
+Query: 'romantic gothic fashion'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Coat
+     Score: 0.705
+     Era: 1900s
+  2. Fan
+     Score: 0.657
+     Era: 1800s
+  3. Evening dress
+     Score: 0.628
+     Era: 1880s
+
+======================================================================
+ENRICHED SEARCH SUMMARY
+======================================================================
+
+BASIC QUERIES (material + garment type):
+  Average score: 0.682
+
+ERA/PERIOD QUERIES (historical periods):
+  Average score: 0.651
+
+CULTURE QUERIES (origin/culture):
+  Average score: 0.620
+
+MODERN VIBE QUERIES (BIG IMPROVEMENT EXPECTED):
+  Average score: 0.670
+
+OVERALL ENRICHED: 0.656

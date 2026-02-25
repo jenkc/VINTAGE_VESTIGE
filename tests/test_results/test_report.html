@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vintage Vestige — Test &amp; Data Report</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    background: #0e0d0c;
+    color: #e8e0d4;
+    padding: 2.5rem 3rem 4rem;
+    max-width: 1100px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  a { color: #d4a574; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Header ── */
+  .report-header { text-align: center; margin-bottom: 3rem; }
+  h1 { font-size: 2.4rem; color: #f5efe6; letter-spacing: 5px; margin-bottom: 0.2rem; font-weight: 400; }
+  .subtitle { color: #776f65; font-size: 0.85rem; letter-spacing: 1px; }
+
+  /* ── Summary banner ── */
+  .summary-banner {
+    display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap;
+    padding: 1.4rem 2rem; background: #171514; border-radius: 14px;
+    margin-bottom: 3rem; border: 1px solid #252220;
+  }
+  .summary-stat { text-align: center; min-width: 80px; }
+  .summary-num { font-size: 2rem; font-weight: bold; color: #d4a574; display: block; line-height: 1.2; }
+  .summary-num.green { color: #6abf6a; }
+  .summary-label { font-size: 0.68rem; color: #776f65; text-transform: uppercase; letter-spacing: 1.5px; }
+
+  /* ── Section headers ── */
+  h2 {
+    font-size: 0.85rem; color: #998f80; text-transform: uppercase;
+    letter-spacing: 3px; margin: 2.5rem 0 1.2rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid #252220; font-weight: 400;
+  }
+
+  /* ── Test suites ── */
+  .test-suite { margin-bottom: 0.6rem; }
+  .suite-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.65rem 1rem; background: #171514; border-radius: 8px 8px 0 0;
+    border: 1px solid #252220; border-bottom: none; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .suite-header:hover { background: #1e1c1a; }
+  .suite-name { font-size: 0.85rem; font-weight: bold; color: #e8e0d4; }
+  .suite-count { font-size: 0.78rem; }
+  .suite-bar {
+    height: 4px; background: #252220; border-radius: 0 0 8px 8px;
+    overflow: hidden; border: 1px solid #252220; border-top: none;
+  }
+  .suite-bar-fill { height: 100%; border-radius: 0 0 6px 6px; }
+  .bar-green { background: linear-gradient(90deg, #3d7a3d, #5aad5a); }
+
+  .test-list {
+    padding: 0; background: #131211;
+    border-left: 1px solid #252220; border-right: 1px solid #252220;
+    max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+  }
+  .test-suite.open .test-list { max-height: 2000px; }
+  .test-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.3rem 1rem; font-size: 0.75rem; border-bottom: 1px solid #1a1918;
+  }
+  .test-item:last-child { border-bottom: none; }
+  .test-name { color: #887f70; }
+  .test-pass { color: #5aad5a; font-weight: bold; font-size: 0.7rem; letter-spacing: 0.5px; }
+
+  /* ── Cards ── */
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  @media (max-width: 640px) { .card-grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #171514; border: 1px solid #252220; border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+  }
+  .card-title { font-size: 0.65rem; color: #776f65; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.7rem; }
+  .card-big { font-size: 2rem; font-weight: bold; color: #d4a574; margin-bottom: 0.4rem; }
+  .card-detail { font-size: 0.82rem; color: #887f70; line-height: 1.8; }
+  .card-detail strong { color: #b0a898; font-weight: normal; }
+
+  /* ── Platform donut ── */
+  .donut-row { display: flex; align-items: center; gap: 1.5rem; margin-top: 0.8rem; }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { font-size: 0.78rem; color: #887f70; line-height: 2; }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  /* ── H-bars ── */
+  .hbar { margin-bottom: 0.7rem; }
+  .hbar-label { font-size: 0.78rem; color: #887f70; margin-bottom: 3px; display: flex; justify-content: space-between; }
+  .hbar-label strong { color: #b0a898; font-weight: normal; }
+  .hbar-track { height: 22px; background: #1e1c1a; border-radius: 5px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 5px; }
+  .type-same_era { background: linear-gradient(90deg, #3d7a3d, #4a9a4a); }
+  .type-cross_category { background: linear-gradient(90deg, #4a4a8c, #6a6abf); }
+  .type-cross_era { background: linear-gradient(90deg, #8c3d3d, #bf5a5a); }
+  .type-near_era { background: linear-gradient(90deg, #8c8c3d, #bfbf5a); }
+  .type-cross_vibe { background: linear-gradient(90deg, #7a3d7a, #ad5aad); }
+
+  /* ── Bridge cards ── */
+  .bridge-card {
+    background: #171514; border: 1px solid #252220; border-radius: 12px;
+    padding: 1.2rem 1.4rem; margin-bottom: 0.8rem;
+  }
+  .bridge-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+  .bridge-score-big { font-size: 1.6rem; font-weight: bold; color: #d4a574; line-height: 1; }
+  .bridge-type-tag {
+    display: inline-block; padding: 0.2rem 0.6rem; border-radius: 10px;
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;
+  }
+  .tag-same_era { background: #1e2e1e; color: #7cc87c; }
+  .tag-cross_era { background: #2e1e1e; color: #c87c7c; }
+  .tag-near_era { background: #2e2c1e; color: #c8c07c; }
+  .tag-cross_category { background: #1e1e2e; color: #7c7cc8; }
+  .tag-cross_vibe { background: #2e1e2e; color: #c87cc8; }
+  .bridge-items { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem; align-items: center; margin-bottom: 0.7rem; }
+  .bridge-item-name { font-size: 0.85rem; color: #c8bfb0; }
+  .bridge-item-platform { font-size: 0.7rem; color: #665e55; }
+  .bridge-arrow { color: #3a3530; font-size: 1.2rem; text-align: center; }
+  .bridge-narrative { font-size: 0.8rem; color: #887f70; font-style: italic; line-height: 1.6; border-top: 1px solid #252220; padding-top: 0.6rem; }
+
+  /* ── Score distribution ── */
+  .score-hist { display: flex; align-items: flex-end; gap: 3px; height: 80px; margin-top: 0.5rem; }
+  .score-bar { flex: 1; background: #d4a574; border-radius: 2px 2px 0 0; min-width: 0; opacity: 0.8; }
+  .score-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: #665e55; margin-top: 3px; }
+
+  /* ── Warnings ── */
+  .warning-item {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.5rem 1rem; margin-bottom: 0.4rem;
+    background: #1a1815; border-radius: 8px; font-size: 0.78rem;
+    border-left: 3px solid #8c8c3d;
+  }
+  .warn-icon { color: #bfbf5a; font-size: 0.9rem; flex-shrink: 0; }
+  .warn-text { color: #998f80; }
+  .warn-text strong { color: #b0a898; font-weight: normal; }
+
+  /* ── Architecture ── */
+  .arch-diagram {
+    font-family: 'Courier New', monospace; font-size: 0.72rem; line-height: 1.5;
+    color: #776f65; background: #131211; padding: 1.2rem 1.5rem;
+    border-radius: 10px; border: 1px solid #252220; overflow-x: auto;
+    white-space: pre;
+  }
+  .arch-diagram .highlight { color: #d4a574; }
+  .arch-diagram .dim { color: #4a4540; }
+
+  /* ── Footer ── */
+  .report-footer {
+    text-align: center; margin-top: 3rem; padding-top: 1.5rem;
+    border-top: 1px solid #252220; font-size: 0.72rem; color: #4a4540;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                       HEADER                               -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="report-header">
+  <h1>VINTAGE VESTIGE</h1>
+  <p class="subtitle">Test Suite &amp; Data Health Report &mdash; February 20, 2026</p>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                    SUMMARY BANNER                          -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="summary-banner">
+  <div class="summary-stat">
+    <span class="summary-num">156</span>
+    <span class="summary-label">Tests</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-num green">100%</span>
+    <span class="summary-label">Pass Rate</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-num">866</span>
+    <span class="summary-label">Products</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-num">7,324</span>
+    <span class="summary-label">Bridges</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-num">3</span>
+    <span class="summary-label">Platforms</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-num">42s</span>
+    <span class="summary-label">Run Time</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                   SYSTEM ARCHITECTURE                      -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>System Architecture</h2>
+
+<div class="arch-diagram"><span class="dim">┌─────────────────────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="highlight">DATA SOURCES</span>                                                       <span class="dim">│</span>
+<span class="dim">│</span>  Fashionpedia (500)  &#183;  Met Museum (200)  &#183;  Smithsonian (166)       <span class="dim">│</span>
+<span class="dim">└──────────────────────────────┬──────────────────────────────────────┘</span>
+                               <span class="dim">│</span>
+                               <span class="dim">v</span>
+<span class="dim">┌──────────────────────────────┴──────────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="highlight">ENRICHMENT</span>   Claude Sonnet 4 &rarr; 23 taxonomy fields per product     <span class="dim">│</span>
+<span class="dim">│</span>  era, decade, silhouette, neckline, vibe, style_tags, colors ...    <span class="dim">│</span>
+<span class="dim">└──────────────────────────────┬──────────────────────────────────────┘</span>
+                               <span class="dim">│</span>
+                  <span class="dim">┌────────────┴────────────┐</span>
+                  <span class="dim">v</span>                         <span class="dim">v</span>
+<span class="dim">┌─────────────────────────┐  ┌───────────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="highlight">POSTGRESQL</span>              <span class="dim">│  │</span>  <span class="highlight">QDRANT</span>                                <span class="dim">│</span>
+<span class="dim">│</span>  866 products            <span class="dim">│  │</span>  vintage_text   (384d, MiniLM)         <span class="dim">│</span>
+<span class="dim">│</span>  7,324 style_bridges     <span class="dim">│  │</span>  vintage_images (512d, CLIP)           <span class="dim">│</span>
+<span class="dim">└─────────────┬───────────┘  └───────────────┬───────────────────────┘</span>
+              <span class="dim">│</span>                                <span class="dim">│</span>
+              <span class="dim">└────────────────┬───────────────┘</span>
+                               <span class="dim">v</span>
+<span class="dim">┌──────────────────────────────┴──────────────────────────────────────┐</span>
+<span class="dim">│</span>  <span class="highlight">BRIDGE ENGINE</span>   3-pass discovery                                  <span class="dim">│</span>
+<span class="dim">│</span>  Pass 1: Open search (text + image similarity)                     <span class="dim">│</span>
+<span class="dim">│</span>  Pass 2: Cross-category (exclude same fp_category)                 <span class="dim">│</span>
+<span class="dim">│</span>  Pass 3: Cross-vibe (different vibes, similar structure)            <span class="dim">│</span>
+<span class="dim">│</span>                                                                     <span class="dim">│</span>
+<span class="dim">│</span>  Score = 0.40*text + 0.30*image + 0.30*structural                  <span class="dim">│</span>
+<span class="dim">│</span>  Canonical ordering: source_id &lt; target_id (dedup)                 <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────┘</span></div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                     TEST RESULTS                           -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Test Results &mdash; 156 passed, 0 failed</h2>
+
+<!-- Unit / Bridge Logic -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Unit / Bridge Logic</span>
+    <span class="suite-count" style="color:#5aad5a">23 / 23</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Identical products score high</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Completely different products score zero</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Partial match scores between 0 and 1</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">None fields don't match</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Set fields use Jaccard similarity</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Case-insensitive matching</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Cross-era classification (&gt;30 years)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Near-era classification (10&ndash;30 years)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Same-era classification (&lt;10 years)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Platform fallback: cross-era</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Platform fallback: same-era</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Boundary: 31 years = cross_era</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Boundary: 11 years = near_era</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Boundary: 10 years = same_era</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Direct year extraction</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Decade parsing (&ldquo;1870s&rdquo; &rarr; 1875)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Date range (&ldquo;1860&ndash;1870&rdquo; &rarr; 1865)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Circa date (&ldquo;ca. 1920&rdquo; &rarr; 1920)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Bare year in object_date</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Century (&ldquo;late 19th century&rdquo; &rarr; 1880)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Era fallback (&ldquo;Victorian&rdquo; &rarr; 1870)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">No date returns None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Year takes priority over decade</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Unit / Embeddings -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Unit / Embeddings</span>
+    <span class="suite-count" style="color:#5aad5a">15 / 15</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Valid PNG data URL decoded</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">None returns None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Empty string returns None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Non-data URL returns None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">HTTP URL returns None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JPEG data URL decoded</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Text embedding calls model correctly</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Product embeddings: text only</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">No image when missing</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Empty text handled gracefully</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Title + description concatenated</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Text embedding is 384-dim (MiniLM)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Image embedding is 512-dim (CLIP)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Embeddings are deterministic</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Unicode text handled</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Unit / Enrichment -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Unit / Enrichment</span>
+    <span class="suite-count" style="color:#5aad5a">25 / 25</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Full enrichment produces non-empty rich text</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">ai_description appears first</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Era and decade included</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Silhouette in output</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Style tags in output</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Decorations in output</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">&ldquo;plain&rdquo; pattern excluded</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Non-plain pattern included</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Minimal enrichment still works</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Empty decorations &rarr; no details section</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Colors limited to three</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Only first two finishing techniques</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Fallback returns all 23 fields</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">garment_type is lowercased category</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Title in ai_description</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Defaults are safe</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category variations: Dress</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category variations: JACKET</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category variations: pants</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category variations: Skirt</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Title and category in prompt</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Optional fields included when present</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Optional fields absent when None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Prompt requests JSON output</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Year formatted as int</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Unit / JSON Parsing -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Unit / Database Model</span>
+    <span class="suite-count" style="color:#5aad5a">7 / 7</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Table name correct</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">All expected columns exist</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Create product in memory</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON fields store &amp; retrieve</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Nullable fields accept None</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">external_id unique constraint</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Timestamps have defaults</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Data Integrity / Bridge Quality -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Data Integrity / Bridge Quality</span>
+    <span class="suite-count" style="color:#5aad5a">14 / 14</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">No self-referencing bridges</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Canonical ordering (source_id &lt; target_id)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">No duplicate pairs</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">All bridge products exist in DB</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">bridge_score in [0, 1]</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">text_similarity in [0, 1]</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">structural_score in [0, 1]</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Bridge type values valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">shared_attributes is valid JSON</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">1,000+ bridges exist</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">All bridge types represented</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Cross-era bridges span 2+ platforms</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Qdrant has platform field</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Qdrant has fp_category field</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Data Integrity / Data Quality -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Data Integrity / Data Quality</span>
+    <span class="suite-count" style="color:#5aad5a">16 / 16</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">All products have title</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">All products have platform</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Platform values are valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Enriched products have enriched_text</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Enriched products have ai_description</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">All products are enriched (866/866)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON: style_tags valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON: colors valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON: textile_finishing valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON: garment_parts valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">JSON: decorations valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Qdrant text collection count reasonable</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">No orphaned Qdrant points</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Enriched products mostly in Qdrant</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">fp_category values valid</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">textile_pattern values valid</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Integration / Search Relevance -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Integration / Search Relevance</span>
+    <span class="suite-count" style="color:#5aad5a">21 / 21</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Basic: &ldquo;silk evening dress&rdquo; score &ge; threshold</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Basic: &ldquo;wool coat or cape&rdquo; score &ge; threshold</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Basic: &ldquo;lace bonnet&rdquo; score &ge; threshold</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Basic: &ldquo;embroidered waistcoat&rdquo; score &ge; threshold</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Basic queries return 5 results each</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Era: &ldquo;18th century robe&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Era: &ldquo;1800s Victorian dress&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Era: &ldquo;Georgian era fashion&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Culture: &ldquo;French silk gown&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Culture: &ldquo;British corset or stays&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Culture: &ldquo;American formal wear&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;dark academia aesthetic&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;cottagecore pastoral dress&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;romantic gothic fashion&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;old money elegance&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Overall average &ge; 0.50</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe average &ge; baseline</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Top-3 ranking quality (decreasing)</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Integration / Vector DB -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Integration / Vector DB</span>
+    <span class="suite-count" style="color:#5aad5a">6 / 6</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Collections exist</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Image collection has vectors</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Text collection has vectors</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Text search returns results</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Results ordered by score</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Upsert &amp; retrieve roundtrip</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- Search Quality / Regression -->
+<div class="test-suite" onclick="this.classList.toggle('open')">
+  <div class="suite-header">
+    <span class="suite-name">Search Quality / Regression</span>
+    <span class="suite-count" style="color:#5aad5a">17 / 17</span>
+  </div>
+  <div class="test-list">
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;silk evening dress&rdquo; &ge; 0.55</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;wool coat or cape&rdquo; &ge; 0.40</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;dark academia&rdquo; &ge; 0.60</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;cottagecore pastoral&rdquo; &ge; 0.60</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;romantic gothic&rdquo; &ge; 0.50</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Baseline: &ldquo;old money elegance&rdquo; &ge; 0.40</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Cross-source: &ldquo;historical fashion garment&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Cross-source: &ldquo;elegant formal dress&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Cross-source: &ldquo;vintage outerwear&rdquo;</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category: &ldquo;vintage dress gown&rdquo; &ge; 40% precision</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category: &ldquo;coat or cape outerwear&rdquo; &ge; 40%</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Category: &ldquo;historical jacket&rdquo; &ge; 40%</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;dark academia&rdquo; finds matching vibes</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;cottagecore pastoral&rdquo; finds matching vibes</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Vibe: &ldquo;old money elegance&rdquo; finds matching vibes</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Score spread &ge; 0.03 (no clustering)</span><span class="test-pass">PASS</span></div>
+    <div class="test-item"><span class="test-name">Top score &lt; 1.0 (no data leak)</span><span class="test-pass">PASS</span></div>
+  </div>
+  <div class="suite-bar"><div class="suite-bar-fill bar-green" style="width:100%"></div></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                    DATABASE HEALTH                         -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Database Health</h2>
+
+<div class="card-grid">
+  <div class="card">
+    <div class="card-title">Products</div>
+    <div class="card-big">866</div>
+    <div class="card-detail">
+      <strong>Fashionpedia:</strong> 500 (58%)<br>
+      <strong>Met Museum:</strong> 200 (23%)<br>
+      <strong>Smithsonian:</strong> 166 (19%)<br>
+      <strong>Enriched:</strong> 866 / 866 (100%)
+    </div>
+    <div class="donut-row">
+      <svg class="donut-svg" viewBox="0 0 36 36" width="90" height="90">
+        <!-- Fashionpedia 58% -->
+        <circle cx="18" cy="18" r="14" fill="none" stroke="#d4a574" stroke-width="4"
+                stroke-dasharray="57.8 100" stroke-dashoffset="25" />
+        <!-- Met Museum 23% -->
+        <circle cx="18" cy="18" r="14" fill="none" stroke="#6a6abf" stroke-width="4"
+                stroke-dasharray="23.1 100" stroke-dashoffset="67.2" />
+        <!-- Smithsonian 19% -->
+        <circle cx="18" cy="18" r="14" fill="none" stroke="#5aad5a" stroke-width="4"
+                stroke-dasharray="19.2 100" stroke-dashoffset="44.1" />
+      </svg>
+      <div class="donut-legend">
+        <span class="legend-dot" style="background:#d4a574"></span>Fashionpedia<br>
+        <span class="legend-dot" style="background:#6a6abf"></span>Met Museum<br>
+        <span class="legend-dot" style="background:#5aad5a"></span>Smithsonian
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Style Bridges</div>
+    <div class="card-big">7,324</div>
+    <div class="card-detail">
+      <strong>Avg score:</strong> 0.556<br>
+      <strong>Score range:</strong> 0.300 &ndash; 0.935<br>
+      <strong>With narrative:</strong> 22 / 7,324<br>
+      <strong>Self-references:</strong> 0<br>
+      <strong>Duplicate pairs:</strong> 0
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                 BRIDGE TYPE DISTRIBUTION                   -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Bridge Type Distribution</h2>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <div class="hbar">
+    <div class="hbar-label"><span><strong>same_era</strong> &mdash; items from the same time period</span><span>3,957 (54%)</span></div>
+    <div class="hbar-track"><div class="hbar-fill type-same_era" style="width:54%"></div></div>
+  </div>
+  <div class="hbar">
+    <div class="hbar-label"><span><strong>cross_category</strong> &mdash; different garment types, shared DNA</span><span>1,760 (24%)</span></div>
+    <div class="hbar-track"><div class="hbar-fill type-cross_category" style="width:24%"></div></div>
+  </div>
+  <div class="hbar">
+    <div class="hbar-label"><span><strong>cross_era</strong> &mdash; 30+ years apart</span><span>1,076 (15%)</span></div>
+    <div class="hbar-track"><div class="hbar-fill type-cross_era" style="width:15%"></div></div>
+  </div>
+  <div class="hbar">
+    <div class="hbar-label"><span><strong>near_era</strong> &mdash; 10&ndash;30 years apart</span><span>425 (6%)</span></div>
+    <div class="hbar-track"><div class="hbar-fill type-near_era" style="width:6%"></div></div>
+  </div>
+  <div class="hbar">
+    <div class="hbar-label"><span><strong>cross_vibe</strong> &mdash; different aesthetics, similar structure</span><span>106 (1%)</span></div>
+    <div class="hbar-track"><div class="hbar-fill type-cross_vibe" style="width:2%"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                    TOP BRIDGES                             -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Highest-Scoring Bridges (with AI narratives)</h2>
+
+<div class="bridge-card">
+  <div class="bridge-top">
+    <span class="bridge-score-big">0.935</span>
+    <span class="bridge-type-tag tag-same_era">same_era</span>
+  </div>
+  <div class="bridge-items">
+    <div><div class="bridge-item-name">Robe</div><div class="bridge-item-platform">met_museum</div></div>
+    <div class="bridge-arrow">&harr;</div>
+    <div><div class="bridge-item-name">Fashion plate</div><div class="bridge-item-platform">met_museum</div></div>
+  </div>
+  <div class="bridge-narrative">Both items embody the Georgian era's revolutionary shift toward neoclassical simplicity, featuring the distinctive empire waistline that sits just below the bust and flows into an A-line silhouette made from lightweight cotton muslin. This shared design DNA represents the period's rejection of elaborate rococo styling in favor of classical Greek and Roman-inspired proportions, creating an enduring template for elegant, unstructured feminine dress that emphasized natural movement and comfort.</div>
+</div>
+
+<div class="bridge-card">
+  <div class="bridge-top">
+    <span class="bridge-score-big">0.923</span>
+    <span class="bridge-type-tag tag-same_era">same_era</span>
+  </div>
+  <div class="bridge-items">
+    <div><div class="bridge-item-name">Dress</div><div class="bridge-item-platform">met_museum</div></div>
+    <div class="bridge-arrow">&harr;</div>
+    <div><div class="bridge-item-name">Fashion plate</div><div class="bridge-item-platform">met_museum</div></div>
+  </div>
+  <div class="bridge-narrative">Both pieces embody the quintessential Regency aesthetic with their high empire waistlines that create an elongated silhouette, flowing A-line skirts in delicate cotton muslin, and the characteristic simplicity of plain fabric enhanced only by subtle gathering techniques. This shared design DNA represents the era's revolutionary departure from rigid 18th-century structures toward a more naturalistic, classical-inspired femininity that emphasized grace through restraint rather than ornamentation.</div>
+</div>
+
+<div class="bridge-card">
+  <div class="bridge-top">
+    <span class="bridge-score-big">0.922</span>
+    <span class="bridge-type-tag tag-same_era">same_era</span>
+  </div>
+  <div class="bridge-items">
+    <div><div class="bridge-item-name">Fruit of Islam uniform</div><div class="bridge-item-platform">smithsonian</div></div>
+    <div class="bridge-arrow">&harr;</div>
+    <div><div class="bridge-item-name">Jacket from Fruit of Islam uniform</div><div class="bridge-item-platform">smithsonian</div></div>
+  </div>
+  <div class="bridge-narrative">Both items embody the disciplined aesthetic of the Nation of Islam's Fruit of Islam uniform tradition, sharing identical construction principles of military-inspired tailoring with single-breasted closure, structured collar, and functional pockets that project authority and unity. Their shared design DNA reflects the mid-century movement's emphasis on clean, purposeful silhouettes that communicate organizational identity through standardized, dignified presentation.</div>
+</div>
+
+<div class="bridge-card">
+  <div class="bridge-top">
+    <span class="bridge-score-big">0.920</span>
+    <span class="bridge-type-tag tag-same_era">same_era</span>
+  </div>
+  <div class="bridge-items">
+    <div><div class="bridge-item-name">Mary Lincoln's Dress</div><div class="bridge-item-platform">smithsonian</div></div>
+    <div class="bridge-arrow">&harr;</div>
+    <div><div class="bridge-item-name">Mary Todd Lincoln's Purple Velvet Evening Bodice</div><div class="bridge-item-platform">smithsonian</div></div>
+  </div>
+  <div class="bridge-narrative">Both garments embody the quintessential Victorian feminine ideal through their shared fit-and-flare silhouette that celebrates the natural waistline while creating an elegant, bell-shaped skirt that pools gracefully at floor length. The consistent use of luxurious silk fabrics, off-the-shoulder necklines, and pleated textile finishing reveals Mary Lincoln's sophisticated personal style vocabulary that prioritized both modesty and grandeur in formal evening wear.</div>
+</div>
+
+<div class="bridge-card">
+  <div class="bridge-top">
+    <span class="bridge-score-big">0.896</span>
+    <span class="bridge-type-tag tag-same_era">same_era</span>
+  </div>
+  <div class="bridge-items">
+    <div><div class="bridge-item-name">Women's US Army Service jacket</div><div class="bridge-item-platform">smithsonian</div></div>
+    <div class="bridge-arrow">&harr;</div>
+    <div><div class="bridge-item-name">Women's US Army Service uniform</div><div class="bridge-item-platform">smithsonian</div></div>
+  </div>
+  <div class="bridge-narrative">Both garments embody the enduring military aesthetic of authoritative precision through their shared straight silhouette, structured collar-and-lapel system, and functional details like epaulettes and pockets that communicate rank and readiness. This design DNA creates a timeless uniform language that projects competence and command across decades, demonstrating how military tailoring principles remain constant even as political eras shift.</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                      WARNINGS                             -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Warnings &amp; Notes</h2>
+
+<div>
+  <div class="warning-item">
+    <span class="warn-icon">&#9888;</span>
+    <span class="warn-text">3 non-standard textile_patterns: <strong>pictorial, giraffe, cartoon</strong> &mdash; Claude-generated, tolerated</span>
+  </div>
+  <div class="warning-item">
+    <span class="warn-icon">&#9888;</span>
+    <span class="warn-text"><strong>embedded_at</strong> timestamp only set for 200/866 products (Qdrant has all 866 &mdash; cosmetic mismatch)</span>
+  </div>
+  <div class="warning-item">
+    <span class="warn-icon">&#9888;</span>
+    <span class="warn-text">Narratives: <strong>22 / 7,324</strong> generated &mdash; run <code style="color:#d4a574">generate_narratives.py --concurrency=20</code> for remaining</span>
+  </div>
+  <div class="warning-item">
+    <span class="warn-icon">&#9888;</span>
+    <span class="warn-text">SQLAlchemy <strong>declarative_base()</strong> deprecation warning &mdash; cosmetic, no functional impact</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--                       FOOTER                               -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="report-footer">
+  Vintage Vestige &mdash; Generated Feb 20, 2026 &mdash; pytest 8.x &middot; Python 3.13 &middot; PostgreSQL &middot; Qdrant
+</div>
+
+</body>
+</html>

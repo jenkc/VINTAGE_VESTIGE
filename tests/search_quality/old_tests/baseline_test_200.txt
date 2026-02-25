@@ -1,0 +1,209 @@
+======================================================================
+BASELINE SEARCH QUALITY TEST
+Testing performance BEFORE Claude enrichment
+======================================================================
+
+======================================================================
+BASELINE TEXT SEARCH QUALITY TEST
+Testing embeddings from RAW Met Museum descriptions
+======================================================================
+🔌 Connecting to Qdrant at localhost:6333...
+✅ Connected
+
+✅ Collection exists: vintage_images
+
+✅ Collection exists: vintage_text
+
+
+Query: 'silk evening dress'
+  Expected: Should find evening dresses
+  ------------------------------------------------------------
+  1. Afternoon dress
+     Score: 0.729
+  2. Afternoon dress
+     Score: 0.712
+  3. Dress
+     Score: 0.699
+
+Query: 'wool coat or cape'
+  Expected: Should find outerwear
+  ------------------------------------------------------------
+  1. Cape
+     Score: 0.633
+  2. Coat
+     Score: 0.549
+  3. Jacket
+     Score: 0.545
+
+Query: 'lace bonnet'
+  Expected: Should find bonnets/headwear
+  ------------------------------------------------------------
+  1. Bonnet
+     Score: 0.621
+  2. Bonnet
+     Score: 0.615
+  3. Bonnet
+     Score: 0.601
+
+Query: 'embroidered waistcoat'
+  Expected: Should find waistcoats
+  ------------------------------------------------------------
+  1. Waistcoat
+     Score: 0.680
+  2. Waistcoat
+     Score: 0.679
+  3. Waistcoat
+     Score: 0.674
+
+Query: '18th century robe'
+  Expected: Should find 1700s robes/gowns
+  ------------------------------------------------------------
+  1. Robe
+     Score: 0.667
+  2. Robe à la Polonaise
+     Score: 0.639
+  3. Waistcoat
+     Score: 0.606
+
+Query: '1800s Victorian dress'
+  Expected: Should find 19th century items
+  ------------------------------------------------------------
+  1. Dress
+     Score: 0.735
+  2. Dress
+     Score: 0.716
+  3. Dress
+     Score: 0.709
+
+Query: 'Georgian era fashion'
+  Expected: Should find 1700s-1800s items
+  ------------------------------------------------------------
+  1. Dress
+     Score: 0.590
+  2. Stays
+     Score: 0.590
+  3. Fashion plate
+     Score: 0.582
+
+Query: 'French silk gown'
+  Expected: Should find French items
+  ------------------------------------------------------------
+  1. Dress
+     Score: 0.755
+  2. Dress
+     Score: 0.738
+  3. Dress
+     Score: 0.706
+
+Query: 'British corset or stays'
+  Expected: Should find British items
+  ------------------------------------------------------------
+  1. Corset
+     Score: 0.588
+  2. Corset
+     Score: 0.583
+  3. Corset
+     Score: 0.553
+
+Query: 'American formal wear'
+  Expected: Should find American items
+  ------------------------------------------------------------
+  1. Dress
+     Score: 0.626
+  2. Dress
+     Score: 0.624
+  3. Dress
+     Score: 0.614
+
+Query: 'dark academia aesthetic'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Ensemble
+     Score: 0.624
+  2. Collar
+     Score: 0.558
+  3. Shawl
+     Score: 0.520
+
+Query: 'cottagecore pastoral dress'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Vest
+     Score: 0.726
+  2. Robe
+     Score: 0.715
+  3. Cap
+     Score: 0.686
+
+Query: 'romantic gothic fashion'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Coat
+     Score: 0.705
+  2. Fan
+     Score: 0.657
+  3. Evening dress
+     Score: 0.628
+
+Query: 'old money elegance'
+  Expected: Modern vibe - enrichment target
+  ------------------------------------------------------------
+  1. Court dress
+     Score: 0.497
+  2. Court suit
+     Score: 0.480
+  3. Muff
+     Score: 0.475
+
+======================================================================
+BASELINE SUMMARY
+======================================================================
+
+BASIC QUERIES (garment + material):
+  Average score: 0.666
+
+ERA QUERIES (1700s-1800s historical periods):
+  Average score: 0.664
+
+CULTURE QUERIES (French, British, American):
+  Average score: 0.657
+
+MODERN VIBE QUERIES (style language - enrichment target):
+  Average score: 0.638
+
+OVERALL BASELINE: 0.656
+
+======================================================================
+IMAGE SIMILARITY SEARCH TEST
+======================================================================
+🔌 Connecting to Qdrant at localhost:6333...
+✅ Connected
+
+✅ Collection exists: vintage_images
+
+✅ Collection exists: vintage_text
+
+
+Source Product:
+  Evening dress
+  Category: Evening dress
+
+Visually Similar Products:
+  1. Evening dress
+     Score: 0.909
+  2. Ball gown
+     Score: 0.895
+  3. Ensemble
+     Score: 0.894
+  4. Coat
+     Score: 0.885
+  5. Ensemble
+     Score: 0.881
+
+Image search works! (Won't change with enrichment)
+
+======================================================================
+BASELINE TEST COMPLETE
+======================================================================
+
+Next: Enrichment will improve modern vibe queries significantly!

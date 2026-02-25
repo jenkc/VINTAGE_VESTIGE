@@ -83,20 +83,22 @@ class VectorDB:
         points=[point]
       )
     
-  def search_similar(self, collection, query_vector, limit=10):
+  def search_similar(self, collection, query_vector, limit=10, query_filter=None):
     """
     Search for similar items in the vector DB
-    
+
     Args:
       collection: 'vintage_images' or 'vintage_text'
       query_vector: numpy array of the query embedding
       limit: number of results
+      query_filter: optional qdrant_client.models.Filter for pre-filtering
     Returns:
-      List of dicts with 'id', 'score', and 'metadata'
+      List of dicts with 'id', 'score', and payload fields
     """
     results = self.client.search(
       collection_name=collection,
       query_vector=query_vector.tolist() if hasattr(query_vector, 'tolist') else query_vector,
+      query_filter=query_filter,
       limit=limit
     )
     

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440">
+  <title>Vintage Vestige — Home (Desktop 1440px)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F0ECE4;
+      color: #2C2420;
+      width: 1440px;
+    }
+
+    /* Header */
+    .header {
+      height: 64px;
+      background: rgba(240,236,228,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #E8E0D4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 24px;
+      color: #2C2420;
+    }
+    .header-nav { display: flex; gap: 24px; }
+    .header-nav a {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #4A423A;
+      text-decoration: none;
+    }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      padding: 100px 48px 80px;
+      text-align: center;
+      background: #F0ECE4;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23B8924A' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      background-repeat: repeat;
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+    .hero-pretitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #B8924A;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 56px;
+      line-height: 1.1;
+      color: #2C2420;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
+    }
+    .hero-subtitle {
+      font-family: 'Inter', sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+      color: #4A423A;
+      margin-bottom: 40px;
+    }
+    .hero-ctas {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary { background: #C4553A; color: #FFFCF7; }
+    .btn-outline { background: transparent; color: #2C2420; border: 1px solid #D9D0C4; }
+
+    /* How It Works */
+    .how-section {
+      padding: 80px 48px;
+      text-align: center;
+    }
+    .section-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #8A7E74;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 36px;
+      margin-bottom: 48px;
+    }
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .how-card {
+      background: #FFFCF7;
+      border: 1px solid #E8E0D4;
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .how-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(184,146,74,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .how-card h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .how-card p {
+      font-size: 14px;
+      color: #4A423A;
+      line-height: 1.6;
+    }
+
+    /* Featured Bridges */
+    .featured-section {
+      padding: 80px 48px;
+      background: #FFFCF7;
+      border-top: 1px solid #E8E0D4;
+    }
+    .carousel {
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      padding-bottom: 16px;
+    }
+    .carousel::-webkit-scrollbar { height: 4px; }
+    .carousel::-webkit-scrollbar-track { background: #E8E0D4; border-radius: 2px; }
+    .carousel::-webkit-scrollbar-thumb { background: #B8924A; border-radius: 2px; }
+
+    /* Compact Bridge Card */
+    .bridge-compact {
+      background: #FFFCF7;
+      border: 1px solid #E8E0D4;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(44,36,32,0.04);
+      overflow: hidden;
+      width: 280px;
+      flex-shrink: 0;
+    }
+    .bridge-imgs {
+      display: flex;
+      position: relative;
+      height: 140px;
+    }
+    .bridge-imgs .side {
+      flex: 1;
+      background: linear-gradient(135deg, #E8E0D4 0%, #D9D0C4 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8A7E74;
+      font-size: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .bridge-imgs .connector {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 30px;
+      height: 30px;
+      background: #FFFCF7;
+      border: 1.5px solid #B8924A;
+      border-radius: 50%;
+      box-shadow: 0 4px 16px rgba(44,36,32,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    .compact-body { padding: 12px 14px 14px; }
+    .compact-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .compact-eras {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      font-size: 11px;
+      color: #4A423A;
+    }
+    .compact-score {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: #C4553A;
+    }
+    .compact-narrative {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-style: italic;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #4A423A;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .compact-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .compact-pill {
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(122,139,111,0.07);
+      border: 1px solid rgba(122,139,111,0.19);
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 9.5px;
+      color: #4A5A40;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid #E8E0D4;
+      padding: 48px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+    .footer-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .footer-desc { font-size: 13px; color: #8A7E74; line-height: 1.5; }
+    .footer-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #8A7E74;
+      margin-bottom: 12px;
+    }
+    .footer-links { list-style: none; }
+    .footer-links li { margin-bottom: 8px; }
+    .footer-links a { font-size: 13px; color: #4A423A; text-decoration: none; }
+    .footer-copyright {
+      border-top: 1px solid #E8E0D4;
+      padding-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #8A7E74;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <span class="header-logo">Vintage Vestige</span>
+    <nav class="header-nav">
+      <a href="#">Search</a>
+      <a href="#">About</a>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-content">
+      <p class="hero-pretitle">V I N T A G E &nbsp; V E S T I G E</p>
+      <h1>A fashion knowledge graph connecting 500 years of design history</h1>
+      <p class="hero-subtitle">Discover how historical garments inspire contemporary fashion through AI-computed style bridges. Explore connections across centuries of design.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary">Start Searching</button>
+        <button class="btn btn-outline">Upload Image</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-section">
+    <p class="section-label">The Pipeline</p>
+    <h2 class="section-title">How It Works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        </div>
+        <h3>AI Enrichment</h3>
+        <p>Every garment is analyzed by Claude AI to extract era, style attributes, materials, and aesthetic vibes from museum metadata.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        </div>
+        <h3>Multi-Modal Search</h3>
+        <p>Search by text description or upload an image. Our dual-embedding system finds matches across semantic meaning and visual similarity.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="1.5"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+        </div>
+        <h3>Style Bridges</h3>
+        <p>Discover design connections across centuries. Each bridge reveals shared DNA between historical and contemporary garments.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURED BRIDGES -->
+  <section class="featured-section">
+    <p class="section-label">Discover</p>
+    <h2 class="section-title" style="text-align: center;">Featured Bridges</h2>
+    <div class="carousel">
+      <!-- Bridge 1 -->
+      <div class="bridge-compact">
+        <div class="bridge-imgs">
+          <div class="side">Source</div>
+          <div class="connector">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="2" stroke-linecap="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+          </div>
+          <div class="side">Target</div>
+        </div>
+        <div class="compact-body">
+          <div class="compact-row">
+            <span class="compact-eras">Victorian → Contemporary</span>
+            <span class="compact-score">87%</span>
+          </div>
+          <p class="compact-narrative">"Both share the dramatic off-shoulder decolletage and structured boned bodice of formal evening wear."</p>
+          <div class="compact-pills">
+            <span class="compact-pill">Fitted bodice</span>
+            <span class="compact-pill">Off-shoulder</span>
+            <span class="compact-pill">Floor-length</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bridge 2 -->
+      <div class="bridge-compact">
+        <div class="bridge-imgs">
+          <div class="side">Source</div>
+          <div class="connector">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="2" stroke-linecap="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+          </div>
+          <div class="side">Target</div>
+        </div>
+        <div class="compact-body">
+          <div class="compact-row">
+            <span class="compact-eras">Regency → Contemporary</span>
+            <span class="compact-score">79%</span>
+          </div>
+          <p class="compact-narrative">"The raised empire waistline and flowing full-length skirt connect Regency-era elegance to modern bohemian sensibility."</p>
+          <div class="compact-pills">
+            <span class="compact-pill">Empire waist</span>
+            <span class="compact-pill">Floor-length</span>
+            <span class="compact-pill">Flowing skirt</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bridge 3 -->
+      <div class="bridge-compact">
+        <div class="bridge-imgs">
+          <div class="side">Source</div>
+          <div class="connector">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="2" stroke-linecap="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+          </div>
+          <div class="side">Target</div>
+        </div>
+        <div class="compact-body">
+          <div class="compact-row">
+            <span class="compact-eras">Art Deco → Contemporary</span>
+            <span class="compact-score">82%</span>
+          </div>
+          <p class="compact-narrative">"Geometric beadwork and the straight dropped-waist silhouette bridge the Jazz Age flapper aesthetic to modern cocktail glamour."</p>
+          <div class="compact-pills">
+            <span class="compact-pill">Dropped waist</span>
+            <span class="compact-pill">Beaded</span>
+            <span class="compact-pill">Knee-length</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bridge 4 (extra) -->
+      <div class="bridge-compact">
+        <div class="bridge-imgs">
+          <div class="side">Source</div>
+          <div class="connector">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="2" stroke-linecap="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+          </div>
+          <div class="side">Target</div>
+        </div>
+        <div class="compact-body">
+          <div class="compact-row">
+            <span class="compact-eras">Edwardian → Contemporary</span>
+            <span class="compact-score">75%</span>
+          </div>
+          <p class="compact-narrative">"High-collar lace and Gibson Girl proportions resurface in modern romantic blouse designs with sheer overlay."</p>
+          <div class="compact-pills">
+            <span class="compact-pill">High collar</span>
+            <span class="compact-pill">Lace</span>
+            <span class="compact-pill">Sheer</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bridge 5 (extra) -->
+      <div class="bridge-compact">
+        <div class="bridge-imgs">
+          <div class="side">Source</div>
+          <div class="connector">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8924A" stroke-width="2" stroke-linecap="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+          </div>
+          <div class="side">Target</div>
+        </div>
+        <div class="compact-body">
+          <div class="compact-row">
+            <span class="compact-eras">Baroque → Contemporary</span>
+            <span class="compact-score">71%</span>
+          </div>
+          <p class="compact-narrative">"Ornate brocade and voluminous sleeves connect 17th-century court fashion to modern maximalist evening wear."</p>
+          <div class="compact-pills">
+            <span class="compact-pill">Brocade</span>
+            <span class="compact-pill">Puff sleeve</span>
+            <span class="compact-pill">Ornate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">Vintage Vestige</div>
+        <p class="footer-desc">A fashion knowledge graph connecting 500 years of design history via AI-computed style bridges.</p>
+      </div>
+      <div>
+        <div class="footer-heading">Navigation</div>
+        <ul class="footer-links">
+          <li><a href="#">Home</a></li>
+          <li><a href="#">Search</a></li>
+          <li><a href="#">About</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-heading">Built With</div>
+        <ul class="footer-links">
+          <li><a href="#">Claude API</a></li>
+          <li><a href="#">CLIP</a></li>
+          <li><a href="#">Qdrant</a></li>
+          <li><a href="#">Next.js & FastAPI</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-copyright">© 2026 Vintage Vestige. All rights reserved.</div>
+  </footer>
+
+</body>
+</html>

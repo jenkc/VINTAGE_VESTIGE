@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vintage Vestige — Architecture & Data Flow</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:     #F7F3EC;
+      --beige:     #E0D0B0;
+      --sand:      #C9A96E;
+      --taupe:     #8B7E74;
+      --burgundy:  #722F37;
+      --sage:      #7B8F6E;
+      --charcoal:  #2B2B2B;
+      --navy:      #1B2838;
+      --caerulean: #6B8FAD;
+      --lilac:     #9B8EB0;
+      --plum:      #4A2040;
+      --white:     #FFFFFF;
+
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans:  'Inter', system-ui, sans-serif;
+      --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+
+      --radius-sm: 6px;
+      --radius:    10px;
+      --radius-lg: 16px;
+
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow:    0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.08);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--cream);
+      color: var(--charcoal);
+      line-height: 1.6;
+      padding: 0 0 80px;
+    }
+
+    /* ── Typography ───────────────────────────────────────────────── */
+    h1, h2, h3, h4 { font-family: var(--font-serif); line-height: 1.25; }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    .page-header {
+      background: var(--charcoal);
+      color: var(--cream);
+      padding: 48px 40px 40px;
+      border-bottom: 3px solid var(--burgundy);
+    }
+    .page-header h1 {
+      font-size: 2.4rem;
+      color: var(--cream);
+      letter-spacing: -0.02em;
+    }
+    .page-header h1 span { color: var(--sand); }
+    .page-header p {
+      margin-top: 10px;
+      color: var(--taupe);
+      font-size: 1rem;
+      max-width: 560px;
+    }
+    .header-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .header-meta span {
+      font-size: 0.78rem;
+      color: var(--taupe);
+      font-family: var(--font-mono);
+      background: rgba(255,255,255,0.07);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ── Nav ──────────────────────────────────────────────────────── */
+    .page-nav {
+      background: var(--navy);
+      padding: 0 40px;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+    }
+    .page-nav a {
+      color: var(--taupe);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 14px 18px;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .page-nav a:hover { color: var(--cream); border-color: var(--sand); }
+
+    /* ── Main layout ──────────────────────────────────────────────── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 48px 40px 0; }
+
+    /* ── Section titles ───────────────────────────────────────────── */
+    .section-title {
+      font-size: 1.6rem;
+      color: var(--charcoal);
+      margin-bottom: 6px;
+    }
+    .section-subtitle {
+      color: var(--taupe);
+      font-size: 0.92rem;
+      margin-bottom: 36px;
+    }
+    section { margin-bottom: 72px; }
+
+    /* ── Diagram cards ────────────────────────────────────────────── */
+    .diagram-card {
+      background: var(--white);
+      border: 1px solid var(--beige);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .diagram-card-header {
+      background: var(--beige);
+      padding: 14px 22px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--taupe);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #d6c9af;
+    }
+    .diagram-card-body { padding: 32px; }
+
+    /* ── SVG diagrams ─────────────────────────────────────────────── */
+    svg { display: block; width: 100%; height: auto; }
+
+    /* ── Legend ───────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--beige);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--taupe);
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Phase timeline ───────────────────────────────────────────── */
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .phase-card {
+      background: var(--white);
+      border: 1px solid var(--beige);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      border-top: 3px solid var(--taupe);
+      transition: box-shadow 0.15s;
+    }
+    .phase-card:hover { box-shadow: var(--shadow); }
+    .phase-card.current { border-top-color: var(--burgundy); }
+    .phase-card.next    { border-top-color: var(--caerulean); }
+    .phase-card.future  { border-top-color: var(--sage); }
+    .phase-card.far     { border-top-color: var(--lilac); }
+
+    .phase-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .phase-card.current .phase-label { color: var(--burgundy); }
+    .phase-card.next    .phase-label { color: var(--caerulean); }
+    .phase-card.future  .phase-label { color: var(--sage); }
+    .phase-card.far     .phase-label { color: var(--lilac); }
+
+    .phase-title {
+      font-family: var(--font-serif);
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+    }
+    .phase-items {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--taupe);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .phase-items li::before { content: '→ '; color: var(--sand); }
+    .phase-timeline {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--taupe);
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--beige);
+    }
+
+    /* ── Data table ───────────────────────────────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    .data-table th {
+      background: var(--beige);
+      color: var(--charcoal);
+      font-weight: 600;
+      padding: 10px 16px;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    .data-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--beige);
+      color: var(--charcoal);
+      vertical-align: top;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #faf7f2; }
+    .mono { font-family: var(--font-mono); font-size: 0.78rem; color: var(--caerulean); }
+    .tag {
+      display: inline-block;
+      background: var(--beige);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--taupe);
+      margin: 1px;
+    }
+    .tag.green  { background: #eef3ec; color: var(--sage); }
+    .tag.blue   { background: #eaf0f5; color: var(--caerulean); }
+    .tag.red    { background: #f5eaeb; color: var(--burgundy); }
+    .tag.purple { background: #f0edf4; color: var(--lilac); }
+
+    /* ── Two-col ──────────────────────────────────────────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    .page-footer {
+      margin-top: 80px;
+      border-top: 1px solid var(--beige);
+      padding: 24px 40px;
+      font-size: 0.78rem;
+      color: var(--taupe);
+      font-family: var(--font-mono);
+      text-align: center;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Page Header ──────────────────────────────────────────────── -->
+<header class="page-header">
+  <h1>Vintage Vestige <span>Architecture</span></h1>
+  <p>Fashion Intelligence Platform — system architecture, data flow, and phase roadmap</p>
+  <div class="header-meta">
+    <span>v3.0 — Knowledge Graph First</span>
+    <span>Last updated: February 2026</span>
+    <span>Phase 1 in progress</span>
+  </div>
+</header>
+
+<nav class="page-nav">
+  <a href="#system">System Overview</a>
+  <a href="#three-layers">Three Layers</a>
+  <a href="#search-flow">Search Flow</a>
+  <a href="#enrichment-flow">Enrichment Pipeline</a>
+  <a href="#bridge-flow">Bridge Computation</a>
+  <a href="#data-model">Data Model</a>
+  <a href="#phases">Phase Roadmap</a>
+</nav>
+
+<main class="main">
+
+  <!-- ── 1. System Overview ───────────────────────────────────────── -->
+  <section id="system">
+    <h2 class="section-title">System Overview</h2>
+    <p class="section-subtitle">All components and how they connect at runtime</p>
+
+    <div class="diagram-card">
+      <div class="diagram-card-header">system-overview.svg</div>
+      <div class="diagram-card-body">
+        <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+          <!-- Web Clients -->
+          <rect x="60" y="20" width="840" height="90" rx="10" fill="#f7f3ec" stroke="#c9a96e" stroke-width="1.5"/>
+          <text x="480" y="44" text-anchor="middle" fill="#8b7e74" font-size="10" font-family="JetBrains Mono, monospace" font-weight="600" letter-spacing="1">WEB CLIENTS</text>
+          <rect x="80" y="54" width="280" height="44" rx="7" fill="#722F37" fill-opacity="0.08" stroke="#722F37" stroke-width="1"/>
+          <text x="220" y="73" text-anchor="middle" fill="#722F37" font-size="11" font-weight="600">Vintage Vestige</text>
+          <text x="220" y="88" text-anchor="middle" fill="#8b7e74" font-size="9.5">Next.js 16 · React 19 · Tailwind 4</text>
+          <rect x="390" y="54" width="220" height="44" rx="7" fill="#6b8fad" fill-opacity="0.1" stroke="#6b8fad" stroke-width="1"/>
+          <text x="500" y="73" text-anchor="middle" fill="#6b8fad" font-size="11" font-weight="600">Style DNA API</text>
+          <text x="500" y="88" text-anchor="middle" fill="#8b7e74" font-size="9.5">Resale platforms · Fashion brands</text>
+          <rect x="640" y="54" width="240" height="44" rx="7" fill="#9b8eb0" fill-opacity="0.1" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="760" y="73" text-anchor="middle" fill="#9b8eb0" font-size="11" font-weight="600">Trend Oracle</text>
+          <text x="760" y="88" text-anchor="middle" fill="#8b7e74" font-size="9.5">Analytics · Phase 4</text>
+
+          <!-- Arrow down to FastAPI -->
+          <line x1="480" y1="110" x2="480" y2="148" stroke="#c9a96e" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="475,146 485,146 480,154" fill="#c9a96e"/>
+          <text x="490" y="133" fill="#8b7e74" font-size="9" font-family="JetBrains Mono, monospace">HTTPS / REST</text>
+
+          <!-- FastAPI Backend -->
+          <rect x="60" y="156" width="840" height="100" rx="10" fill="#1b2838" stroke="#6b8fad" stroke-width="1.5"/>
+          <text x="480" y="178" text-anchor="middle" fill="#6b8fad" font-size="10" font-family="JetBrains Mono, monospace" font-weight="600" letter-spacing="1">FASTAPI BACKEND</text>
+
+          <rect x="80" y="186" width="148" height="58" rx="6" fill="rgba(107,143,173,0.15)" stroke="#6b8fad" stroke-width="1"/>
+          <text x="154" y="205" text-anchor="middle" fill="#a8c4d8" font-size="9.5" font-family="JetBrains Mono, monospace">POST /search/image</text>
+          <text x="154" y="220" text-anchor="middle" fill="#a8c4d8" font-size="9.5" font-family="JetBrains Mono, monospace">POST /search/text</text>
+          <text x="154" y="235" text-anchor="middle" fill="#8b7e74" font-size="9" font-family="JetBrains Mono, monospace">search endpoints</text>
+
+          <rect x="244" y="186" width="148" height="58" rx="6" fill="rgba(107,143,173,0.15)" stroke="#6b8fad" stroke-width="1"/>
+          <text x="318" y="205" text-anchor="middle" fill="#a8c4d8" font-size="9.5" font-family="JetBrains Mono, monospace">GET /products/:id</text>
+          <text x="318" y="220" text-anchor="middle" fill="#a8c4d8" font-size="9.5" font-family="JetBrains Mono, monospace">GET /bridges/:id</text>
+          <text x="318" y="235" text-anchor="middle" fill="#8b7e74" font-size="9" font-family="JetBrains Mono, monospace">graph endpoints</text>
+
+          <rect x="408" y="186" width="148" height="58" rx="6" fill="rgba(114,47,55,0.2)" stroke="#722F37" stroke-width="1"/>
+          <text x="482" y="205" text-anchor="middle" fill="#e8a0a6" font-size="9.5" font-family="JetBrains Mono, monospace">POST /analyze</text>
+          <text x="482" y="220" text-anchor="middle" fill="#e8a0a6" font-size="9.5" font-family="JetBrains Mono, monospace">GET /timeline/:attr</text>
+          <text x="482" y="235" text-anchor="middle" fill="#8b7e74" font-size="9" font-family="JetBrains Mono, monospace">Style DNA API</text>
+
+          <rect x="572" y="186" width="148" height="58" rx="6" fill="rgba(155,142,176,0.15)" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="646" y="205" text-anchor="middle" fill="#c4b8d8" font-size="9.5" font-family="JetBrains Mono, monospace">GET /similar/:id</text>
+          <text x="646" y="220" text-anchor="middle" fill="#c4b8d8" font-size="9.5" font-family="JetBrains Mono, monospace">GET /health</text>
+          <text x="646" y="235" text-anchor="middle" fill="#8b7e74" font-size="9" font-family="JetBrains Mono, monospace">utility</text>
+
+          <rect x="736" y="186" width="148" height="58" rx="6" fill="rgba(123,143,110,0.15)" stroke="#7b8f6e" stroke-width="1"/>
+          <text x="810" y="209" text-anchor="middle" fill="#b0c4a8" font-size="9.5" font-family="JetBrains Mono, monospace">Python FastAPI</text>
+          <text x="810" y="224" text-anchor="middle" fill="#b0c4a8" font-size="9.5" font-family="JetBrains Mono, monospace">Uvicorn · port 8000</text>
+
+          <!-- Two arrows from FastAPI -->
+          <line x1="260" y1="256" x2="260" y2="294" stroke="#c9a96e" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="255,292 265,292 260,300" fill="#c9a96e"/>
+          <line x1="700" y1="256" x2="700" y2="294" stroke="#c9a96e" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="695,292 705,292 700,300" fill="#c9a96e"/>
+
+          <!-- PostgreSQL -->
+          <rect x="60" y="302" width="380" height="120" rx="10" fill="#fff" stroke="#c9a96e" stroke-width="1.5"/>
+          <text x="250" y="324" text-anchor="middle" fill="#8b7e74" font-size="10" font-family="JetBrains Mono, monospace" font-weight="600" letter-spacing="1">POSTGRESQL</text>
+          <rect x="78" y="332" width="160" height="36" rx="5" fill="#f5eaeb" stroke="#722F37" stroke-width="1"/>
+          <text x="158" y="348" text-anchor="middle" fill="#722F37" font-size="10" font-weight="600">products</text>
+          <text x="158" y="362" text-anchor="middle" fill="#8b7e74" font-size="8.5">~1,000 items · 70+ fields</text>
+          <rect x="252" y="332" width="170" height="36" rx="5" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1"/>
+          <text x="337" y="348" text-anchor="middle" fill="#6b8fad" font-size="10" font-weight="600">style_bridges</text>
+          <text x="337" y="362" text-anchor="middle" fill="#8b7e74" font-size="8.5">5K–10K rows · bridge_score</text>
+          <rect x="78" y="376" width="344" height="34" rx="5" fill="#eef3ec" stroke="#7b8f6e" stroke-width="1"/>
+          <text x="250" y="390" text-anchor="middle" fill="#7b8f6e" font-size="9.5">users · search_history (Phase 2)</text>
+          <text x="250" y="403" text-anchor="middle" fill="#8b7e74" font-size="8.5">SQLAlchemy ORM · psycopg3</text>
+
+          <!-- Arrow from PG to Qdrant -->
+          <line x1="440" y1="360" x2="478" y2="360" stroke="#c9a96e" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="476,355 476,365 484,360" fill="#c9a96e"/>
+
+          <!-- Qdrant -->
+          <rect x="486" y="302" width="414" height="120" rx="10" fill="#fff" stroke="#9b8eb0" stroke-width="1.5"/>
+          <text x="693" y="324" text-anchor="middle" fill="#8b7e74" font-size="10" font-family="JetBrains Mono, monospace" font-weight="600" letter-spacing="1">QDRANT VECTOR DATABASE</text>
+          <rect x="504" y="332" width="180" height="78" rx="5" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="594" y="352" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="600">vintage_images</text>
+          <text x="594" y="367" text-anchor="middle" fill="#8b7e74" font-size="8.5">512-dim · CLIP ViT-B/32</text>
+          <text x="594" y="381" text-anchor="middle" fill="#8b7e74" font-size="8.5">cosine similarity</text>
+          <text x="594" y="398" text-anchor="middle" fill="#8b7e74" font-size="8">~500 items · payload: platform, era</text>
+          <rect x="700" y="332" width="182" height="78" rx="5" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="791" y="352" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="600">vintage_text</text>
+          <text x="791" y="367" text-anchor="middle" fill="#8b7e74" font-size="8.5">384-dim · all-MiniLM-L6-v2</text>
+          <text x="791" y="381" text-anchor="middle" fill="#8b7e74" font-size="8.5">cosine similarity</text>
+          <text x="791" y="398" text-anchor="middle" fill="#8b7e74" font-size="8">~1,000 items · payload: platform, era</text>
+
+          <!-- AI Workers -->
+          <rect x="60" y="446" width="840" height="120" rx="10" fill="#fff" stroke="#7b8f6e" stroke-width="1.5"/>
+          <text x="480" y="468" text-anchor="middle" fill="#8b7e74" font-size="10" font-family="JetBrains Mono, monospace" font-weight="600" letter-spacing="1">PYTHON AI WORKERS (offline / background)</text>
+
+          <rect x="78" y="476" width="190" height="78" rx="6" fill="#eef3ec" stroke="#7b8f6e" stroke-width="1"/>
+          <text x="173" y="494" text-anchor="middle" fill="#7b8f6e" font-size="10" font-weight="600">Embedding Pipeline</text>
+          <text x="173" y="508" text-anchor="middle" fill="#8b7e74" font-size="8.5">embeddings/models.py</text>
+          <text x="173" y="521" text-anchor="middle" fill="#8b7e74" font-size="8.5">embeddings/generator.py</text>
+          <text x="173" y="534" text-anchor="middle" fill="#8b7e74" font-size="8">CLIP + MiniLM · local inference · $0</text>
+
+          <rect x="284" y="476" width="190" height="78" rx="6" fill="#f5eaeb" stroke="#722F37" stroke-width="1"/>
+          <text x="379" y="494" text-anchor="middle" fill="#722F37" font-size="10" font-weight="600">Claude Enrichment</text>
+          <text x="379" y="508" text-anchor="middle" fill="#8b7e74" font-size="8.5">enrichment/claude.py</text>
+          <text x="379" y="521" text-anchor="middle" fill="#8b7e74" font-size="8.5">enrich_product · enrich_creative_only</text>
+          <text x="379" y="534" text-anchor="middle" fill="#8b7e74" font-size="8">Claude Sonnet 4 · ~$0.02/item</text>
+
+          <rect x="490" y="476" width="190" height="78" rx="6" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1"/>
+          <text x="585" y="494" text-anchor="middle" fill="#6b8fad" font-size="10" font-weight="600">Bridge Computation</text>
+          <text x="585" y="508" text-anchor="middle" fill="#8b7e74" font-size="8.5">scripts/analysis/compute_bridges.py</text>
+          <text x="585" y="521" text-anchor="middle" fill="#8b7e74" font-size="8.5">structural score · cosine sim</text>
+          <text x="585" y="534" text-anchor="middle" fill="#8b7e74" font-size="8">~5K–10K bridges · ~5 min runtime</text>
+
+          <rect x="696" y="476" width="186" height="78" rx="6" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="789" y="494" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="600">Fashionpedia Taxonomy</text>
+          <text x="789" y="508" text-anchor="middle" fill="#8b7e74" font-size="8.5">enrichment/fashionpedia_taxonomy.py</text>
+          <text x="789" y="521" text-anchor="middle" fill="#8b7e74" font-size="8.5">27 categories · 294 attributes</text>
+          <text x="789" y="534" text-anchor="middle" fill="#8b7e74" font-size="8">structural scoring weights</text>
+
+          <!-- Arrows from workers to stores -->
+          <line x1="173" y1="476" x2="173" y2="422" stroke="#7b8f6e" stroke-width="1" stroke-dasharray="3,3"/>
+          <polygon points="168,424 178,424 173,416" fill="#7b8f6e"/>
+          <line x1="379" y1="476" x2="379" y2="422" stroke="#722F37" stroke-width="1" stroke-dasharray="3,3"/>
+          <polygon points="374,424 384,424 379,416" fill="#722F37"/>
+          <line x1="585" y1="476" x2="585" y2="422" stroke="#6b8fad" stroke-width="1" stroke-dasharray="3,3"/>
+          <polygon points="580,424 590,424 585,416" fill="#6b8fad"/>
+
+        </svg>
+
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#722F37"></div>Core search / product data</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#6b8fad"></div>Bridge & graph endpoints</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#9b8eb0"></div>Vector similarity (Qdrant)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#7b8f6e"></div>Background AI workers</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#c9a96e; opacity:0.6"></div>Dashed = async / offline</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. Three Layers ───────────────────────────────────────────── -->
+  <section id="three-layers">
+    <h2 class="section-title">The Three Layers</h2>
+    <p class="section-subtitle">Strategic architecture — the intelligence layer is the moat</p>
+
+    <div class="diagram-card">
+      <div class="diagram-card-header">three-layer-architecture.svg</div>
+      <div class="diagram-card-body">
+        <svg viewBox="0 0 860 420" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+          <!-- Products layer -->
+          <rect x="40" y="20" width="780" height="108" rx="12" fill="#f5eaeb" stroke="#722F37" stroke-width="2"/>
+          <text x="430" y="46" text-anchor="middle" fill="#722F37" font-size="11" font-family="JetBrains Mono, monospace" font-weight="700" letter-spacing="1.5">PRODUCTS LAYER — what people see &amp; pay for</text>
+          <rect x="60" y="56" width="220" height="58" rx="8" fill="#fff" stroke="#722F37" stroke-width="1.2"/>
+          <text x="170" y="76" text-anchor="middle" fill="#722F37" font-size="12" font-weight="700">Vintage Vestige</text>
+          <text x="170" y="92" text-anchor="middle" fill="#8b7e74" font-size="9.5">Consumer web demo</text>
+          <text x="170" y="105" text-anchor="middle" fill="#8b7e74" font-size="9">Next.js · Phase 1 now</text>
+          <rect x="304" y="56" width="220" height="58" rx="8" fill="#fff" stroke="#6b8fad" stroke-width="1.2"/>
+          <text x="414" y="76" text-anchor="middle" fill="#6b8fad" font-size="12" font-weight="700">Style DNA API</text>
+          <text x="414" y="92" text-anchor="middle" fill="#8b7e74" font-size="9.5">B2B SaaS · $99–$499/mo</text>
+          <text x="414" y="105" text-anchor="middle" fill="#8b7e74" font-size="9">Phase 2 · Month 3–6</text>
+          <rect x="548" y="56" width="252" height="58" rx="8" fill="#fff" stroke="#9b8eb0" stroke-width="1.2"/>
+          <text x="674" y="76" text-anchor="middle" fill="#9b8eb0" font-size="12" font-weight="700">Trend Oracle</text>
+          <text x="674" y="92" text-anchor="middle" fill="#8b7e74" font-size="9.5">Analytics · $5K–50K/yr</text>
+          <text x="674" y="105" text-anchor="middle" fill="#8b7e74" font-size="9">Phase 4 · Month 9–15</text>
+
+          <!-- Arrow -->
+          <line x1="430" y1="128" x2="430" y2="162" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="424,160 436,160 430,168" fill="#c9a96e"/>
+
+          <!-- Intelligence layer -->
+          <rect x="40" y="170" width="780" height="120" rx="12" fill="#1b2838" stroke="#c9a96e" stroke-width="2.5"/>
+          <text x="430" y="194" text-anchor="middle" fill="#c9a96e" font-size="11" font-family="JetBrains Mono, monospace" font-weight="700" letter-spacing="1.5">INTELLIGENCE LAYER — the moat</text>
+          <rect x="60" y="202" width="175" height="74" rx="7" fill="rgba(201,169,110,0.12)" stroke="#c9a96e" stroke-width="1"/>
+          <text x="147" y="220" text-anchor="middle" fill="#e8d4a8" font-size="10" font-weight="600">Knowledge Graph</text>
+          <text x="147" y="234" text-anchor="middle" fill="#8b7e74" font-size="8.5">Products + bridges + time</text>
+          <text x="147" y="248" text-anchor="middle" fill="#8b7e74" font-size="8.5">Compounds with every</text>
+          <text x="147" y="262" text-anchor="middle" fill="#8b7e74" font-size="8.5">new source added</text>
+          <rect x="251" y="202" width="175" height="74" rx="7" fill="rgba(107,143,173,0.15)" stroke="#6b8fad" stroke-width="1"/>
+          <text x="338" y="220" text-anchor="middle" fill="#a8c4d8" font-size="10" font-weight="600">Cross-Source Bridges</text>
+          <text x="338" y="234" text-anchor="middle" fill="#8b7e74" font-size="8.5">Historical ↔ modern links</text>
+          <text x="338" y="248" text-anchor="middle" fill="#8b7e74" font-size="8.5">Structural + semantic</text>
+          <text x="338" y="262" text-anchor="middle" fill="#8b7e74" font-size="8.5">bridge_score composite</text>
+          <rect x="442" y="202" width="175" height="74" rx="7" fill="rgba(114,47,55,0.2)" stroke="#722F37" stroke-width="1"/>
+          <text x="529" y="220" text-anchor="middle" fill="#e8a0a6" font-size="10" font-weight="600">Enrichment Pipeline</text>
+          <text x="529" y="234" text-anchor="middle" fill="#8b7e74" font-size="8.5">Claude Sonnet · 294 attrs</text>
+          <text x="529" y="248" text-anchor="middle" fill="#8b7e74" font-size="8.5">Fashion semantics tuned</text>
+          <text x="529" y="262" text-anchor="middle" fill="#8b7e74" font-size="8.5">~$0.02/item one-time</text>
+          <rect x="633" y="202" width="171" height="74" rx="7" fill="rgba(155,142,176,0.15)" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="718" y="220" text-anchor="middle" fill="#c4b8d8" font-size="10" font-weight="600">Dual Embedding Space</text>
+          <text x="718" y="234" text-anchor="middle" fill="#8b7e74" font-size="8.5">Visual: CLIP 512-dim</text>
+          <text x="718" y="248" text-anchor="middle" fill="#8b7e74" font-size="8.5">Semantic: MiniLM 384-dim</text>
+          <text x="718" y="262" text-anchor="middle" fill="#8b7e74" font-size="8.5">$0 local inference</text>
+
+          <!-- Arrow -->
+          <line x1="430" y1="290" x2="430" y2="324" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="424,322 436,322 430,330" fill="#c9a96e"/>
+
+          <!-- Data layer -->
+          <rect x="40" y="332" width="780" height="72" rx="12" fill="#eef3ec" stroke="#7b8f6e" stroke-width="2"/>
+          <text x="430" y="354" text-anchor="middle" fill="#7b8f6e" font-size="11" font-family="JetBrains Mono, monospace" font-weight="700" letter-spacing="1.5">DATA LAYER — raw ingredients (mostly public)</text>
+          <text x="430" y="373" text-anchor="middle" fill="#2b2b2b" font-size="11">Met Museum · Smithsonian · Fashionpedia · V&amp;A · Europeana · iDesigner · Etsy/Depop</text>
+          <text x="430" y="391" text-anchor="middle" fill="#8b7e74" font-size="9.5">~1,000 items today → 50,000+ at scale · Public APIs + datasets · $0 acquisition cost</text>
+
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. Search Data Flow ───────────────────────────────────────── -->
+  <section id="search-flow">
+    <h2 class="section-title">Search Data Flow</h2>
+    <p class="section-subtitle">What happens from the moment a user submits a query to receiving results</p>
+
+    <div class="two-col">
+
+      <div class="diagram-card">
+        <div class="diagram-card-header">text-search-flow.svg</div>
+        <div class="diagram-card-body" style="padding:24px">
+          <svg viewBox="0 0 380 520" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+            <!-- Steps -->
+            <!-- 1 -->
+            <rect x="20" y="16" width="340" height="52" rx="8" fill="#f5eaeb" stroke="#722F37" stroke-width="1.2"/>
+            <circle cx="44" cy="42" r="14" fill="#722F37"/>
+            <text x="44" y="47" text-anchor="middle" fill="white" font-size="11" font-weight="700">1</text>
+            <text x="64" y="37" fill="#2b2b2b" font-size="11" font-weight="600">User types query</text>
+            <text x="64" y="53" fill="#8b7e74" font-size="9.5">"dark academia dress" · vv-web SearchBar.tsx</text>
+
+            <line x1="190" y1="68" x2="190" y2="88" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,86 195,86 190,94" fill="#c9a96e"/>
+
+            <!-- 2 -->
+            <rect x="20" y="96" width="340" height="52" rx="8" fill="#eef3ec" stroke="#7b8f6e" stroke-width="1.2"/>
+            <circle cx="44" cy="122" r="14" fill="#7b8f6e"/>
+            <text x="44" y="127" text-anchor="middle" fill="white" font-size="11" font-weight="700">2</text>
+            <text x="64" y="117" fill="#2b2b2b" font-size="11" font-weight="600">Compress + POST to API</text>
+            <text x="64" y="133" fill="#8b7e74" font-size="9.5">api.ts → POST /api/v1/search/text · {query, limit}</text>
+
+            <line x1="190" y1="148" x2="190" y2="168" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,166 195,166 190,174" fill="#c9a96e"/>
+
+            <!-- 3 -->
+            <rect x="20" y="176" width="340" height="52" rx="8" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1.2"/>
+            <circle cx="44" cy="202" r="14" fill="#6b8fad"/>
+            <text x="44" y="207" text-anchor="middle" fill="white" font-size="11" font-weight="700">3</text>
+            <text x="64" y="197" fill="#2b2b2b" font-size="11" font-weight="600">Generate text embedding</text>
+            <text x="64" y="213" fill="#8b7e74" font-size="9.5">all-MiniLM-L6-v2 · 384-dim vector · &lt;50ms</text>
+
+            <line x1="190" y1="228" x2="190" y2="248" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,246 195,246 190,254" fill="#c9a96e"/>
+
+            <!-- 4 -->
+            <rect x="20" y="256" width="340" height="52" rx="8" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1.2"/>
+            <circle cx="44" cy="282" r="14" fill="#9b8eb0"/>
+            <text x="44" y="287" text-anchor="middle" fill="white" font-size="11" font-weight="700">4</text>
+            <text x="64" y="277" fill="#2b2b2b" font-size="11" font-weight="600">Qdrant cosine search</text>
+            <text x="64" y="293" fill="#8b7e74" font-size="9.5">vintage_text · top-20 results · &lt;100ms</text>
+
+            <line x1="190" y1="308" x2="190" y2="328" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,326 195,326 190,334" fill="#c9a96e"/>
+
+            <!-- 5 -->
+            <rect x="20" y="336" width="340" height="52" rx="8" fill="#fff8f0" stroke="#c9a96e" stroke-width="1.2"/>
+            <circle cx="44" cy="362" r="14" fill="#c9a96e"/>
+            <text x="44" y="367" text-anchor="middle" fill="white" font-size="11" font-weight="700">5</text>
+            <text x="64" y="357" fill="#2b2b2b" font-size="11" font-weight="600">Fetch metadata + bridges</text>
+            <text x="64" y="373" fill="#8b7e74" font-size="9.5">PostgreSQL products JOIN style_bridges</text>
+
+            <line x1="190" y1="388" x2="190" y2="408" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,406 195,406 190,414" fill="#c9a96e"/>
+
+            <!-- 6 -->
+            <rect x="20" y="416" width="340" height="88" rx="8" fill="#f7f3ec" stroke="#2b2b2b" stroke-width="1.5"/>
+            <circle cx="44" cy="450" r="14" fill="#2b2b2b"/>
+            <text x="44" y="455" text-anchor="middle" fill="white" font-size="11" font-weight="700">6</text>
+            <text x="64" y="437" fill="#2b2b2b" font-size="11" font-weight="600">Response to browser</text>
+            <text x="64" y="452" fill="#8b7e74" font-size="9">results[]: {id, title, era, similarity}</text>
+            <text x="64" y="466" fill="#8b7e74" font-size="9">+ historical_ancestors[]</text>
+            <text x="64" y="480" fill="#8b7e74" font-size="9">+ modern_echoes[]</text>
+            <text x="64" y="495" fill="#722F37" font-size="9" font-weight="600">Total: &lt;500ms</text>
+
+          </svg>
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <div class="diagram-card-header">image-search-flow.svg</div>
+        <div class="diagram-card-body" style="padding:24px">
+          <svg viewBox="0 0 380 520" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+            <!-- 1 -->
+            <rect x="20" y="16" width="340" height="52" rx="8" fill="#f5eaeb" stroke="#722F37" stroke-width="1.2"/>
+            <circle cx="44" cy="42" r="14" fill="#722F37"/>
+            <text x="44" y="47" text-anchor="middle" fill="white" font-size="11" font-weight="700">1</text>
+            <text x="64" y="37" fill="#2b2b2b" font-size="11" font-weight="600">User uploads photo</text>
+            <text x="64" y="53" fill="#8b7e74" font-size="9.5">ImageUpload.tsx · drag-drop or file picker</text>
+
+            <line x1="190" y1="68" x2="190" y2="88" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,86 195,86 190,94" fill="#c9a96e"/>
+
+            <!-- 2 -->
+            <rect x="20" y="96" width="340" height="52" rx="8" fill="#eef3ec" stroke="#7b8f6e" stroke-width="1.2"/>
+            <circle cx="44" cy="122" r="14" fill="#7b8f6e"/>
+            <text x="44" y="127" text-anchor="middle" fill="white" font-size="11" font-weight="700">2</text>
+            <text x="64" y="117" fill="#2b2b2b" font-size="11" font-weight="600">Client-side compression</text>
+            <text x="64" y="133" fill="#8b7e74" font-size="9.5">compress-image.ts · max 1024px · JPEG 85% quality</text>
+
+            <line x1="190" y1="148" x2="190" y2="168" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,166 195,166 190,174" fill="#c9a96e"/>
+
+            <!-- 3 -->
+            <rect x="20" y="176" width="340" height="52" rx="8" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1.2"/>
+            <circle cx="44" cy="202" r="14" fill="#6b8fad"/>
+            <text x="44" y="207" text-anchor="middle" fill="white" font-size="11" font-weight="700">3</text>
+            <text x="64" y="197" fill="#2b2b2b" font-size="11" font-weight="600">POST multipart/form-data</text>
+            <text x="64" y="213" fill="#8b7e74" font-size="9.5">api.ts → POST /api/v1/search/image · FormData</text>
+
+            <line x1="190" y1="228" x2="190" y2="248" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,246 195,246 190,254" fill="#c9a96e"/>
+
+            <!-- 4 -->
+            <rect x="20" y="256" width="340" height="52" rx="8" fill="#fff8f0" stroke="#c9a96e" stroke-width="1.2"/>
+            <circle cx="44" cy="282" r="14" fill="#c9a96e"/>
+            <text x="44" y="287" text-anchor="middle" fill="white" font-size="11" font-weight="700">4</text>
+            <text x="64" y="277" fill="#2b2b2b" font-size="11" font-weight="600">Generate CLIP embedding</text>
+            <text x="64" y="293" fill="#8b7e74" font-size="9.5">embeddings/models.py · 512-dim vector · ~200ms</text>
+
+            <line x1="190" y1="308" x2="190" y2="328" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,326 195,326 190,334" fill="#c9a96e"/>
+
+            <!-- 5 -->
+            <rect x="20" y="336" width="340" height="52" rx="8" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1.2"/>
+            <circle cx="44" cy="362" r="14" fill="#9b8eb0"/>
+            <text x="44" y="367" text-anchor="middle" fill="white" font-size="11" font-weight="700">5</text>
+            <text x="64" y="357" fill="#2b2b2b" font-size="11" font-weight="600">Qdrant cosine search</text>
+            <text x="64" y="373" fill="#8b7e74" font-size="9.5">vintage_images · top-20 results · &lt;100ms</text>
+
+            <line x1="190" y1="388" x2="190" y2="408" stroke="#c9a96e" stroke-width="1.5"/>
+            <polygon points="185,406 195,406 190,414" fill="#c9a96e"/>
+
+            <!-- 6 -->
+            <rect x="20" y="416" width="340" height="88" rx="8" fill="#f7f3ec" stroke="#2b2b2b" stroke-width="1.5"/>
+            <circle cx="44" cy="450" r="14" fill="#2b2b2b"/>
+            <text x="44" y="455" text-anchor="middle" fill="white" font-size="11" font-weight="700">6</text>
+            <text x="64" y="437" fill="#2b2b2b" font-size="11" font-weight="600">Response to browser</text>
+            <text x="64" y="452" fill="#8b7e74" font-size="9">results[]: {id, title, era, similarity}</text>
+            <text x="64" y="466" fill="#8b7e74" font-size="9">+ historical_ancestors[]</text>
+            <text x="64" y="480" fill="#8b7e74" font-size="9">+ modern_echoes[]</text>
+            <text x="64" y="495" fill="#722F37" font-size="9" font-weight="600">Total: &lt;2s (model warm)</text>
+
+          </svg>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 4. Enrichment Pipeline ────────────────────────────────────── -->
+  <section id="enrichment-flow">
+    <h2 class="section-title">Enrichment Pipeline</h2>
+    <p class="section-subtitle">Background job that transforms raw product records into knowledge graph nodes</p>
+
+    <div class="diagram-card">
+      <div class="diagram-card-header">enrichment-pipeline.svg</div>
+      <div class="diagram-card-body">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+          <!-- Source -->
+          <rect x="20" y="30" width="140" height="140" rx="10" fill="#eef3ec" stroke="#7b8f6e" stroke-width="1.5"/>
+          <text x="90" y="56" text-anchor="middle" fill="#7b8f6e" font-size="10" font-weight="700">DATA SOURCES</text>
+          <text x="90" y="74" text-anchor="middle" fill="#8b7e74" font-size="9">Met Museum API</text>
+          <text x="90" y="89" text-anchor="middle" fill="#8b7e74" font-size="9">Smithsonian API</text>
+          <text x="90" y="104" text-anchor="middle" fill="#8b7e74" font-size="9">Fashionpedia dataset</text>
+          <text x="90" y="124" text-anchor="middle" fill="#2b2b2b" font-size="9" font-weight="600">~1,000 products</text>
+          <text x="90" y="139" text-anchor="middle" fill="#8b7e74" font-size="8.5">title, image, metadata</text>
+          <text x="90" y="153" text-anchor="middle" fill="#8b7e74" font-size="8.5">enriched_at = NULL</text>
+
+          <line x1="160" y1="100" x2="192" y2="100" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="190,95 190,105 198,100" fill="#c9a96e"/>
+
+          <!-- Claude enrichment -->
+          <rect x="200" y="30" width="170" height="140" rx="10" fill="#f5eaeb" stroke="#722F37" stroke-width="1.5"/>
+          <text x="285" y="56" text-anchor="middle" fill="#722F37" font-size="10" font-weight="700">CLAUDE ENRICHMENT</text>
+          <text x="285" y="74" text-anchor="middle" fill="#8b7e74" font-size="9">enrichment/claude.py</text>
+          <rect x="215" y="82" width="140" height="26" rx="4" fill="rgba(114,47,55,0.1)" stroke="#722F37" stroke-width="0.8"/>
+          <text x="285" y="99" text-anchor="middle" fill="#722F37" font-size="9">enrich_product()</text>
+          <rect x="215" y="114" width="140" height="26" rx="4" fill="rgba(114,47,55,0.1)" stroke="#722F37" stroke-width="0.8"/>
+          <text x="285" y="131" text-anchor="middle" fill="#722F37" font-size="9">enrich_creative_only()</text>
+          <text x="285" y="153" text-anchor="middle" fill="#8b7e74" font-size="8.5">~$0.02/item · rate limited</text>
+          <text x="285" y="165" text-anchor="middle" fill="#8b7e74" font-size="8.5">Claude Sonnet 4</text>
+
+          <line x1="370" y1="100" x2="402" y2="100" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="400,95 400,105 408,100" fill="#c9a96e"/>
+
+          <!-- Fashionpedia mapping -->
+          <rect x="410" y="30" width="170" height="140" rx="10" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1.5"/>
+          <text x="495" y="52" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="700">TAXONOMY MAPPING</text>
+          <text x="495" y="68" text-anchor="middle" fill="#8b7e74" font-size="9">fashionpedia_taxonomy.py</text>
+          <text x="495" y="86" text-anchor="middle" fill="#2b2b2b" font-size="9">27 apparel categories</text>
+          <text x="495" y="100" text-anchor="middle" fill="#2b2b2b" font-size="9">294 attributes</text>
+          <text x="495" y="116" text-anchor="middle" fill="#8b7e74" font-size="8.5">silhouette · neckline · length</text>
+          <text x="495" y="130" text-anchor="middle" fill="#8b7e74" font-size="8.5">waistline · textile pattern</text>
+          <text x="495" y="148" text-anchor="middle" fill="#8b7e74" font-size="8.5">+ style_tags · vibe · era</text>
+          <text x="495" y="163" text-anchor="middle" fill="#8b7e74" font-size="8.5">build_rich_text() for embed</text>
+
+          <line x1="580" y1="100" x2="612" y2="100" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="610,95 610,105 618,100" fill="#c9a96e"/>
+
+          <!-- Embedding generation -->
+          <rect x="620" y="30" width="160" height="140" rx="10" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1.5"/>
+          <text x="700" y="52" text-anchor="middle" fill="#6b8fad" font-size="10" font-weight="700">EMBEDDING GEN</text>
+          <text x="700" y="68" text-anchor="middle" fill="#8b7e74" font-size="9">embeddings/generator.py</text>
+          <rect x="635" y="78" width="130" height="24" rx="4" fill="rgba(107,143,173,0.12)" stroke="#6b8fad" stroke-width="0.8"/>
+          <text x="700" y="94" text-anchor="middle" fill="#6b8fad" font-size="9">CLIP image → 512-dim</text>
+          <rect x="635" y="108" width="130" height="24" rx="4" fill="rgba(107,143,173,0.12)" stroke="#6b8fad" stroke-width="0.8"/>
+          <text x="700" y="124" text-anchor="middle" fill="#6b8fad" font-size="9">MiniLM text → 384-dim</text>
+          <text x="700" y="148" text-anchor="middle" fill="#8b7e74" font-size="8.5">upsert to Qdrant</text>
+          <text x="700" y="162" text-anchor="middle" fill="#8b7e74" font-size="8.5">platform in payload ← fix!</text>
+
+          <line x1="780" y1="100" x2="812" y2="100" stroke="#c9a96e" stroke-width="2"/>
+          <polygon points="810,95 810,105 818,100" fill="#c9a96e"/>
+
+          <!-- Result -->
+          <rect x="820" y="30" width="120" height="140" rx="10" fill="#fff" stroke="#2b2b2b" stroke-width="1.5"/>
+          <text x="880" y="52" text-anchor="middle" fill="#2b2b2b" font-size="10" font-weight="700">RESULT</text>
+          <text x="880" y="72" text-anchor="middle" fill="#7b8f6e" font-size="9" font-weight="600">PostgreSQL</text>
+          <text x="880" y="86" text-anchor="middle" fill="#8b7e74" font-size="8.5">70+ fields populated</text>
+          <text x="880" y="100" text-anchor="middle" fill="#8b7e74" font-size="8.5">enriched_at = NOW()</text>
+          <text x="880" y="120" text-anchor="middle" fill="#9b8eb0" font-size="9" font-weight="600">Qdrant</text>
+          <text x="880" y="134" text-anchor="middle" fill="#8b7e74" font-size="8.5">vectors stored</text>
+          <text x="880" y="148" text-anchor="middle" fill="#8b7e74" font-size="8.5">embedded_at = NOW()</text>
+          <text x="880" y="163" text-anchor="middle" fill="#722F37" font-size="8.5">ready for bridges</text>
+
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 5. Bridge Computation ─────────────────────────────────────── -->
+  <section id="bridge-flow">
+    <h2 class="section-title">Bridge Computation Flow</h2>
+    <p class="section-subtitle">How cross-source style connections are found and scored — the core differentiator</p>
+
+    <div class="diagram-card">
+      <div class="diagram-card-header">bridge-computation.svg</div>
+      <div class="diagram-card-body">
+        <svg viewBox="0 0 960 380" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+
+          <!-- Historical items pool -->
+          <rect x="20" y="20" width="180" height="200" rx="10" fill="#f5eaeb" stroke="#722F37" stroke-width="1.5"/>
+          <text x="110" y="44" text-anchor="middle" fill="#722F37" font-size="10" font-weight="700">HISTORICAL ITEMS</text>
+          <text x="110" y="60" text-anchor="middle" fill="#8b7e74" font-size="8.5">platform = met_museum</text>
+          <text x="110" y="74" text-anchor="middle" fill="#8b7e74" font-size="8.5">platform = smithsonian</text>
+          <rect x="36" y="88" width="148" height="36" rx="5" fill="white" stroke="#722F37" stroke-width="0.8"/>
+          <text x="110" y="105" text-anchor="middle" fill="#2b2b2b" font-size="9">1870s bustle gown</text>
+          <text x="110" y="118" text-anchor="middle" fill="#8b7e74" font-size="8.5">floor · a-line · silk</text>
+          <rect x="36" y="132" width="148" height="36" rx="5" fill="white" stroke="#722F37" stroke-width="0.8"/>
+          <text x="110" y="149" text-anchor="middle" fill="#2b2b2b" font-size="9">1920s flapper dress</text>
+          <text x="110" y="162" text-anchor="middle" fill="#8b7e74" font-size="8.5">knee · straight · beaded</text>
+          <rect x="36" y="176" width="148" height="36" rx="5" fill="white" stroke="#722F37" stroke-width="0.8"/>
+          <text x="110" y="193" text-anchor="middle" fill="#2b2b2b" font-size="9">1940s utility jacket</text>
+          <text x="110" y="206" text-anchor="middle" fill="#8b7e74" font-size="8.5">hip · straight · wool</text>
+
+          <!-- Qdrant search -->
+          <rect x="240" y="20" width="200" height="200" rx="10" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1.5"/>
+          <text x="340" y="44" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="700">QDRANT SEARCH</text>
+          <text x="340" y="62" text-anchor="middle" fill="#8b7e74" font-size="8.5">filter: platform = fashionpedia</text>
+          <rect x="256" y="74" width="168" height="54" rx="5" fill="rgba(155,142,176,0.12)" stroke="#9b8eb0" stroke-width="0.8"/>
+          <text x="340" y="92" text-anchor="middle" fill="#9b8eb0" font-size="9" font-weight="600">Text similarity</text>
+          <text x="340" y="107" text-anchor="middle" fill="#8b7e74" font-size="8.5">vintage_text · top-20</text>
+          <text x="340" y="120" text-anchor="middle" fill="#8b7e74" font-size="8.5">384-dim MiniLM</text>
+          <rect x="256" y="136" width="168" height="54" rx="5" fill="rgba(155,142,176,0.12)" stroke="#9b8eb0" stroke-width="0.8"/>
+          <text x="340" y="154" text-anchor="middle" fill="#9b8eb0" font-size="9" font-weight="600">Image similarity</text>
+          <text x="340" y="169" text-anchor="middle" fill="#8b7e74" font-size="8.5">vintage_images · top-20</text>
+          <text x="340" y="182" text-anchor="middle" fill="#8b7e74" font-size="8.5">512-dim CLIP</text>
+          <text x="340" y="205" text-anchor="middle" fill="#2b2b2b" font-size="8.5">→ ~40 unique candidates</text>
+
+          <!-- Structural scoring -->
+          <rect x="480" y="20" width="220" height="200" rx="10" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1.5"/>
+          <text x="590" y="44" text-anchor="middle" fill="#6b8fad" font-size="10" font-weight="700">STRUCTURAL SCORING</text>
+          <text x="590" y="62" text-anchor="middle" fill="#8b7e74" font-size="8.5">Fashionpedia field overlap</text>
+
+          <rect x="495" y="72" width="190" height="100" rx="5" fill="white" stroke="#6b8fad" stroke-width="0.8"/>
+          <text x="590" y="90" text-anchor="middle" fill="#6b8fad" font-size="9" font-weight="600">Field weights</text>
+          <text x="510" y="106" fill="#8b7e74" font-size="8.5">fp_category</text><text x="660" y="106" text-anchor="end" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.20</text>
+          <text x="510" y="119" fill="#8b7e74" font-size="8.5">silhouette</text><text x="660" y="119" text-anchor="end" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.15</text>
+          <text x="510" y="132" fill="#8b7e74" font-size="8.5">neckline · length</text><text x="660" y="132" text-anchor="end" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.10</text>
+          <text x="510" y="145" fill="#8b7e74" font-size="8.5">garment_parts (Jaccard)</text><text x="660" y="145" text-anchor="end" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.05</text>
+          <text x="510" y="158" fill="#8b7e74" font-size="8.5">+ 7 more fields...</text>
+
+          <text x="590" y="186" text-anchor="middle" fill="#2b2b2b" font-size="8.5">threshold: score &gt; 0.15</text>
+          <text x="590" y="200" text-anchor="middle" fill="#8b7e74" font-size="8.5">keep top-10 per item</text>
+
+          <!-- Composite score -->
+          <rect x="740" y="20" width="200" height="200" rx="10" fill="#fff8f0" stroke="#c9a96e" stroke-width="1.5"/>
+          <text x="840" y="44" text-anchor="middle" fill="#c9a96e" font-size="10" font-weight="700">BRIDGE SCORE</text>
+          <text x="840" y="62" text-anchor="middle" fill="#8b7e74" font-size="8.5">weighted composite</text>
+
+          <rect x="756" y="72" width="168" height="80" rx="5" fill="white" stroke="#c9a96e" stroke-width="0.8"/>
+          <text x="840" y="90" text-anchor="middle" fill="#c9a96e" font-size="9" font-weight="600">With images:</text>
+          <text x="840" y="106" text-anchor="middle" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.40 × text_sim</text>
+          <text x="840" y="119" text-anchor="middle" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.30 × image_sim</text>
+          <text x="840" y="132" text-anchor="middle" fill="#2b2b2b" font-size="8.5" font-family="JetBrains Mono, monospace">0.30 × struct_score</text>
+          <text x="756" y="162" fill="#8b7e74" font-size="8.5">  No images:</text>
+          <text x="756" y="176" fill="#8b7e74" font-size="8.5">  0.55 × text + 0.45 × struct</text>
+
+          <text x="840" y="200" text-anchor="middle" fill="#722F37" font-size="8.5">→ 5K–10K stored bridges</text>
+
+          <!-- Arrows -->
+          <line x1="200" y1="120" x2="238" y2="120" stroke="#c9a96e" stroke-width="1.5"/>
+          <polygon points="236,115 236,125 244,120" fill="#c9a96e"/>
+          <line x1="440" y1="120" x2="478" y2="120" stroke="#c9a96e" stroke-width="1.5"/>
+          <polygon points="476,115 476,125 484,120" fill="#c9a96e"/>
+          <line x1="700" y1="120" x2="738" y2="120" stroke="#c9a96e" stroke-width="1.5"/>
+          <polygon points="736,115 736,125 744,120" fill="#c9a96e"/>
+
+          <!-- Outputs at bottom -->
+          <rect x="20" y="250" width="920" height="110" rx="10" fill="#fff" stroke="#2b2b2b" stroke-width="1.5"/>
+          <text x="480" y="272" text-anchor="middle" fill="#2b2b2b" font-size="10" font-weight="700">WHAT THE BRIDGES UNLOCK (UI Features)</text>
+
+          <rect x="36" y="282" width="200" height="64" rx="6" fill="#f5eaeb" stroke="#722F37" stroke-width="1"/>
+          <text x="136" y="300" text-anchor="middle" fill="#722F37" font-size="10" font-weight="600">Modern Echoes</text>
+          <text x="136" y="315" text-anchor="middle" fill="#8b7e74" font-size="8.5">Historical item → modern</text>
+          <text x="136" y="329" text-anchor="middle" fill="#8b7e74" font-size="8.5">items that inherited its design</text>
+          <text x="136" y="342" text-anchor="middle" fill="#8b7e74" font-size="8.5">get_modern_echoes(id)</text>
+
+          <rect x="254" y="282" width="200" height="64" rx="6" fill="#eaf0f5" stroke="#6b8fad" stroke-width="1"/>
+          <text x="354" y="300" text-anchor="middle" fill="#6b8fad" font-size="10" font-weight="600">Style Ancestry</text>
+          <text x="354" y="315" text-anchor="middle" fill="#8b7e74" font-size="8.5">Modern item → historical</text>
+          <text x="354" y="329" text-anchor="middle" fill="#8b7e74" font-size="8.5">items it descended from</text>
+          <text x="354" y="342" text-anchor="middle" fill="#8b7e74" font-size="8.5">get_style_ancestry(id)</text>
+
+          <rect x="472" y="282" width="200" height="64" rx="6" fill="#f0edf4" stroke="#9b8eb0" stroke-width="1"/>
+          <text x="572" y="300" text-anchor="middle" fill="#9b8eb0" font-size="10" font-weight="600">Style Siblings</text>
+          <text x="572" y="315" text-anchor="middle" fill="#8b7e74" font-size="8.5">Structural neighbors</text>
+          <text x="572" y="329" text-anchor="middle" fill="#8b7e74" font-size="8.5">regardless of era or source</text>
+          <text x="572" y="342" text-anchor="middle" fill="#8b7e74" font-size="8.5">get_style_siblings(id)</text>
+
+          <rect x="690" y="282" width="232" height="64" rx="6" fill="#fff8f0" stroke="#c9a96e" stroke-width="1"/>
+          <text x="806" y="300" text-anchor="middle" fill="#c9a96e" font-size="10" font-weight="600">Bridge Narrative</text>
+          <text x="806" y="315" text-anchor="middle" fill="#8b7e74" font-size="8.5">Claude-generated sentence</text>
+          <text x="806" y="329" text-anchor="middle" fill="#8b7e74" font-size="8.5">explaining design DNA link</text>
+          <text x="806" y="342" text-anchor="middle" fill="#8b7e74" font-size="8.5">score &gt; 0.5 · ~1,500 calls · ~$5</text>
+
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. Data Model ─────────────────────────────────────────────── -->
+  <section id="data-model">
+    <h2 class="section-title">Data Model</h2>
+    <p class="section-subtitle">Key tables and their relationships</p>
+
+    <div class="two-col">
+      <div class="diagram-card">
+        <div class="diagram-card-header">products table — key fields</div>
+        <div class="diagram-card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr><th>Field</th><th>Type</th><th>Group</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono">id, external_id</td><td>Integer, String</td><td><span class="tag">identity</span></td></tr>
+              <tr><td class="mono">platform</td><td>String</td><td><span class="tag red">met_museum · smithsonian · fashionpedia</span></td></tr>
+              <tr><td class="mono">title, description</td><td>String, Text</td><td><span class="tag">content</span></td></tr>
+              <tr><td class="mono">primary_image, image_urls</td><td>String, Text</td><td><span class="tag">images</span></td></tr>
+              <tr><td class="mono">era, decade, object_date</td><td>String</td><td><span class="tag blue">temporal</span></td></tr>
+              <tr><td class="mono">fp_category, nickname</td><td>String</td><td><span class="tag purple">fashionpedia</span></td></tr>
+              <tr><td class="mono">silhouette, neckline, length</td><td>String</td><td><span class="tag purple">fashionpedia</span></td></tr>
+              <tr><td class="mono">waistline, sleeve_length</td><td>String</td><td><span class="tag purple">fashionpedia</span></td></tr>
+              <tr><td class="mono">textile_pattern, opening_type</td><td>String</td><td><span class="tag purple">fashionpedia</span></td></tr>
+              <tr><td class="mono">garment_parts, decorations</td><td>Text (JSON)</td><td><span class="tag purple">fashionpedia</span></td></tr>
+              <tr><td class="mono">style_tags, colors</td><td>Text (JSON)</td><td><span class="tag red">enrichment</span></td></tr>
+              <tr><td class="mono">vibe, ai_description</td><td>String, Text</td><td><span class="tag red">enrichment</span></td></tr>
+              <tr><td class="mono">enriched_text</td><td>Text</td><td><span class="tag green">embedding input</span></td></tr>
+              <tr><td class="mono">embedded_at, enriched_at</td><td>DateTime</td><td><span class="tag">pipeline state</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <div class="diagram-card-header">style_bridges table — to build</div>
+        <div class="diagram-card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono">id</td><td>Integer PK</td><td></td></tr>
+              <tr><td class="mono">source_id</td><td>FK → products</td><td><span class="tag red">CASCADE</span></td></tr>
+              <tr><td class="mono">target_id</td><td>FK → products</td><td><span class="tag red">CASCADE</span></td></tr>
+              <tr><td class="mono">text_similarity</td><td>Float</td><td>0.0 – 1.0</td></tr>
+              <tr><td class="mono">image_similarity</td><td>Float, nullable</td><td>null if no image</td></tr>
+              <tr><td class="mono">structural_score</td><td>Float</td><td>Fashionpedia overlap</td></tr>
+              <tr><td class="mono">bridge_score</td><td>Float</td><td>weighted composite</td></tr>
+              <tr><td class="mono">shared_attributes</td><td>Text (JSON)</td><td>{"silhouette": "a-line"}</td></tr>
+              <tr><td class="mono">bridge_type</td><td>String</td><td><span class="tag blue">historical_to_modern</span></td></tr>
+              <tr><td class="mono">bridge_narrative</td><td>Text, nullable</td><td>Claude · score &gt; 0.5</td></tr>
+              <tr><td class="mono">created_at</td><td>DateTime</td><td></td></tr>
+              <tr><td colspan="3" style="padding:12px 16px; font-size:0.78rem; color:var(--taupe)">
+                Unique constraint: (source_id, target_id)<br>
+                Indexes: source_id, target_id, bridge_score DESC, bridge_type
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 7. Phase Roadmap ──────────────────────────────────────────── -->
+  <section id="phases">
+    <h2 class="section-title">Phase Roadmap</h2>
+    <p class="section-subtitle">Each phase builds on the intelligence layer — not just adds features</p>
+
+    <div class="phase-grid">
+      <div class="phase-card current">
+        <div class="phase-label">Phase 1 · Now → Month 3</div>
+        <div class="phase-title">Build the Graph</div>
+        <ul class="phase-items">
+          <li>Backfill platform in Qdrant payloads</li>
+          <li>StyleBridge model + migration</li>
+          <li>compute_bridges.py script</li>
+          <li>Bridge narratives via Claude</li>
+          <li>FastAPI backend (search + bridges)</li>
+          <li>Connect vv-web to API</li>
+          <li>Style Ancestry + Modern Echoes UI</li>
+        </ul>
+        <div class="phase-timeline">Target: 5K–10K bridge rows · ~$9 total</div>
+      </div>
+
+      <div class="phase-card next">
+        <div class="phase-label">Phase 2 · Month 3–6</div>
+        <div class="phase-title">Style DNA API</div>
+        <ul class="phase-items">
+          <li>POST /analyze endpoint</li>
+          <li>GET /timeline/:attribute</li>
+          <li>API key auth + rate limiting</li>
+          <li>Usage tracking + Stripe billing</li>
+          <li>First B2B customers</li>
+          <li>1,000 → 5,000 enriched items</li>
+        </ul>
+        <div class="phase-timeline">Target: first paying customer · $99–$499/mo tiers</div>
+      </div>
+
+      <div class="phase-card future">
+        <div class="phase-label">Phase 3 · Month 6–12</div>
+        <div class="phase-title">Scale the Data Layer</div>
+        <ul class="phase-items">
+          <li>V&amp;A Museum API (200K+ items)</li>
+          <li>Europeana Fashion (500K+ items)</li>
+          <li>iDesigner runway images</li>
+          <li>NYPL Digital Collections</li>
+          <li>5,000 → 50,000+ enriched items</li>
+          <li>Network effect on bridges</li>
+        </ul>
+        <div class="phase-timeline">Target: $10K ARR · 3+ data sources</div>
+      </div>
+
+      <div class="phase-card far">
+        <div class="phase-label">Phase 4 · Month 9–15</div>
+        <div class="phase-title">Trend Oracle</div>
+        <ul class="phase-items">
+          <li>Temporal bridge momentum signals</li>
+          <li>Runway collection DNA analysis</li>
+          <li>Resale value prediction</li>
+          <li>Annual subscriptions</li>
+          <li>Competes with WGSN ($30K+/yr)</li>
+        </ul>
+        <div class="phase-timeline">Target: $5K–50K/yr per customer</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="page-footer">
+  vintage-vestige · architecture.html · generated February 2026 · plans/PHASE_1_IMPLEMENTATION.md
+</footer>
+
+</body>
+</html>
