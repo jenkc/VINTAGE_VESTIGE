@@ -7,15 +7,28 @@
   }
 
   * {
-    @apply border-vintage-taupe/20;
+    @apply border-border;
   }
 
   body {
-    @apply bg-vintage-cream text-vintage-charcoal;
+    @apply bg-cream-dark text-charcoal;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
+  }
+
+  /* Thin gold scrollbar for carousels */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #B8924A transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #B8924A;
+    border-radius: 20px;
   }
 }
 

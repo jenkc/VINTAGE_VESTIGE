@@ -11,3 +11,8 @@ logs/
 # Environment variables
 .env
 .env.local
+
+# Node modules
+**/node_modules
+
+**/fashionpedia_train2020.json

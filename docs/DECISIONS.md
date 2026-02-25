@@ -1,6 +1,6 @@
 # Vintage Vestige — Key Decisions
 
-**Last updated: 2026-02-23**
+**Last updated: 2026-02-25**
 
 ---
 
@@ -278,3 +278,45 @@
 - Dropped `platform` and `fp_category` from user-facing filters (internal fields)
 **Alternatives considered:** Keep them separate with different field sets (confusing UX — filters that don't work)
 **Outcome:** Frontend can populate filter dropdowns directly from `/filters` response, every value is guaranteed to produce results
+
+---
+
+### 19. ProductCard Union Type (SearchResult | ProductSummary)
+
+**Date:** 2026-02-25
+**Context:** ProductCard needs to display items from both search results and bridge endpoints. These return different types (`SearchResult` has `score`, `ProductSummary` doesn't).
+**Decision:** Accept a union type `CardData = SearchResult | ProductSummary` with a `hasScore()` type guard to distinguish them.
+**Rationale:**
+- One card component for both contexts avoids code duplication
+- Type guard provides TypeScript-safe access to `score` only when available
+- Optional `score` prop allows passing score externally (from bridge data)
+**Alternatives considered:** Two separate card components (redundant); single type with optional fields (loses type safety)
+**Outcome:** Single `ProductCard` reusable across search results, bridge displays, and product listings
+
+---
+
+### 20. Runtime Inline Styles for Dynamic Colors
+
+**Date:** 2026-02-25
+**Context:** PlatformBadge, ScoreCircle, and ScoreBreakdown need colors that come from JS objects at runtime (e.g., `PLATFORM_COLORS[platform]`). Tailwind classes must be known at build time.
+**Decision:** Use inline `style={{ color: platformColor }}` for runtime-computed colors instead of Tailwind classes.
+**Rationale:**
+- Tailwind's JIT compiler can't generate classes from dynamic values (`text-[${color}]` doesn't work)
+- The color values are already defined in `theme.ts` as JS constants
+- Inline styles for color only — layout/spacing still uses Tailwind
+**Alternatives considered:** Tailwind safelist (bloats CSS with all possible values); CSS custom properties (extra indirection for no benefit)
+**Outcome:** Clean pattern: Tailwind for layout, inline style for runtime colors
+
+---
+
+### 21. Frontend Page Route `/product/[id]` (Singular)
+
+**Date:** 2026-02-25
+**Context:** API uses `/products/{id}` (REST plural convention). Frontend page route could be `/product/` or `/products/`.
+**Decision:** Use singular `/product/[id]` for the frontend page route.
+**Rationale:**
+- URL slugs conventionally use singular for viewing one resource (`/product/123`, not `/products/123`)
+- API convention (plural) and URL convention (singular) serve different purposes
+- Matches user mental model: "I'm looking at a product"
+**Alternatives considered:** `/products/[id]` to match API (would work but feels like a list endpoint)
+**Outcome:** `app/product/[id]/page.tsx` will be the product detail page

@@ -16,6 +16,6 @@ Context window is getting long. Before compaction hits, save state NOW:
 
 4. **Don't bother with:** DECISIONS.md, ARCHITECTURE.md, API_SPEC.md, DATA_INVENTORY.md — we'll catch those up at end of day. Focus on saving what we need to resume seamlessly.
 
-5. **Last line of the SESSION_LOG entry should be:** `RESUME POINT: [one sentence describing exactly what to do next]`
+5. **Last line of the SESSION_LOG entry should be:** `RESUME POINT: [start implementing 3b - search components]`
 
 Speed matters here — save state, don't polish prose.

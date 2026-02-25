@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Cormorant_Garamond, Inter } from "next/font/google";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,16 +10,17 @@ const inter = Inter({
   display: "swap",
 });
 
-const playfair = Playfair_Display({
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
   variable: "--font-serif",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Vintage Vestige - AI-Powered Vintage Fashion Search",
-  description:
-    "Find vintage fashion without being a vintage expert. AI-powered visual search for unique vintage pieces.",
+  title: "Vintage Vestige — Where Fashion History Meets Modern Style",
+  description: "Explore AI-powered style connections between museum collections and contemporary fashion. See how design DNA travels through centuries.",
 };
 
 export default function RootLayout({
@@ -26,9 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="font-sans antialiased bg-vintage-cream text-vintage-charcoal min-h-screen flex flex-col">
+    <html lang="en" className={`${inter.variable} ${cormorant.variable}`}>
+      <body className="font-sans antialiased min-h-screen flex flex-col">
+        <Header />
         <main className="flex-1">{children}</main>
+        <Footer />
       </body>
     </html>
   );

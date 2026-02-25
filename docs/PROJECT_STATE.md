@@ -1,13 +1,13 @@
 # Vintage Vestige — Project State
 
-**As of: 2026-02-23**
+**As of: 2026-02-25**
 **Audited by: Claude Code (codebase + live DB queries)**
 
 ---
 
 ## Executive Summary
 
-Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and style bridges. The **data layer, intelligence layer, and API layer are built and working**. The **frontend has layout and types but no functional components**. Deployment has not started.
+Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and style bridges. The **data layer, intelligence layer, and API layer are built and working**. The **frontend has layout, types, search components, and 7 of 10 bridge components built**. Deployment has not started.
 
 ---
 
@@ -64,31 +64,29 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 
 **13 endpoints, 13 schemas.** Run with `venv/bin/uvicorn api.main:app --reload`. Auto-generated docs at `/docs` (Swagger) and `/redoc`.
 
-### 4. Frontend Layer — PARTIAL (Plan Ready)
+### 4. Frontend Layer — IN PROGRESS (Phase 3C.8 next)
 
-| Component | Status | Files | Lines |
-|-----------|--------|-------|-------|
-| Next.js app layout | Working | [vv-web/src/app/layout.tsx](vv-web/src/app/layout.tsx) | 36 |
-| Homepage | Working (static) | [vv-web/src/app/page.tsx](vv-web/src/app/page.tsx) | 95 |
-| TypeScript types | Complete | [vv-web/src/types/index.ts](vv-web/src/types/index.ts) | 106 |
-| API client | Complete | [vv-web/src/lib/api.ts](vv-web/src/lib/api.ts) | 58 |
-| Constants | Complete | [vv-web/src/lib/constants.ts](vv-web/src/lib/constants.ts) | 5 |
-| UI primitives (Badge, Button, Card, Input) | Complete | [vv-web/src/components/ui/](vv-web/src/components/ui/) | ~4 files |
-| SearchBar | **Empty stub** | [vv-web/src/components/search/SearchBar.tsx](vv-web/src/components/search/SearchBar.tsx) | 0 |
-| ProductCard | **Empty stub** | [vv-web/src/components/search/ProductCard.tsx](vv-web/src/components/search/ProductCard.tsx) | 0 |
-| ImageUpload | **Empty stub** | [vv-web/src/components/search/ImageUpload.tsx](vv-web/src/components/search/ImageUpload.tsx) | 0 |
-| Header | Exists | [vv-web/src/components/layout/Header.tsx](vv-web/src/components/layout/Header.tsx) | — |
-| Footer | Exists | [vv-web/src/components/layout/Footer.tsx](vv-web/src/components/layout/Footer.tsx) | — |
-| Navigation | Exists | [vv-web/src/components/layout/Navigation.tsx](vv-web/src/components/layout/Navigation.tsx) | — |
-| Theme | **Empty stub** | [vv-web/src/styles/theme.ts](vv-web/src/styles/theme.ts) | 0 |
-| **Figma design** | **Populated** | Figma file `3AXCKfChPdugtQOQ5629BP` | 5 pages |
-| **Implementation plan** | **Complete** | [docs/plans/FRONTEND_IMPLEMENTATION_PLAN.md](plans/FRONTEND_IMPLEMENTATION_PLAN.md) | 5 phases, 41 files |
+| Component | Status | Files |
+|-----------|--------|-------|
+| **Phase 1: Design System** | **DONE** | layout.tsx, tailwind.config.ts, globals.css, theme.ts, 4 UI primitives, next.config.ts |
+| **Phase 2: Types & API** | **DONE** | types/index.ts (Product + 6 bridge types), api.ts (12 functions), constants.ts |
+| **Phase 3A: Layout** | **DONE** | Header.tsx (sticky, mobile hamburger), Footer.tsx (3-col), root layout wired |
+| **Phase 3B: Search** | **DONE** | SearchBar.tsx (debounced, 2 variants), ImageUpload.tsx (drag-drop + base64), ProductCard.tsx (image, badges, score) |
+| **Phase 3C: Bridge components** | **7/10 DONE** | PlatformBadge, EraBadge, ScoreCircle, BridgeConnector, AttributePill, NarrativeBlock, ScoreBreakdown |
+| **Phase 3C: Remaining** | **NEXT** | BridgeCardFull.tsx, BridgeCardCompact.tsx (empty stubs), index.ts barrel |
+| Phase 3D: Utility components | Pending | Skeleton.tsx, ImageWithFallback.tsx |
+| Phase 4: Pages | Pending | Home rebuild, Search, Product detail, About |
+| Phase 5: Polish | Pending | Error boundaries, loading states, SEO, accessibility |
 
 **Stack:** Next.js 16.1.6, React 19.2.3, Tailwind CSS 4, TypeScript 5, lucide-react icons.
 
-The homepage renders a hero + "How It Works" section but the CTA buttons aren't wired to routes. No search page, product detail page, or bridge visualization exists yet. The API client has `searchByText`, `searchByImage`, `getProduct`, `getFilters` — but no `getBridges` call.
+**Design system aligned to Figma:** Cormorant Garamond serif, flat color tokens (terracotta, gold, sage, cream, charcoal), custom shadows/radii. All UI primitives updated. `npm run build` and `npx tsc --noEmit` pass clean.
 
-**Implementation plan:** A comprehensive 5-phase mobile-first (390px base) plan exists at [docs/plans/FRONTEND_IMPLEMENTATION_PLAN.md](plans/FRONTEND_IMPLEMENTATION_PLAN.md). Covers: Phase 1 (design system alignment), Phase 2 (types + API client expansion), Phase 3 (core components), Phase 4 (pages), Phase 5 (integration + polish). 41 files total (13 modify, 6 populate, 22 create).
+**API client complete:** All 12 backend endpoints callable (4 search/product + 8 bridge functions). Types mirror backend Pydantic schemas exactly.
+
+**Search components complete:** SearchBar (debounced, large/compact), ImageUpload (drag-drop, base64 conversion, preview), ProductCard (union type for SearchResult|ProductSummary, next/Image with fill, platform badge, era badge, match %).
+
+**Bridge primitives complete (7/10):** PlatformBadge, EraBadge, ScoreCircle, BridgeConnector, AttributePill, NarrativeBlock, ScoreBreakdown. BridgeCardFull and BridgeCardCompact are empty stubs.
 
 ### 5. Testing — WORKING
 
@@ -139,7 +137,7 @@ The Etsy scraper does real HTTP scraping with BeautifulSoup. Depop returns hardc
 | Narrative generation for bridges | PHASE_1_IMPLEMENTATION.md (Priority 4) | **Code done, only 22/7324 run** |
 | Bridge query utilities | PHASE_1_IMPLEMENTATION.md (Priority 5) | **Done** (bridge_queries.py) |
 | FastAPI endpoints | PHASE_1_IMPLEMENTATION.md (Priority 6) | **Done** (13 endpoints, 13 schemas, implemented 2026-02-21/22) |
-| Next.js frontend | PHASE_1_IMPLEMENTATION.md (Priority 7) | **Partial** (layout + types, no components; implementation plan ready) |
+| Next.js frontend | PHASE_1_IMPLEMENTATION.md (Priority 7) | **In progress** (Phases 1-3A done, 3B search done, 3C bridge 7/10 done; pages pending) |
 | Figma design system | FIGMA_DESIGN_HANDOFF.md | **Populated in Figma** (5 pages captured 2026-02-23; user refining) |
 | Frontend implementation plan | FRONTEND_IMPLEMENTATION_PLAN.md | **Complete** (5 phases, 41 files, mobile-first) |
 | Deployment (Railway + Vercel) | implement_full_plan.md (Week 3) | **Not started** |

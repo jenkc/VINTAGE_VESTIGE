@@ -1,7 +1,162 @@
 # Vintage Vestige — Session Handoff Document
 
-**Last updated: 2026-02-23**
+**Last updated: 2026-02-25**
 **Read this first in any new Claude Code session.**
+
+---
+
+## Session Log: 2026-02-25 (cont.) — Frontend Phase 3B Search + Phase 3C Bridge Components (1-7)
+
+### What Was Accomplished
+
+**Frontend Phase 3B — Search Components (COMPLETE):**
+- **3B.1 SearchBar.tsx** — `"use client"`, debounced text input (400ms), Enter for immediate search, clear button (X/Search icon swap), large/compact variants
+- **3B.2 ImageUpload.tsx** — `"use client"`, drag-and-drop + file picker, FileReader base64 conversion, preview with X overlay, mobile Camera/desktop Upload icons
+- **3B.3 ProductCard.tsx** — Server component, union type `CardData = SearchResult | ProductSummary`, next/Image with `fill` + `sizes`, platform badge with inline color, era badge, match %, gradient placeholder for missing images, `group-hover:scale-105` image zoom
+
+**Frontend Phase 3C — Bridge Components (7 of 10 done):**
+- **3C.1 PlatformBadge.tsx** — Frosted-glass pill, runtime platform color from PLATFORM_COLORS
+- **3C.2 EraBadge.tsx** — Dark translucent pill, "Era · date" format with middle dot separator
+- **3C.3 ScoreCircle.tsx** — Circular match display (44px mobile / 52px desktop), color from `scoreColorByValue()`
+- **3C.4 BridgeConnector.tsx** — Gold circle with ArrowLeftRight icon, full/compact variants
+- **3C.5 AttributePill.tsx** — Shared DNA pill with two-tone label/value typography, sage color scheme
+- **3C.6 NarrativeBlock.tsx** — Blockquote with gold left border, italic serif text
+- **3C.7 ScoreBreakdown.tsx** — Three horizontal bars (semantic/visual/structural), `BARS` array with `.map()`, skips null image similarity, 60% opacity fills
+
+**Type fix:**
+- Added `platform: string` to `SearchResult` interface in `types/index.ts` — was missing, causing TS error in ProductCard union type
+
+### Files Created This Session
+
+| File | Purpose |
+|------|---------|
+| `vv-web/src/components/bridge/PlatformBadge.tsx` | Frosted-glass platform pill |
+| `vv-web/src/components/bridge/EraBadge.tsx` | Dark translucent era pill |
+| `vv-web/src/components/bridge/ScoreCircle.tsx` | Circular match percentage |
+| `vv-web/src/components/bridge/BridgeConnector.tsx` | Gold exchange icon circle |
+| `vv-web/src/components/bridge/AttributePill.tsx` | Shared DNA attribute pill |
+| `vv-web/src/components/bridge/NarrativeBlock.tsx` | AI narrative quote block |
+| `vv-web/src/components/bridge/ScoreBreakdown.tsx` | Three-bar score visualization |
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `vv-web/src/components/search/SearchBar.tsx` | Populated: debounced search with large/compact variants |
+| `vv-web/src/components/search/ImageUpload.tsx` | Populated: drag-drop + file picker with base64 conversion |
+| `vv-web/src/components/search/ProductCard.tsx` | Populated: product card with image, platform badge, era, score |
+| `vv-web/src/types/index.ts` | Added `platform: string` to SearchResult |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| ProductCard accepts `SearchResult \| ProductSummary` union | Reusable in both search results and bridge displays |
+| ProductCard uses `hasScore()` type guard | Distinguishes SearchResult (has `score`) from ProductSummary at runtime |
+| Platform badge uses inline `style` not Tailwind class | Color comes from JS object at runtime — can't be a static class |
+| ScoreBreakdown appends `99` hex to color for 60% opacity | `${bar.color}99` is simpler than a separate opacity layer |
+| ProductCard is server component (no `"use client"`) | Purely presentational — no hooks or state needed |
+| `ArrowLeftRight` from lucide-react for BridgeConnector | Matches the spec's double-arrow icon without custom SVG |
+| Frontend page route `/product/[id]` (singular) | URL slug convention for viewing one resource; API uses plural `/products/` per REST |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `product.name` doesn't exist on types | Changed to `product.title` |
+| `import { match } from "assert"` auto-inserted | Removed — VS Code autocomplete artifact |
+| `defalultValue` typo in SearchBar | Fixed to `defaultValue` |
+| `debouncedSearch` missing setTimeout body | Added `debounceRef.current = setTimeout(() => onSearch(query), 400)` |
+| `SearchResult` missing `platform` field | Added `platform: string` to SearchResult interface |
+| ScoreBreakdown inner div missing `h-full rounded-full` | Added classes — without them, fill bar has zero height |
+| ScoreBreakdown `/ >` syntax error | Fixed to `/>` |
+
+### What's Left Open
+
+- **BridgeCardFull.tsx** — empty stub, next to implement
+- **BridgeCardCompact.tsx** — empty stub
+- **bridge/index.ts** — barrel export file not yet created
+- **Phase 3D** — Skeleton.tsx, ImageWithFallback.tsx
+- **Phases 4-5** — Pages + polish
+
+RESUME POINT: Start Phase 3C.8 BridgeCardFull (the big composition component), then BridgeCardCompact, index.ts barrel, then 3D utilities.
+
+---
+
+## Session Log: 2026-02-25 — MID-SESSION SAVE — API Smoke Tests + Frontend Phase 1-3A
+
+### What Was Accomplished
+
+**API Smoke Tests (17/17 passing):**
+- Wrote `tests/integration/test_api_smoke.py` with 17 smoke tests covering all 14 API endpoints
+- Fixed `httpx` 0.28 incompatibility with `starlette` 0.27 — downgraded to `httpx==0.27.0`
+- Fixed `test_search_image` — 1x1 PNG caused CLIP channel confusion; replaced with 4x4 PIL-generated PNG
+- All 17 tests green
+
+**Frontend Phase 1 — Design System Alignment (COMPLETE):**
+- **1.1** Swapped Playfair Display → Cormorant Garamond in `layout.tsx`, fixed CSS variable to `--font-serif`
+- **1.2** Replaced entire Tailwind color palette: `vintage.*` → flat tokens (terracotta, gold, sage, cream, charcoal, etc.) + custom shadows + border radii
+- **1.3** Populated `theme.ts` with PLATFORM_COLORS, PLATFORM_NAMES, SCORE_COLORS, scoreColorByValue()
+- **1.4** Updated `globals.css`: `vintage-*` classes → new tokens, added gold scrollbar styles
+- **1.5** Updated all 4 UI primitives (Button, Card, Badge, Input) to new color tokens
+- **1.6** Added `images.remotePatterns` in `next.config.ts` for Met Museum, Smithsonian, Etsy CDNs
+- Also fixed `tailwind.config.ts` line 41: `var(--font-cormorant)` → `var(--font-serif)`
+- `npm run build` passes clean
+
+**Frontend Phase 2 — Types & API Client (COMPLETE):**
+- **2.1** Reconciled Product type: removed dead fields (color, season, year, period, pattern), added Fashionpedia taxonomy (12 fields)
+- **2.2** Added 6 bridge interfaces: ProductSummary, BridgeResult, BridgeListResponse, BridgeTypeStats, ScoreHistogramBucket, BridgeStats
+- **2.3** Added 8 API functions: getProductBridges, getModernEchoes, getStyleAncestry, getStyleSiblings, getTopBridges, getBridgeStats, getBridgeBetween, getBridgeDetail
+- **2.4** Added DEFAULT_BRIDGE_LIMIT and FEATURED_BRIDGES_LIMIT constants
+- `npx tsc --noEmit` passes with zero errors
+
+**Frontend Phase 3A — Layout Components (COMPLETE):**
+- **3A.1** Header: sticky, frosted glass, mobile hamburger / desktop nav links, `"use client"` for menu state
+- **3A.2** Footer: 3-column grid (mobile: stacked), brand + nav + tech stack + copyright
+- **3A.3** Navigation: skipped — Header already handles mobile nav
+- **3A.4** Root layout: added Header/Footer imports, fixed `--font-serif` variable, updated metadata title/description
+- `npm run build` passes clean
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `tests/integration/test_api_smoke.py` | Wrote 17 smoke tests, fixed image test |
+| `vv-web/src/app/layout.tsx` | Font swap, Header/Footer, metadata, removed old color classes |
+| `vv-web/tailwind.config.ts` | Full color palette replacement, shadows, border radii, font-serif variable |
+| `vv-web/src/styles/theme.ts` | Populated with platform colors, score colors, scoreColorByValue |
+| `vv-web/src/app/globals.css` | New color tokens, scrollbar styles |
+| `vv-web/src/components/ui/Button.tsx` | vintage-* → terracotta/cream/border |
+| `vv-web/src/components/ui/Card.tsx` | vintage-* → warm-white/border/muted |
+| `vv-web/src/components/ui/Badge.tsx` | vintage-* → terracotta/sage/border |
+| `vv-web/src/components/ui/Input.tsx` | vintage-* → border/muted/terracotta |
+| `vv-web/next.config.ts` | Added remotePatterns for museum CDNs |
+| `vv-web/src/types/index.ts` | Reconciled Product, added 6 bridge interfaces |
+| `vv-web/src/lib/api.ts` | Added 8 bridge API functions |
+| `vv-web/src/lib/constants.ts` | Added bridge limit constants |
+| `vv-web/src/components/layout/Header.tsx` | Populated: sticky header with mobile/desktop nav |
+| `vv-web/src/components/layout/Footer.tsx` | Populated: 3-column responsive footer |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| Downgrade httpx to 0.27.0 | httpx 0.28 removed `app` kwarg that starlette 0.27 TestClient needs |
+| 4x4 PIL PNG instead of hand-crafted 1x1 | CLIP misinterprets 1x1x3 as 1-channel image |
+| Skip Navigation.tsx | Header already handles mobile nav dropdown; can upgrade to slide-in later |
+| Flat color tokens (not nested) | `bg-terracotta` is shorter than `bg-vintage-burgundy` and matches Figma tokens |
+| `--font-serif` not `--font-cormorant` | Standard convention; Tailwind's `font-serif` maps directly |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `httpx` 0.28 broke TestClient | `pip install httpx==0.27.0` |
+| CLIP ValueError on 1x1 PNG | Used PIL to generate 4x4 RGB PNG |
+| `--font-cormorant` in layout vs `--font-serif` in tailwind config | Standardized on `--font-serif` everywhere |
+| `bg-vintage-cream` still in layout.tsx body | Removed (already set in globals.css) |
+
+RESUME POINT: Start implementing Phase 3B — search components (SearchBar.tsx, ImageUpload.tsx, ProductCard.tsx)
 
 ---
 
@@ -199,7 +354,7 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 ---
 
-## Current State (2026-02-23)
+## Current State (2026-02-25)
 
 ### What Works
 
@@ -210,7 +365,7 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 - **Bridge query library** (`analysis/bridge_queries.py`) — paginated, typed, filter-ready
 - **FastAPI backend COMPLETE** — 14 endpoints across 4 routers, 13 Pydantic schemas, native Qdrant filtering
 - **156 tests passing** (unit, integration, data_integrity, search_quality)
-- **Frontend scaffolded** — Next.js 16 app with layout, homepage, types, API client, UI primitives
+- **Frontend components built** — Next.js 16 app with design system, layout, types, API client, 3 search components, 7 bridge primitives
 - **Figma design populated** — 5 pages captured into Figma file (design system, components, home, search, product detail)
 - **Frontend implementation plan** — 5-phase mobile-first plan at `docs/plans/FRONTEND_IMPLEMENTATION_PLAN.md`
 
@@ -218,9 +373,8 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 - **22/7,324 bridge narratives** generated — the other 7,302 need `analysis/generate_narratives.py` run (~$13, ~1hr)
 - **`embedded_at` column** only set for 200/866 products (tracking gap — actual embeddings exist for all)
-- **Frontend implementation** — User is building this using the plan doc (all components/pages still pending)
-- **Theme file** — `vv-web/src/styles/theme.ts` is empty
-- **API smoke testing** — endpoints written but not yet tested against live services
+- **Frontend implementation** — Phases 1-3A done, 3B search done, 3C bridge 7/10 done. BridgeCardFull, BridgeCardCompact, index.ts barrel, 3D utilities, all pages still pending
+- **API smoke tests** — 17/17 passing (fixed httpx version + CLIP image test)
 - **Figma design refinement** — User is still iterating on the design
 
 ### What's Not Started
@@ -317,18 +471,18 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 ### Immediate
 
-1. **Finalize Figma design** — User is refining the design in Figma.
+1. **Phase 3C.8 BridgeCardFull** — The big composition component (source/target images, connector, narrative, DNA pills, score breakdown). Stacked on mobile, side-by-side on desktop.
 
-2. **Implement frontend** — Follow `docs/plans/FRONTEND_IMPLEMENTATION_PLAN.md` (5 phases, 41 files). User is doing this.
+2. **Phase 3C.9 BridgeCardCompact** — Carousel card (240px mobile, 280px desktop).
 
-3. **Test the live API** — `venv/bin/uvicorn api.main:app --reload`, hit endpoints via /docs or curl. Fix any runtime issues.
+3. **Phase 3C.10 index.ts** — Barrel export for all bridge components.
 
-4. **Run narrative generation** — `venv/bin/python analysis/generate_narratives.py` to populate all 7,324 bridge narratives (~$13, ~1hr).
+4. **Phase 3D** — Skeleton.tsx (shimmer loader) + ImageWithFallback.tsx (next/Image with gradient fallback).
 
-5. **Fix `embedded_at` tracking** — One SQL update to backfill the 666 missing timestamps.
+5. **Phase 4: Pages** — Home (hero + featured bridges), Search (grid + filters), Product detail (hero + bridge sections), About.
 
-### Stretch (portfolio-ready)
+### Stretch
 
-6. **Deploy** — Backend to Railway, frontend to Vercel.
-7. **Write case study** — Build on existing blog drafts (bridge system + first API).
-8. **IIT 4.0** — Start with Approach 1 (Φ-Based Search Ranking) per the reference doc.
+6. **Run narrative generation** — `venv/bin/python analysis/generate_narratives.py` to populate all 7,324 bridge narratives (~$13, ~1hr).
+7. **Deploy** — Backend to Railway, frontend to Vercel.
+8. **Write case study** — Build on existing blog drafts.
