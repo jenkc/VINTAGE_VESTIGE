@@ -44,23 +44,19 @@ VIBE_QUERIES = [
 ]
 
 
-def _search(vector_db, embedding_generator, query, limit=5):
-    """Embed query and search vintage_text collection."""
+def _search(vector_search, embedding_generator, query, limit=5):
+    """Embed query and search via pgvector."""
     query_vector = embedding_generator.generate_text_embedding(query)
-    return vector_db.search_similar(
-        collection="vintage_text",
-        query_vector=query_vector,
-        limit=limit,
-    )
+    return vector_search.search_text(query_vector, limit=limit)
 
 
 class TestBasicQueries:
 
     @pytest.mark.parametrize("query,description", BASIC_QUERIES)
     def test_score_above_threshold(
-        self, vector_db, embedding_generator, query, description
+        self, vector_search, embedding_generator, query, description
     ):
-        results = _search(vector_db, embedding_generator, query)
+        results = _search(vector_search, embedding_generator, query)
         assert len(results) > 0, f"No results for '{query}'"
         top_score = results[0]["score"]
         assert top_score >= BASIC_MIN_SCORE, (
@@ -69,9 +65,9 @@ class TestBasicQueries:
 
     @pytest.mark.parametrize("query,description", BASIC_QUERIES)
     def test_returns_five_results(
-        self, vector_db, embedding_generator, query, description
+        self, vector_search, embedding_generator, query, description
     ):
-        results = _search(vector_db, embedding_generator, query, limit=5)
+        results = _search(vector_search, embedding_generator, query, limit=5)
         assert len(results) == 5
 
 
@@ -79,9 +75,9 @@ class TestEraQueries:
 
     @pytest.mark.parametrize("query,description", ERA_QUERIES)
     def test_score_above_threshold(
-        self, vector_db, embedding_generator, query, description
+        self, vector_search, embedding_generator, query, description
     ):
-        results = _search(vector_db, embedding_generator, query)
+        results = _search(vector_search, embedding_generator, query)
         top_score = results[0]["score"]
         assert top_score >= ERA_MIN_SCORE, (
             f"'{query}': top score {top_score:.3f} < {ERA_MIN_SCORE}"
@@ -92,9 +88,9 @@ class TestCultureQueries:
 
     @pytest.mark.parametrize("query,description", CULTURE_QUERIES)
     def test_score_above_threshold(
-        self, vector_db, embedding_generator, query, description
+        self, vector_search, embedding_generator, query, description
     ):
-        results = _search(vector_db, embedding_generator, query)
+        results = _search(vector_search, embedding_generator, query)
         top_score = results[0]["score"]
         assert top_score >= CULTURE_MIN_SCORE, (
             f"'{query}': top score {top_score:.3f} < {CULTURE_MIN_SCORE}"
@@ -105,9 +101,9 @@ class TestVibeQueries:
 
     @pytest.mark.parametrize("query,description", VIBE_QUERIES)
     def test_score_above_threshold(
-        self, vector_db, embedding_generator, query, description
+        self, vector_search, embedding_generator, query, description
     ):
-        results = _search(vector_db, embedding_generator, query)
+        results = _search(vector_search, embedding_generator, query)
         top_score = results[0]["score"]
         assert top_score >= VIBE_MIN_SCORE, (
             f"'{query}': top score {top_score:.3f} < {VIBE_MIN_SCORE}"
@@ -116,22 +112,22 @@ class TestVibeQueries:
 
 class TestSearchQualityAggregates:
 
-    def test_overall_average_above_minimum(self, vector_db, embedding_generator):
+    def test_overall_average_above_minimum(self, vector_search, embedding_generator):
         """Overall average top-1 score across all 14 queries >= 0.50."""
         all_queries = BASIC_QUERIES + ERA_QUERIES + CULTURE_QUERIES + VIBE_QUERIES
         scores = []
         for query, _ in all_queries:
-            results = _search(vector_db, embedding_generator, query)
+            results = _search(vector_search, embedding_generator, query)
             scores.append(results[0]["score"])
 
         avg = sum(scores) / len(scores)
         assert avg >= 0.50, f"Overall average {avg:.3f} below 0.50"
 
-    def test_vibe_average_above_baseline(self, vector_db, embedding_generator):
+    def test_vibe_average_above_baseline(self, vector_search, embedding_generator):
         """Vibe queries should average >= 0.50 post-enrichment."""
         scores = []
         for query, _ in VIBE_QUERIES:
-            results = _search(vector_db, embedding_generator, query)
+            results = _search(vector_search, embedding_generator, query)
             scores.append(results[0]["score"])
 
         avg = sum(scores) / len(scores)
@@ -139,11 +135,11 @@ class TestSearchQualityAggregates:
             f"Vibe average {avg:.3f} below 0.50 (enrichment regression?)"
         )
 
-    def test_ranking_quality_top3_decreasing(self, vector_db, embedding_generator):
+    def test_ranking_quality_top3_decreasing(self, vector_search, embedding_generator):
         """For every query, scores in top-3 should be non-increasing."""
         all_queries = BASIC_QUERIES + ERA_QUERIES + CULTURE_QUERIES + VIBE_QUERIES
         for query, _ in all_queries:
-            results = _search(vector_db, embedding_generator, query, limit=3)
+            results = _search(vector_search, embedding_generator, query, limit=3)
             scores = [r["score"] for r in results]
             assert scores == sorted(scores, reverse=True), (
                 f"'{query}': not in descending order: {scores}"

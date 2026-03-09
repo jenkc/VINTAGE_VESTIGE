@@ -4,7 +4,7 @@ Compare against baseline results.
 """
 
 from embeddings.generator import EmbeddingGenerator
-from storage.vector_db import VectorDB
+from scripts.vector_db import VectorDB
 from test_baseline_search import test_text_search_baseline
 
 

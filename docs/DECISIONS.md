@@ -1,6 +1,6 @@
 # Vintage Vestige — Key Decisions
 
-**Last updated: 2026-02-25**
+**Last updated: 2026-03-07**
 
 ---
 
@@ -42,11 +42,11 @@
 
 **Date:** ~2026-02-15
 **Context:** Need text and image embeddings for semantic search.
-**Decision:** `all-MiniLM-L6-v2` (384-dim) for text, `clip-ViT-B-32` (512-dim) for images. Separate Qdrant collections, not a joint embedding space.
+**Decision:** `all-MiniLM-L6-v2` (384-dim) for text, `clip-ViT-B-32` (512-dim) for images. Separate embedding columns on the products table (pgvector), not a joint embedding space.
 **Rationale:**
 - MiniLM is fast, small, and effective for short rich text (~256 tokens)
 - CLIP handles both text and images but its text encoder is less effective for nuanced fashion descriptions than a dedicated text model
-- Separate collections allow independent search and scoring
+- Separate columns allow independent search and scoring
 - SentenceTransformers provides both via a unified API
 **Alternatives considered:** Joint CLIP space (text-image alignment but worse text quality); OpenAI embeddings (cost); BERT-large (overkill for short texts)
 **Outcome:** Both models load via singleton pattern; ~500MB total download
@@ -58,9 +58,10 @@
 
 **Date:** ~2026-02-19
 **Context:** The core product differentiation is "style bridges" — connections between garments across eras and categories. Need to discover them at scale.
-**Decision:** 3-pass Qdrant search (open discovery, cross-category, cross-vibe) → composite scoring (text + image + structural) → canonical ordering (source_id < target_id) → unique constraint.
+**Decision:** 2-pass pgvector search (open discovery, cross-culture) → composite scoring (text + image + structural) → canonical ordering (source_id < target_id) → unique constraint.
 **Rationale:**
-- Open discovery finds the obvious matches; cross-category and cross-vibe find the interesting ones
+- Open discovery finds the obvious matches; cross-culture finds the interesting cross-cultural connections
+**Updated:** 2026-03-06 — Reduced from 3 passes to 2 (cross-category pass removed as it produced redundant results)
 - Composite scoring prevents text-only or image-only domination
 - Canonical ordering prevents A→B and B→A duplicates (~15K → 7,324 bridges)
 - Structural score based on Fashionpedia taxonomy gives explainable similarity
@@ -91,7 +92,7 @@
 **Context:** Need a REST API to serve search results and bridge data to the frontend.
 **Decision:** FastAPI with Pydantic schemas.
 **Rationale:**
-- Python backend means embedding models and Qdrant client can run in the same process
+- Python backend means embedding models and database client can run in the same process
 - FastAPI has async support for concurrent Claude calls
 - Pydantic schemas provide automatic validation and OpenAPI docs
 - Already using Python for the entire intelligence layer
@@ -178,32 +179,26 @@
 
 ---
 
-### 12. Native Qdrant Filtering Over Python Post-Filtering
+### 12. Native SQL Filtering Over Python Post-Filtering
 
-**Date:** 2026-02-22
-**Context:** Text search needs optional filters (era, decade, garment_type, etc.). Two approaches: (A) fetch extra results from Qdrant and filter in Python, (B) pass filters to Qdrant natively.
-**Decision:** Option B — build `qdrant_client.models.Filter` from `SearchFilters` schema and pass via `query_filter` parameter.
+**Date:** 2026-02-22 (updated 2026-03-05 for pgvector migration)
+**Context:** Text search needs optional filters (era, decade, garment_type, etc.). Two approaches: (A) fetch extra results and filter in Python, (B) pass filters natively to the database.
+**Decision:** Option B — build SQL WHERE clauses from `SearchFilters` schema and include in the pgvector query.
 **Rationale:**
-- Qdrant prunes the search space before vector comparison — faster and more accurate
+- Database prunes the search space before vector comparison — faster and more accurate
 - `model_dump(exclude_none=True)` makes the filter builder generic (works for any subset of filter fields)
-- Only required one small change to `search_similar()` — adding a `query_filter=None` parameter
+- Filters are native SQL WHERE clauses alongside pgvector `<=>` cosine distance
 **Alternatives considered:** Post-filtering in Python (simpler but returns fewer relevant results for a given limit)
-**Outcome:** Clean helper function `_build_qdrant_filter()` that converts any SearchFilters → Qdrant Filter
+**Outcome:** Clean helper function `_build_filter_dict()` that converts any SearchFilters → SQL WHERE params
+**Note:** Originally implemented with Qdrant filters; migrated to SQL WHERE clauses on 2026-03-04
 
 ---
 
-### 13. Backfill vintage_images Payloads (Not Postgres Join)
+### 13. ~~Backfill vintage_images Payloads~~ (OBSOLETE)
 
 **Date:** 2026-02-22
-**Context:** `vintage_images` had 12 payload fields vs 28 in `vintage_text`. Image search would be missing enrichment metadata.
-**Decision:** Backfill the missing fields using Qdrant's `set_payload()` rather than joining Postgres per-request.
-**Rationale:**
-- One-time fix (~seconds) vs. per-request overhead (Postgres query on every image search)
-- `set_payload()` merges new fields without touching vectors — CLIP embeddings are from pixel data, unaffected by metadata
-- Both collections now have identical payload shapes — search router code is identical for both
-- Also updated `generate_image_embeddings.py` to use full payload for future runs
-**Alternatives considered:** Postgres join in image search endpoint (working but slower, more code)
-**Outcome:** 866 points updated; both collections have 28 payload fields; search router has no special-casing for image vs text
+**Superseded by:** Decision #27 (Qdrant → pgvector migration, 2026-03-04)
+**Note:** This decision was about syncing Qdrant payload fields. With pgvector, embeddings are columns on the products table — no separate payload to keep in sync. The problem this solved no longer exists.
 
 ---
 
@@ -320,3 +315,249 @@
 - Matches user mental model: "I'm looking at a product"
 **Alternatives considered:** `/products/[id]` to match API (would work but feels like a list endpoint)
 **Outcome:** `app/product/[id]/page.tsx` will be the product detail page
+
+---
+
+### 22. Belt-and-Suspenders Image Fallback Strategy
+
+**Date:** 2026-02-27
+**Context:** BridgeCardFull, BridgeCardCompact, and ProductCard all display images using `next/Image`. We added an `ImageWithFallback` component that catches load errors and shows a gradient. Should we remove the existing ternary fallbacks (`product.primary_image ? <Image> : <gradient div>`) now that ImageWithFallback handles errors?
+**Decision:** Keep both — ternary fallback for missing URLs, ImageWithFallback for broken URLs.
+**Rationale:**
+- Ternary catches the `null`/empty URL case before any network request
+- ImageWithFallback catches the runtime case where a URL exists but fails to load (404, CORS, etc.)
+- Both failure modes exist in the dataset (museum CDN URLs change, some items lack images)
+- Marginal extra code, no performance cost
+**Alternatives considered:** Remove ternaries and let ImageWithFallback handle everything (would still try to load `src=""` or `src={null}` which is invalid)
+**Outcome:** All image-displaying components use both layers
+
+---
+
+### 23. ISR Caching for Home Page (1-Hour Revalidation)
+
+**Date:** 2026-02-27
+**Context:** Home page calls `getTopBridges()` on every request. Bridges don't change often — they're only recomputed during data growth phases.
+**Decision:** `export const revalidate = 3600` — Next.js ISR caches the page for 1 hour.
+**Rationale:**
+- Bridge data is essentially static between data growth sessions
+- Reduces database load for the most-visited page
+- 1 hour is conservative enough to pick up changes without manual cache purging
+- No user-specific content on home page — safe to cache globally
+**Alternatives considered:** `revalidate = 0` (SSR every request — unnecessary load), `revalidate = 86400` (24 hours — too stale during active development)
+**Outcome:** Home page served from cache, revalidated hourly
+
+---
+
+### 24. Grow Dataset Before Deploying
+
+**Date:** 2026-02-27
+**Context:** Frontend is complete and builds clean. Could deploy now with 866 products, or grow to 1,500 first.
+**Decision:** Grow to 1,500 products before first deployment.
+**Rationale:**
+- Sparse data means many search queries return few results — bad first impression
+- Product detail pages show style ancestry and siblings sections that look empty with few bridges
+- Bridge diversity improves with more products (more cross-platform, cross-era connections)
+- Deployment config doesn't change whether you have 866 or 1,500 products
+- Growth plan is documented and ready to execute (~$27 Claude API cost)
+**Alternatives considered:** Deploy now, grow later (would work technically but poor UX for portfolio piece)
+**Outcome:** Database growth plan at `.claude/plans/functional-hopping-barto.md`, deployment deferred
+
+---
+
+### 25. Fashionpedia-Heavy Growth Distribution
+
+**Date:** 2026-02-27
+**Context:** Growing from 866 → 1,500 products. Need to decide distribution across 3 sources (Fashionpedia, Met Museum, Smithsonian).
+**Decision:** Target Fashionpedia 750 (+250), Met 400 (+200), Smithsonian 350 (+184).
+**Rationale:**
+- Fashionpedia items come with 11 expert-annotated taxonomy fields from the source dataset
+- This means Fashionpedia items only need "creative_only" enrichment ($0.015/item) vs full enrichment ($0.03/item) for museum items
+- More Fashionpedia = lower Claude API cost for same product count
+- Met and Smithsonian still grow meaningfully for cross-platform bridge diversity
+**Alternatives considered:** Even distribution (more expensive — more full-enrichment items); museum-heavy (richer metadata but 2x Claude cost)
+**Outcome:** Estimated total enrichment cost: $15.27 (vs ~$19 for even split)
+
+---
+
+### 26. Deployment Architecture: Specialized Platforms Per Service
+
+**Date:** 2026-02-27
+**Context:** Need to deploy 4 services: FastAPI, Next.js, PostgreSQL, Qdrant. Could use one platform for everything or specialize.
+**Decision:** Recommended approach: Supabase (Postgres + pgvector + Storage) + Railway (FastAPI) + Vercel (Next.js).
+**Rationale:**
+- Each platform is best-in-class for its service type
+- Most generous free tier per service (important for portfolio project)
+- Vercel is purpose-built for Next.js (zero-config deployment)
+- Supabase handles Postgres + pgvector + image storage in one service
+**Alternatives considered:** Railway for everything (simpler but less generous free tier), Fly.io (good but more CLI-driven), self-hosted (too much ops burden), Qdrant Cloud (eliminated by Decision #27)
+**Outcome:** Decision documented, not yet executed (waiting for data growth)
+**Updated:** 2026-03-05 — Qdrant Cloud removed per Decision #27
+
+### 27. Switch from Qdrant to Supabase pgvector for Vector Storage
+
+**Date:** 2026-03-04
+**Context:** Had local Qdrant (2 collections: vintage_text 384d, vintage_images 512d) + local PostgreSQL. Migrating to Supabase for managed hosting. Needed to decide whether to use Qdrant Cloud or consolidate into pgvector.
+**Decision:** Eliminate Qdrant entirely. Store embeddings as pgvector columns (`text_embedding vector(384)`, `image_embedding vector(512)`) directly on the `products` table in Supabase PostgreSQL.
+**Rationale:**
+- Single database for everything — no separate vector DB to manage, pay for, or keep in sync
+- Both embeddings on the same row makes IIT cross-modal Φ calculation simpler (single SQL query vs cross-collection Qdrant lookups)
+- pgvector HNSW indexes provide comparable performance at our scale (866 embedded products)
+- Supabase already running for the project — zero additional infrastructure
+- `VectorSearch` class shares the SQLAlchemy session — no separate connection pool
+**Alternatives considered:** Qdrant Cloud free tier (1GB, would work but adds operational complexity); keep local Qdrant (not deployable)
+**Outcome:** Migration complete (866 text + 866 image embeddings in pgvector). Local Qdrant stopped. `storage/vector_search.py` replaces `storage/vector_db.py`. API search layer updated.
+**Revises:** Decision #26 (Qdrant Cloud is no longer part of the deployment architecture)
+
+---
+
+### 30. Late Fusion Over Multimodal Embedding Fusion
+
+**Date:** 2026-03-06
+**Context:** Text embeddings (MiniLM 384d from enriched_text) and image embeddings (CLIP 512d from product images) are separate vectors. Could combine into a single fused vector per product.
+**Decision:** Keep separate vectors, combine scores at bridge computation time (late fusion). No single fused embedding.
+**Rationale:**
+- MiniLM text encoder captures semantic richness (enriched_text has 23 fields including vibes, era, materials)
+- CLIP captures visual similarity (shape, color, texture)
+- These are genuinely different signals — "looks similar" ≠ "means similar"
+- Late fusion preserves the ability to weight modalities differently (bridge formula: 0.40 text + 0.30 image + 0.30 structural)
+- A fused vector would lose the MiniLM semantic advantage (CLIP text encoder doesn't understand fashion vocabulary as well)
+**Alternatives considered:** Early fusion (average CLIP text + image vectors — loses MiniLM richness); concatenation (896d, mathematically dubious); learned projection (requires training data we don't have)
+**Outcome:** Current architecture is stronger for fashion cross-era matching than any single-vector approach
+
+---
+
+### 31. Async Concurrent Enrichment Over Sequential or Batch API
+
+**Date:** 2026-03-06
+**Context:** ~3,298 products needed enrichment. Sequential processing via `enrich_remaining.py` estimated ~5.5 hours. Two alternatives: Claude Message Batches API (50% cost, 24hr turnaround) or async concurrent requests.
+**Decision:** Built `enrich_async.py` with `asyncio.Semaphore`-bounded concurrency (default 5 concurrent requests).
+**Rationale:**
+- ~5x speedup over sequential (semaphore limits to N concurrent API calls)
+- Real-time progress feedback (rate, ETA, error count every 10 completions)
+- User familiar with asyncio from prior experience
+- Batch API saves 50% cost but has up to 24hr turnaround — user preferred speed and feedback
+**Alternatives considered:** Message Batches API (`enrich_batch.py` also built as option); sequential `enrich_remaining.py` (too slow)
+**Outcome:** User running batches of 300 at concurrency 5; 624 products enriched in first session
+
+---
+
+### 32. Embedding Generation Separate from Enrichment
+
+**Date:** 2026-03-06
+**Context:** `enrich_async.py` originally included embedding generation in phase 2 (after API calls). User pointed out they'd always done embedding as a separate step.
+**Decision:** Keep enrichment and embedding as separate pipeline stages. `enrich_async.py` only does Claude API calls + DB writes. Embeddings generated via `generate_all_embeddings.py` and `generate_image_embeddings.py`.
+**Rationale:**
+- User's established workflow — muscle memory matters
+- Cleaner separation of concerns (API-bound vs CPU-bound)
+- Can re-embed without re-enriching (useful when embedding model changes)
+- Embedding scripts already exist and work well
+**Alternatives considered:** All-in-one enrichment + embedding (simpler but less flexible)
+**Outcome:** Pipeline remains: enrich → embed text → embed images → compute bridges
+
+---
+
+### 33. Use enriched_text for Text Embeddings (Not Raw Title+Description)
+
+**Date:** 2026-03-06
+**Context:** `generate_embeddings_for_database()` was embedding `title + description` (raw product metadata). But `enriched_text` contains 23 Claude-enriched fields (vibes, era, materials, style tags, etc.) — much richer semantic content.
+**Decision:** Changed text embedding source to `enriched_text` with fallback to `title + description`. Also changed filter from `embedded_at == None` to `enriched_at != None, text_embedding == None`.
+**Rationale:**
+- enriched_text is the whole point of the enrichment pipeline — embedding raw titles throws away the intelligence layer
+- MiniLM embeddings of enriched_text capture vibes, style tags, era context that raw titles lack
+- Filter change ensures we only embed products that have been enriched (prevents embedding raw data)
+**Alternatives considered:** Keep embedding raw titles (baseline, but defeats the purpose of enrichment)
+**Outcome:** New embeddings use enriched_text; old 866 products need re-embedding
+**Revises:** Previous behavior where embeddings used `title + description`
+
+---
+
+### 28. Supabase Storage for Product Images (Replace Base64)
+
+**Date:** 2026-03-04
+**Context:** 4,234 products had images stored as base64 `data:image/jpeg;base64,...` strings in the `primary_image` column. This bloated the database (~163 MB of image data in PostgreSQL).
+**Decision:** Migrate all images to Supabase Storage (public bucket `product-images`), replace `primary_image` with HTTP URLs.
+**Rationale:**
+- Database shrinks from ~179 MB to ~19 MB (base64 removed)
+- CDN-served images load faster than base64-decoded blobs
+- Supabase Storage is free up to 1 GB (our images are well under)
+- HTTP URLs work directly with `next/image` and any frontend
+**Alternatives considered:** Keep base64 (simple but bloated); external CDN like Cloudflare R2 (more config for no benefit at our scale)
+**Outcome:** All 4,234 products migrated. Zero base64 remaining. Images accessible at `https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/{id}.jpg`
+
+---
+
+### 29. VectorSearch Shares SQLAlchemy Session (Not Own Connection)
+
+**Date:** 2026-03-04
+**Context:** Old `VectorDB` class managed its own Qdrant connection. New `VectorSearch` needs to decide: own connection or share the request's DB session?
+**Decision:** `VectorSearch.__init__(self, db: Session)` — takes the request's SQLAlchemy session via FastAPI `Depends()`.
+**Rationale:**
+- Vector search and relational queries are in the same database now (pgvector)
+- Sharing the session means they participate in the same transaction
+- FastAPI's dependency injection handles session lifecycle (open/close per request)
+- Simpler than managing a separate connection pool
+**Alternatives considered:** Own engine/session (would work but wasteful — two connections to the same DB per request)
+**Outcome:** Clean dependency chain: `get_db()` → `get_vector_search(db)` → router
+
+---
+
+### 34. 6-Dimensional Bridge Classification Over Single semantic_type
+
+**Date:** 2026-03-07
+**Context:** The `semantic_type` column was a single overloaded string (7 values) that conflated temporal distance, categorical crossing, and aesthetic connection. Impossible to filter "all contrast bridges that are cross-cultural transmissions."
+**Decision:** Replace with 6 orthogonal columns: `temporal_type`, `crossing_type`, `connection_mode`, `primary_axis`, `secondary_axis`, `contrast_pair`.
+**Rationale:**
+- Each dimension answers a different question about the bridge
+- Enables precise filtering in API and frontend (any combination of dimensions)
+- Provides structured input for narrative generation (mode-specific prompts)
+- Supports future KG schema (each dimension becomes a node property)
+**Alternatives considered:** Adding flags alongside semantic_type (still conflated); machine learning classifier (not enough labeled data)
+**Outcome:** 6 columns added to StyleBridge, classifier script built, tests passing. Pending: classifier run after bridge recomputation.
+**Reference:** `scripts/classify_bridge_dimensions.py`, `.claude/plans/zazzy-seeking-falcon.md`
+
+---
+
+### 35. 3 Connection Modes (contrast/resonance/affinity) Over 5
+
+**Date:** 2026-03-07
+**Context:** Initially designed 5 connection modes: citation, echo, parallel, contrast, kinship. On critique:
+- **echo** was "not kinship" rather than identifying something specific (any shared material triggered it)
+- **parallel** was too rare (triple condition: structural > 0.5 + text < 0.6 + image < 0.5)
+- **citation** implied intentional reference that can't be detected from embeddings alone
+**Decision:** Simplify to 3 sharp modes: **contrast** (opposing vibes on structural axis), **resonance** (same aesthetic language across time), **affinity** (everything else — axis tells the story).
+**Rationale:**
+- Each mode now identifies something genuinely distinct and actionable
+- Contrast is the most interesting (shown in rose), resonance shows temporal echoes (amber), affinity is the baseline (gray)
+- Fewer modes = cleaner UX, clearer mental model
+**Alternatives considered:** Keep 5 modes with secondary_mode flag; 4 modes (keep echo)
+**Outcome:** Classifier implements 3 modes with priority: contrast > resonance > affinity
+
+---
+
+### 36. Post-Hoc Bridge Classification (Not Integrated into compute_bridges)
+
+**Date:** 2026-03-07
+**Context:** Could integrate classification into `compute_bridges.py` (classify during discovery) or run as a separate post-processing step.
+**Decision:** Separate `scripts/classify_bridge_dimensions.py` runs after bridge computation.
+**Rationale:**
+- `compute_bridges.py` is already complex (2-pass pgvector search + scoring)
+- Classification depends on fields that bridge computation doesn't need (core_vibes, bridge_vibes)
+- Can re-classify without recomputing bridges (e.g., when tuning thresholds)
+- Can dry-run to review distribution before committing
+**Alternatives considered:** Inline classification during bridge creation (tighter coupling, can't re-classify independently)
+**Outcome:** Clean separation — compute bridges, then classify, then generate narratives
+
+---
+
+### 37. Social Function Explorer as Separate /explore Router
+
+**Date:** 2026-03-07
+**Context:** Needed endpoints for browsing products by social function. Could extend `/products` or create new router.
+**Decision:** New `/explore` router with function-specific endpoints.
+**Rationale:**
+- Conceptually different from single-product CRUD (discovery vs. detail)
+- Will grow with technique explorer, motif explorer, etc.
+- Clean URL structure: `/explore/functions`, `/explore/techniques` (future)
+- Uses `jsonb` containment operators for efficient JSON array querying
+**Alternatives considered:** Add to products router (would clutter it); generic faceted search (over-engineered for now)
+**Outcome:** 2 endpoints (`/explore/functions`, `/explore/functions/{fn}`) + `shared_function` filter on bridges/top

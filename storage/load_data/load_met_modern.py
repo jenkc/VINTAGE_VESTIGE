@@ -7,9 +7,11 @@ Three tiers:
 """
 
 import requests
+import re
 from storage.database import SessionLocal, Product
+from storage.image_storage import upload_product_image
+from enrichment.era_taxonomy import year_to_era
 import json
-import base64
 from io import BytesIO
 from PIL import Image
 import time
@@ -44,7 +46,7 @@ def fetch_object(obj_id):
         return None
 
 
-def download_image(url):
+def download_image(url, storage_key):
     """Download and resize image to data URL"""
     try:
         resp = SESSION.get(url, timeout=15)
@@ -52,21 +54,18 @@ def download_image(url):
         img.thumbnail((400, 400))
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=80)
-        encoded = base64.b64encode(buf.getvalue()).decode()
-        return f"data:image/jpeg;base64,{encoded}"
+        return upload_product_image(storage_key, buf.getvalue())
     except Exception:
         return None
 
 
 def extract_era(date_str):
-    """Extract era from Met date string"""
-    for decade in range(1900, 2030, 10):
-        if str(decade) in date_str:
-            return f'{decade}s'
-    if '19th century' in date_str.lower():
-        return '1800s'
-    if '18th century' in date_str.lower():
-        return '1700s'
+    """Extract canonical era from Met date string using year_to_era."""
+    if not date_str:
+        return None
+    m = re.search(r'(\d{4})', date_str)
+    if m:
+        return year_to_era(int(m.group(1)))
     return None
 
 
@@ -151,7 +150,7 @@ def load_tier(db, existing, obj_ids, max_items, tier_label):
                 print(f"  scanned {scanned} — stored {stored} — {no_image} skipped")
             continue
 
-        image_data = download_image(obj['primaryImage'])
+        image_data = download_image(obj["primaryImage"], f'met_{obj["objectID"]}')
         time.sleep(0.3)
 
         if not image_data:

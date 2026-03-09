@@ -13,10 +13,8 @@ scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, scripts_dir)
 
 from storage.database import SessionLocal, Product
-from storage.vector_db import VectorDB
 from embeddings.generator import EmbeddingGenerator
 from enrichment.claude import ClaudeEnricher
-from qdrant_client.models import PointStruct
 from datetime import datetime
 import json
 import time
@@ -32,7 +30,6 @@ def reenrich_met_museum(limit: int = None):
     db = SessionLocal()
     enricher = ClaudeEnricher()
     generator = EmbeddingGenerator()
-    vector_db = VectorDB()
 
     # Get Met Museum items (even if previously enriched)
     query = db.query(Product).filter(Product.platform == 'met_museum')
@@ -96,49 +93,9 @@ def reenrich_met_museum(limit: int = None):
 
             # Generate new text embedding
             new_text_embedding = generator.generate_text_embedding(rich_text)
-
-            # Update Qdrant
-            vector_db.client.upsert(
-                collection_name='vintage_text',
-                points=[PointStruct(
-                    id=product.id,
-                    vector=new_text_embedding.tolist(),
-                    payload={
-                        'product_id': product.id,
-                        'platform': product.platform,  # CRITICAL: ensure platform is set
-                        'title': product.title,
-                        'category': product.category,
-                        'era': enrichment.get('era'),
-                        'decade': enrichment.get('decade'),
-                        'style_tags': enrichment.get('style_tags', []),
-                        'colors': enrichment.get('colors', []),
-                        'material': enrichment.get('material'),
-                        'garment_type': enrichment.get('garment_type'),
-                        'vibe': enrichment.get('vibe'),
-                        'fit_style': enrichment.get('fit_style'),
-                        'occasion': enrichment.get('occasion'),
-                        'ai_description': enrichment.get('ai_description'),
-                        'season': enrichment.get('season'),
-                        'price': product.price,
-                        'primary_image': product.primary_image,
-                        'culture': product.culture,
-                        'object_date': product.object_date,
-                        # Fashionpedia taxonomy - KEY FOCUS
-                        'fp_category': enrichment.get('fp_category'),
-                        'nickname': enrichment.get('nickname'),
-                        'silhouette': enrichment.get('silhouette'),
-                        'neckline': enrichment.get('neckline'),
-                        'waistline': enrichment.get('waistline'),
-                        'length': enrichment.get('length'),
-                        'sleeve_length': enrichment.get('sleeve_length'),
-                        'opening_type': enrichment.get('opening_type'),
-                        'textile_pattern': enrichment.get('textile_pattern'),
-                        'textile_finishing': enrichment.get('textile_finishing', []),
-                        'garment_parts': enrichment.get('garment_parts', []),
-                        'decorations': enrichment.get('decorations', []),
-                    }
-                )]
-            )
+            
+            # Write new text embedding to product column
+            product.text_embedding = new_text_embedding.tolist()
 
             # Update PostgreSQL
             product.era = enrichment.get('era')

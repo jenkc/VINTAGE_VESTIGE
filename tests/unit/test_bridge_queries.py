@@ -43,8 +43,9 @@ class MockBridge:
     def __init__(self, **kwargs):
         defaults = {
             'id': 100, 'source_id': 1, 'target_id': 2,
-            'bridge_score': 0.85, 'text_similarity': 0.90,
+            'text_similarity': 0.90,
             'image_similarity': 0.70, 'structural_score': 0.80,
+            'connection_mode': None,
             'bridge_type': 'same_era', 'bridge_narrative': 'They share DNA.',
             'shared_attributes': '{"fp_category": "dress", "silhouette": "a-line"}',
             'created_at': datetime(2026, 2, 20, 12, 0, 0),
@@ -144,7 +145,8 @@ class TestBuildBridgeResult:
         result = _build_bridge_result(b, self.product_map)
         assert result is not None
         assert result['id'] == 100
-        assert result['bridge_score'] == 0.85
+        # Computed: 0.40*0.90 + 0.30*0.70 + 0.30*0.80 = 0.81
+        assert result['bridge_score'] == 0.81
         assert result['source']['title'] == 'Dress A'
         assert result['target']['title'] == 'Dress B'
 
@@ -189,7 +191,7 @@ class TestBuildBridgeResult:
         assert result['image_similarity'] is None
 
     def test_bridge_type_and_narrative(self):
-        b = MockBridge(bridge_type='cross_era', bridge_narrative='A nice story.')
+        b = MockBridge(bridge_type='transmission', bridge_narrative='A nice story.')
         result = _build_bridge_result(b, self.product_map)
-        assert result['bridge_type'] == 'cross_era'
+        assert result['bridge_type'] == 'transmission'
         assert result['bridge_narrative'] == 'A nice story.'

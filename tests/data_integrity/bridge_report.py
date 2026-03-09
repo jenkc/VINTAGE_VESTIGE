@@ -2,7 +2,7 @@
 Generate an HTML report visualizing style bridges.
 
 Usage:
-  python tests/data_integrity/bridge_report.py [--limit=N] [--type=cross_era]
+  python tests/data_integrity/bridge_report.py [--limit=N] [--type=transmission]
 
 Run from project root.
 """
@@ -22,7 +22,7 @@ def generate_report(limit=100, bridge_type=None, output='bridge_report.html'):
     db = SessionLocal()
 
     # Query bridges
-    query = db.query(StyleBridge).order_by(StyleBridge.bridge_score.desc())
+    query = db.query(StyleBridge).order_by(StyleBridge.text_similarity.desc())
     if bridge_type:
         query = query.filter(StyleBridge.bridge_type == bridge_type)
     bridges = query.limit(limit).all()
@@ -139,11 +139,12 @@ def generate_report(limit=100, bridge_type=None, output='bridge_report.html'):
     letter-spacing: 1px;
     font-weight: bold;
   }}
-  .type-cross_era {{ background: #3d2b2b; color: #e8a0a0; }}
-  .type-near_era {{ background: #3d3a2b; color: #e8d8a0; }}
-  .type-same_era {{ background: #2b3d2b; color: #a0e8a0; }}
+  .type-transmission {{ background: #3d2b2b; color: #e8a0a0; }}
+  .type-continuation {{ background: #3d332b; color: #e8c8a0; }}
+  .type-revival {{ background: #3d3a2b; color: #e8d8a0; }}
   .type-cross_category {{ background: #2b2b3d; color: #a0a0e8; }}
   .type-cross_vibe {{ background: #3d2b3d; color: #d8a0e8; }}
+  .type-cross_culture {{ background: #2b3d2f; color: #a0e8c0; }}
 
   .bridge-body {{
     display: grid;
@@ -300,7 +301,7 @@ def generate_report(limit=100, bridge_type=None, output='bridge_report.html'):
         html += f"""
   <div class="bridge-card" data-type="{b.bridge_type}">
     <div class="bridge-header">
-      <span class="bridge-score">{b.bridge_score:.3f}</span>
+      <span class="bridge-score">T:{b.text_similarity:.2f} I:{(b.image_similarity or 0):.2f} S:{b.structural_score:.2f}</span>
       <span class="bridge-type type-{b.bridge_type}">{b.bridge_type}</span>
     </div>
     <div class="bridge-body">

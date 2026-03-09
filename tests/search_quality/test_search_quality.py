@@ -27,13 +27,9 @@ BASELINE_SCORES = {
 }
 
 
-def _search(vector_db, embedding_generator, query, limit=10):
+def _search(vector_search, embedding_generator, query, limit=10):
     query_vector = embedding_generator.generate_text_embedding(query)
-    return vector_db.search_similar(
-        collection="vintage_text",
-        query_vector=query_vector,
-        limit=limit,
-    )
+    return vector_search.search_text(query_vector, limit=limit)
 
 
 class TestScoreRegression:
@@ -41,9 +37,9 @@ class TestScoreRegression:
 
     @pytest.mark.parametrize("query,min_score", list(BASELINE_SCORES.items()))
     def test_score_not_regressed(
-        self, vector_db, embedding_generator, query, min_score
+        self, vector_search, embedding_generator, query, min_score
     ):
-        results = _search(vector_db, embedding_generator, query, limit=1)
+        results = _search(vector_search, embedding_generator, query, limit=1)
         actual = results[0]["score"]
         assert actual >= min_score, (
             f"Regression: '{query}' scored {actual:.3f}, "
@@ -62,11 +58,11 @@ class TestCrossSourceRetrieval:
 
     @pytest.mark.parametrize("query", BROAD_QUERIES)
     def test_multiple_sources_in_top_20(
-        self, vector_db, embedding_generator, db_session, query
+        self, vector_search, embedding_generator, db_session, query
     ):
         from storage.database import Product
 
-        results = _search(vector_db, embedding_generator, query, limit=20)
+        results = _search(vector_search, embedding_generator, query, limit=20)
         platforms = set()
         for result in results:
             product = db_session.query(Product).filter(
@@ -89,12 +85,12 @@ class TestCategoryConsistency:
         ("historical jacket", "jacket"),
     ])
     def test_top5_category_precision(
-        self, vector_db, embedding_generator, db_session,
+        self, vector_search, embedding_generator, db_session,
         category_query, expected_category,
     ):
         from storage.database import Product
 
-        results = _search(vector_db, embedding_generator, category_query, limit=5)
+        results = _search(vector_search, embedding_generator, category_query, limit=5)
         matches = 0
         for result in results:
             product = db_session.query(Product).filter(
@@ -122,12 +118,12 @@ class TestVibeQueryEffectiveness:
 
     @pytest.mark.parametrize("query,expected_vibes", VIBE_QUERIES)
     def test_vibe_returns_matching_items(
-        self, vector_db, embedding_generator, db_session,
+        self, vector_search, embedding_generator, db_session,
         query, expected_vibes,
     ):
         from storage.database import Product
 
-        results = _search(vector_db, embedding_generator, query, limit=5)
+        results = _search(vector_search, embedding_generator, query, limit=5)
         vibe_matches = 0
 
         for result in results:
@@ -156,10 +152,10 @@ class TestVibeQueryEffectiveness:
 class TestScoreDistribution:
     """Score distribution should not be degenerate."""
 
-    def test_score_spread_is_reasonable(self, vector_db, embedding_generator):
+    def test_score_spread_is_reasonable(self, vector_search, embedding_generator):
         """Top-20 scores should span a reasonable range."""
         results = _search(
-            vector_db, embedding_generator, "vintage fashion", limit=20
+            vector_search, embedding_generator, "vintage fashion", limit=20
         )
         scores = [r["score"] for r in results]
         spread = max(scores) - min(scores)
@@ -167,9 +163,9 @@ class TestScoreDistribution:
             f"Score spread too narrow ({spread:.3f}): scores may be degenerate"
         )
 
-    def test_top_score_below_one(self, vector_db, embedding_generator):
+    def test_top_score_below_one(self, vector_search, embedding_generator):
         """No query should return a perfect 1.0 (would indicate data leak)."""
         results = _search(
-            vector_db, embedding_generator, "random test query 12345", limit=1
+            vector_search, embedding_generator, "random test query 12345", limit=1
         )
         assert results[0]["score"] < 1.0

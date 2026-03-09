@@ -1,12 +1,11 @@
 """
 Data integrity tests.
 
-Verify consistency between PostgreSQL products and Qdrant vectors.
+Verify consistency between PostgreSQL products and pgvector embeddings.
 Validate JSON field integrity and enrichment completeness.
 """
 import pytest
 import json
-import numpy as np
 
 
 class TestEnrichmentCompleteness:
@@ -29,7 +28,7 @@ class TestEnrichmentCompleteness:
         platforms = [
             r[0] for r in db_session.query(distinct(Product.platform)).all()
         ]
-        valid = {"met_museum", "smithsonian", "fashionpedia"}
+        valid = {"met_museum", "smithsonian", "fashionpedia", "va_museum"}
         for p in platforms:
             assert p in valid, f"Unknown platform: {p}"
 
@@ -85,83 +84,32 @@ class TestJSONFieldIntegrity:
                 pytest.fail(f"{field_name} contains invalid JSON: {value[:100]}")
 
 
-class TestQdrantPostgresConsistency:
+class TestEmbeddingConsistency:
 
-    def test_text_collection_count_reasonable(self, db_session, vector_db):
-        """Qdrant text collection should have roughly as many enriched products."""
+    def test_text_embedding_count_reasonable(self, db_session):
+        """Text embeddings should exist for most enriched products."""
         from storage.database import Product
+        from sqlalchemy import text
         pg_enriched = db_session.query(Product).filter(
             Product.enriched_at != None
         ).count()
-        info = vector_db.get_collection_info()
-        qdrant_count = info["vintage_text"].get("points_count") or info["vintage_text"].get("vectors_count") or 0
-        # Allow some delta — deleted items may leave orphans
-        assert abs(pg_enriched - qdrant_count) <= 200, (
-            f"PostgreSQL has {pg_enriched} enriched, Qdrant has {qdrant_count} "
-            f"(delta {abs(pg_enriched - qdrant_count)})"
+        has_embedding = db_session.execute(
+            text("SELECT COUNT(*) FROM products WHERE text_embedding IS NOT NULL")
+        ).scalar()
+        assert abs(pg_enriched - has_embedding) <= 200, (
+            f"Enriched: {pg_enriched}, with text embedding: {has_embedding}"
         )
 
-    def test_no_orphaned_qdrant_points(self, db_session, vector_db, embedding_generator):
-        """Spot-check: sample Qdrant IDs from a real search should exist in PostgreSQL."""
+    def test_enriched_products_have_embeddings(self, db_session):
+        """Spot-check: enriched products should have text embeddings."""
         from storage.database import Product
-
-        # Use a real query embedding to get meaningful results
-        query_vector = embedding_generator.generate_text_embedding("vintage dress")
-        results = vector_db.search_similar(
-            collection="vintage_text",
-            query_vector=query_vector,
-            limit=20,
-        )
-
-        orphaned = []
-        for result in results:
-            point_id = result["id"]
-            product = db_session.query(Product).filter(
-                Product.id == point_id
-            ).first()
-            if product is None:
-                orphaned.append(point_id)
-
-        # Allow up to 2 orphans (from test insertions or race conditions)
-        assert len(orphaned) <= 2, (
-            f"{len(orphaned)} orphaned Qdrant points: {orphaned[:5]}"
-        )
-
-    def test_enriched_products_mostly_in_qdrant(self, db_session, vector_db):
-        """Spot-check: most enriched products should be in Qdrant."""
-        from storage.database import Product
-
         products = db_session.query(Product).filter(
             Product.enriched_at != None
         ).limit(20).all()
-
-        found = 0
-        for product in products:
-            try:
-                points = vector_db.client.retrieve(
-                    collection_name="vintage_text",
-                    ids=[product.id],
-                )
-                if len(points) == 1:
-                    found += 1
-            except Exception:
-                pass
-
-        # At least 25% should be in Qdrant
-        # Note: early enriched products (Met Museum batch 1) may not have
-        # been re-embedded into Qdrant. A low ratio here signals that a
-        # re-embedding pass is needed.
+        found = sum(1 for p in products if p.text_embedding is not None)
         assert found >= 5, (
-            f"Only {found}/20 enriched products found in Qdrant — "
-            f"re-embedding likely needed"
+            f"Only {found}/20 enriched products have text embeddings"
         )
-        if found < 16:
-            import warnings
-            warnings.warn(
-                f"Only {found}/20 enriched products found in Qdrant "
-                f"(ideal: 16+). Consider re-running embedding pipeline.",
-                stacklevel=1,
-            )
 
 
 class TestFashionpediaValues:

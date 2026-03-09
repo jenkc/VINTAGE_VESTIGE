@@ -2,46 +2,36 @@ from fastapi import APIRouter, Depends
 import base64
 from io import BytesIO
 from PIL import Image
-from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from embeddings.generator import EmbeddingGenerator
-from storage.vector_db import VectorDB
-from api.dependencies import get_vector_db, get_embedding_generator
-from api.schemas.search import TextSearchRequest, ImageSearchRequest, SearchResult, SearchResponse, SearchFilters
+from storage.vector_search import VectorSearch
+from api.dependencies import get_vector_search, get_embedding_generator
+from api.schemas.search import ( 
+    TextSearchRequest, ImageSearchRequest, SearchResult, SearchResponse, SearchFilters
+)
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-def _build_qdrant_filter(filters: SearchFilters | None) -> Filter | None:
+def _build_filter_dict(filters: SearchFilters | None) -> dict | None:
+    """Converts Pydantic SearchFilters model to a dict for SQL query parameters."""
     if not filters:
         return None
-    qdrant_conditions = []
-    for field, value in filters.model_dump(exclude_none=True).items():
-        qdrant_conditions.append(
-            FieldCondition(
-                key=field,
-                match=MatchValue(value=value)
-            )
-        )
-    if not qdrant_conditions:
-        return None
-    return Filter(must=qdrant_conditions)
+    d = {k: v for k, v in filters.model_dump(exclude_none=True).items()}
+    return d if d else None
 
 @router.post("/text", response_model=SearchResponse)
 def search_text(
-    body: TextSearchRequest, 
-    vdb = Depends(get_vector_db), 
-    emb = Depends(get_embedding_generator)
+    body: TextSearchRequest,
+    vs: VectorSearch = Depends(get_vector_search),
+    emb: EmbeddingGenerator = Depends(get_embedding_generator),
 ):
-    """Search for similar products based on text query."""
-    # Generate embedding: 
+    """Search products by text query."""
     text_vector = emb.generate_text_embedding(body.query)
-    # Build Qdrant filter from SearchFilters
-    qfilter = _build_qdrant_filter(body.filters)
-    # Search Qdrant
-    hits = vdb.search_similar(vdb.text_collection, text_vector, query_filter=qfilter, limit=body.limit)
-    # Map Qdrant hits to SearchResult list
+    filters = _build_filter_dict(body.filters)
+    hits = vs.search_text(text_vector, limit=body.limit, filters=filters)
+
     results = [SearchResult(
-        id=hit["product_id"],
+        id=hit["id"],
         score=hit["score"],
         title=hit.get("title", ""),
         category=hit.get("category"),
@@ -63,27 +53,22 @@ def search_text(
 
     return SearchResponse(results=results, query=body.query, total=len(results))
 
-
 @router.post("/image", response_model=SearchResponse)
 def search_image(
     body: ImageSearchRequest,
-    vdb: VectorDB = Depends(get_vector_db),
+    vs: VectorSearch = Depends(get_vector_search),
     emb: EmbeddingGenerator = Depends(get_embedding_generator),
 ):
-    # Decode base64 data URL → PIL Image
+    """Search products by image upload."""
     header, b64data = body.image.split(",", 1)
     raw = base64.b64decode(b64data)
     pil_image = Image.open(BytesIO(raw))
 
-    # Generate CLIP embedding (512-dim)
     vector = emb.generate_image_embedding(pil_image)
+    hits = vs.search_image(vector, limit=body.limit)
 
-    # Search vintage_images
-    hits = vdb.search_similar(vdb.image_collection, vector, limit=body.limit)
-
-    # Map hits → SearchResult (same as text search)
     results = [SearchResult(
-        id=hit["product_id"],
+        id=hit["id"],
         score=hit["score"],
         title=hit.get("title", ""),
         category=hit.get("category"),

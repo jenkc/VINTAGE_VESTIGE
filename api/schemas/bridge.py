@@ -26,7 +26,12 @@ class BridgeResult(BaseModel):
     bridge_narrative: str | None = None
     shared_attributes: dict = {}
     created_at: str  # ISO 8601
-
+    temporal_type: str | None = None
+    crossing_type: str | None = None
+    connection_mode: str | None = None
+    primary_axis: str | None = None
+    secondary_axis: str | None = None
+    contrast_pair: str | None = None
 
 class BridgeListResponse(BaseModel):
     """Paginated list of bridges.

@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "ids.si.edu" },
       { protocol: "https", hostname: "*.etsy.com" },
       { protocol: "https", hostname: "i.etsystatic.com" },
+      { protocol: "https", hostname: "tusswxlrdoamintvswjs.supabase.co" },
     ]
   }
 };

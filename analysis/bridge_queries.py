@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from typing import TypedDict
 
-from sqlalchemy import func, or_, case, cast, Integer
+from sqlalchemy import func, or_, case, cast, Integer, text
 from sqlalchemy.orm import Session, aliased
 
 from storage.database import Product, StyleBridge
@@ -51,7 +51,7 @@ class BridgeResult(TypedDict):
     id: int
     source: ProductSummary
     target: ProductSummary
-    bridge_score: float
+    bridge_score: float  # computed at query time from component scores + connection_mode
     text_similarity: float
     image_similarity: float | None
     structural_score: float
@@ -59,6 +59,12 @@ class BridgeResult(TypedDict):
     bridge_narrative: str | None
     shared_attributes: dict
     created_at: str  # ISO 8601
+    temporal_type: str | None
+    crossing_type: str | None
+    connection_mode: str | None
+    primary_axis: str | None
+    secondary_axis: str | None
+    contrast_pair: str | None
 
 
 class BridgeListResponse(TypedDict):
@@ -81,6 +87,52 @@ class BridgeStats(TypedDict):
     total_products_with_bridges: int
     by_type: list[BridgeTypeStats]
     score_histogram: list[dict]
+
+
+# ─── Mode-aware scoring ──────────────────────────────────────────────
+#
+# Instead of a single stored bridge_score with fixed weights, we compute
+# a composite on the fly. Different connection modes emphasize different
+# component scores:
+#   contrast  → structural matters most (they share enough form to argue)
+#   resonance → text matters most (same aesthetic language across time)
+#   affinity  → balanced across all three
+#   (default) → balanced (used when connection_mode is NULL)
+
+MODE_WEIGHTS: dict[str | None, tuple[float, float, float]] = {
+    # (text_weight, image_weight, structural_weight)
+    'contrast':  (0.20, 0.20, 0.60),
+    'resonance': (0.60, 0.20, 0.20),
+    'affinity':  (0.40, 0.30, 0.30),
+    None:        (0.40, 0.30, 0.30),  # default / unclassified
+}
+
+
+def compute_bridge_score(
+    text_sim: float,
+    image_sim: float | None,
+    structural: float,
+    connection_mode: str | None = None,
+) -> float:
+    """Compute a mode-aware composite bridge score from component scores."""
+    tw, iw, sw = MODE_WEIGHTS.get(connection_mode, MODE_WEIGHTS[None])
+    if image_sim is not None:
+        return round(tw * text_sim + iw * image_sim + sw * structural, 4)
+    else:
+        # Redistribute image weight proportionally
+        total = tw + sw
+        return round((tw / total) * text_sim + (sw / total) * structural, 4)
+
+
+# SQL expression for mode-aware composite (used in ORDER BY / WHERE)
+# Uses CASE on connection_mode to pick weights at the database level.
+_COMPOSITE_SQL = text("""
+    CASE connection_mode
+        WHEN 'contrast'  THEN 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.60 * structural_score
+        WHEN 'resonance' THEN 0.60 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.20 * structural_score
+        ELSE                  0.40 * text_similarity + 0.30 * COALESCE(image_similarity, 0) + 0.30 * structural_score
+    END
+""".strip())
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────
@@ -144,7 +196,12 @@ def _build_bridge_result(
         id=bridge.id,
         source=source,
         target=target,
-        bridge_score=bridge.bridge_score,
+        bridge_score=compute_bridge_score(
+            bridge.text_similarity,
+            bridge.image_similarity,
+            bridge.structural_score,
+            bridge.connection_mode,
+        ),
         text_similarity=bridge.text_similarity,
         image_similarity=bridge.image_similarity,
         structural_score=bridge.structural_score,
@@ -152,22 +209,67 @@ def _build_bridge_result(
         bridge_narrative=bridge.bridge_narrative,
         shared_attributes=shared,
         created_at=bridge.created_at.isoformat() if bridge.created_at else '',
+        temporal_type=bridge.temporal_type,
+        crossing_type=bridge.crossing_type,
+        connection_mode=bridge.connection_mode,
+        primary_axis=bridge.primary_axis,
+        secondary_axis=bridge.secondary_axis,
+        contrast_pair=bridge.contrast_pair,
+
     )
 
 
-def _base_bridge_query(db: Session):
-    """Start a StyleBridge query ordered by score descending."""
-    return db.query(StyleBridge).order_by(StyleBridge.bridge_score.desc())
+# Sort strategies: each maps to a SQL ORDER BY expression.
+# 'default' uses the mode-aware composite (contrast bridges rank by structural,
+# resonance by text, etc.). Other strategies override with a fixed formula.
+SORT_STRATEGIES = {
+    'default':    text("""
+        CASE connection_mode
+            WHEN 'contrast'  THEN 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.60 * structural_score
+            WHEN 'resonance' THEN 0.60 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.20 * structural_score
+            ELSE                  0.40 * text_similarity + 0.30 * COALESCE(image_similarity, 0) + 0.30 * structural_score
+        END DESC
+    """.strip()),
+    'text':       StyleBridge.text_similarity.desc(),
+    'structural': StyleBridge.structural_score.desc(),
+    'contrast':   text("(0.60 * structural_score + 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0)) DESC"),
+    'discovery':  text("(structural_score - text_similarity) DESC"),
+    'resonance':  text("(0.60 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.20 * structural_score) DESC"),
+}
+
+VALID_SORTS = set(SORT_STRATEGIES.keys())
 
 
-def _apply_filters(query, *, bridge_type=None, min_score=None, max_score=None):
+def _base_bridge_query(db: Session, sort: str = 'default'):
+    """Start a StyleBridge query with configurable sort strategy."""
+    order = SORT_STRATEGIES.get(sort, SORT_STRATEGIES['default'])
+    return db.query(StyleBridge).order_by(order)
+
+
+def _apply_filters(query, *, bridge_type=None, min_score=None, max_score=None,
+                   temporal_type=None, crossing_type=None, connection_mode=None,
+                   primary_axis=None,
+                   shared_function=None):
     """Apply optional type and score filters to a bridge query."""
     if bridge_type:
         query = query.filter(StyleBridge.bridge_type == bridge_type)
     if min_score is not None:
-        query = query.filter(StyleBridge.bridge_score >= min_score)
+        query = query.filter(_COMPOSITE_SQL >= min_score)
     if max_score is not None:
-        query = query.filter(StyleBridge.bridge_score <= max_score)
+        query = query.filter(_COMPOSITE_SQL <= max_score)
+    if temporal_type:
+        query = query.filter(StyleBridge.temporal_type == temporal_type)
+    if crossing_type:
+        query = query.filter(StyleBridge.crossing_type == crossing_type)
+    if connection_mode:
+        query = query.filter(StyleBridge.connection_mode == connection_mode)
+    if primary_axis:
+        query = query.filter(StyleBridge.primary_axis == primary_axis)
+    if shared_function:
+        query = query.filter(
+            text("shared_attributes::jsonb -> 'social_function' @> :fn_json").bindparams(fn_json=json.dumps([shared_function]))
+        )
+
     return query
 
 
@@ -224,7 +326,7 @@ def get_bridges_for_product(
 
     total = base.count()
     bridges = (
-        base.order_by(StyleBridge.bridge_score.desc())
+        base.order_by(_COMPOSITE_SQL.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -245,6 +347,12 @@ def get_top_bridges(
     max_score: float | None = None,
     source_platform: str | None = None,
     target_platform: str | None = None,
+    temporal_type: str | None = None,
+    crossing_type: str | None = None,
+    connection_mode: str | None = None,
+    primary_axis: str | None = None,
+    shared_function: str | None = None,
+    sort: str = 'default',
     limit: int = 20,
     offset: int = 0,
 ) -> BridgeListResponse:
@@ -255,10 +363,9 @@ def get_top_bridges(
     that connect the two (in either direction, since canonical ordering
     is by ID not platform).
     """
-    query = _base_bridge_query(db)
-    query = _apply_filters(
-        query, bridge_type=bridge_type, min_score=min_score, max_score=max_score
-    )
+    query = _base_bridge_query(db, sort=sort)
+    query = _apply_filters(query, bridge_type=bridge_type, min_score=min_score, max_score=max_score,  temporal_type=temporal_type, crossing_type=crossing_type, connection_mode=connection_mode, primary_axis=primary_axis, shared_function=shared_function)
+
 
     # Platform filtering requires joining Product
     if source_platform or target_platform:
@@ -339,14 +446,14 @@ def get_bridge_stats(db: Session) -> BridgeStats:
     total connected products."""
     total = db.query(func.count(StyleBridge.id)).scalar() or 0
 
-    # Counts by type
+    # Counts by type (use text_similarity as representative score for stats)
     type_rows = (
         db.query(
             StyleBridge.bridge_type,
             func.count(StyleBridge.id),
-            func.avg(StyleBridge.bridge_score),
-            func.min(StyleBridge.bridge_score),
-            func.max(StyleBridge.bridge_score),
+            func.avg(StyleBridge.text_similarity),
+            func.min(StyleBridge.text_similarity),
+            func.max(StyleBridge.text_similarity),
         )
         .group_by(StyleBridge.bridge_type)
         .all()
@@ -374,7 +481,7 @@ def get_bridge_stats(db: Session) -> BridgeStats:
         .scalar()
     ) or 0
 
-    # Score histogram (10 buckets from 0.0 to 1.0)
+    # Score histogram (10 buckets from 0.0 to 1.0, using text_similarity)
     bucket_size = 0.1
     histogram = []
     for i in range(10):
@@ -383,8 +490,8 @@ def get_bridge_stats(db: Session) -> BridgeStats:
         count = (
             db.query(func.count(StyleBridge.id))
             .filter(
-                StyleBridge.bridge_score >= lo,
-                StyleBridge.bridge_score < hi if i < 9 else StyleBridge.bridge_score <= hi,
+                StyleBridge.text_similarity >= lo,
+                StyleBridge.text_similarity < hi if i < 9 else StyleBridge.text_similarity <= hi,
             )
             .scalar()
         ) or 0
@@ -448,7 +555,7 @@ def get_modern_echoes(
 
     total = query.count()
     bridges = (
-        query.order_by(StyleBridge.bridge_score.desc())
+        query.order_by(_COMPOSITE_SQL.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -490,7 +597,7 @@ def get_style_ancestry(
 
     total = query.count()
     bridges = (
-        query.order_by(StyleBridge.bridge_score.desc())
+        query.order_by(_COMPOSITE_SQL.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -513,8 +620,7 @@ def get_style_siblings(
 ) -> BridgeListResponse:
     """Items with the most shared structural attributes, regardless of era.
 
-    Ordered by structural_score (Fashionpedia taxonomy overlap)
-    rather than overall bridge_score.
+    Ordered by structural_score (Fashionpedia taxonomy overlap).
     """
     query = db.query(StyleBridge).filter(
         or_(

@@ -1,13 +1,13 @@
 # Vintage Vestige — Project State
 
-**As of: 2026-02-25**
+**As of: 2026-03-07**
 **Audited by: Claude Code (codebase + live DB queries)**
 
 ---
 
 ## Executive Summary
 
-Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and style bridges. The **data layer, intelligence layer, and API layer are built and working**. The **frontend has layout, types, search components, and 7 of 10 bridge components built**. Deployment has not started.
+Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and style bridges. The **data layer, intelligence layer, API layer, and frontend are all built and working**. All 4,234 products are enriched and embedded. **Bridge recomputation is in progress** — once complete, a new 6-dimensional bridge classifier will populate temporal_type, crossing_type, connection_mode, primary_axis, secondary_axis, and contrast_pair on every bridge. A new Social Function Explorer API enables browsing products by social function across eras and cultures.
 
 ---
 
@@ -17,21 +17,25 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 
 | Component | Status | Files | Lines |
 |-----------|--------|-------|-------|
-| PostgreSQL ORM (Product, StyleBridge) | Working | [storage/database.py](storage/database.py) | 127 |
-| Qdrant vector client | Working | [storage/vector_db.py](storage/vector_db.py) | 137 |
+| Supabase PostgreSQL + pgvector ORM (Product, StyleBridge) | Working | [storage/database.py](storage/database.py) | ~133 |
+| pgvector search module | Working | [storage/vector_search.py](storage/vector_search.py) | ~92 |
+| Supabase Storage helper | Working | [storage/image_storage.py](storage/image_storage.py) | ~35 |
 | Bridge query library | Working | [analysis/bridge_queries.py](analysis/bridge_queries.py) | 540 |
 | Fashionpedia taxonomy | Working | [enrichment/fashionpedia_taxonomy.py](enrichment/fashionpedia_taxonomy.py) | 678 |
 | Data loaders (Fashionpedia, Met, Smithsonian) | Working | [load_data/](load_data/) | ~4 scripts |
 
-**Database state (live query 2026-02-22):**
-- `products` table: **866 rows** (fashionpedia: 500, met_museum: 200, smithsonian: 166)
-- `style_bridges` table: **7,324 rows** (5 types, scores 0.30–0.93)
-- All 866 products enriched (`enriched_at IS NOT NULL`)
-- All 866 have `embedded_at` set (backfilled 2026-02-22)
+**Database state (Supabase, 2026-03-07):**
+- `products` table: **4,234 rows** (va_museum: 1,856, fashionpedia: 1,000, smithsonian: 778, met_museum: 600)
+- `style_bridges` table: **being recomputed** (`compute_bridges.py --rebuild` running)
+- All products have HTTP URLs for images (Supabase Storage)
+- **ALL 4,234 products enriched** with core_vibes and bridge_vibes
+- **ALL 4,234 text embeddings** + **ALL 4,234 image embeddings** in pgvector columns
+- StyleBridge has 6 new classification columns (pending classifier run)
 
-**Qdrant state (live query 2026-02-22):**
-- `vintage_text`: 866 points, 384-dim, cosine, 21 payload fields including `platform` + `fp_category`
-- `vintage_images`: 866 points, 512-dim, cosine, 28 payload fields (backfilled 2026-02-22 to match vintage_text)
+**Vector storage:**
+- `text_embedding vector(384)` column on products table (HNSW index, cosine)
+- `image_embedding vector(512)` column on products table (HNSW index, cosine)
+- No separate vector database — everything in Supabase PostgreSQL
 
 ### 2. Intelligence Layer — WORKING
 
@@ -39,7 +43,7 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 |-----------|--------|-------|-------|
 | Claude enrichment (sync + async) | Working | [enrichment/claude.py](enrichment/claude.py) | 571 |
 | Embedding generation (CLIP + MiniLM) | Working | [embeddings/generator.py](embeddings/generator.py), [embeddings/models.py](embeddings/models.py) | 275 |
-| Bridge computation (3-pass) | Working | [analysis/compute_bridges.py](analysis/compute_bridges.py) | 615 |
+| Bridge computation (2-pass) | Working | [analysis/compute_bridges.py](analysis/compute_bridges.py) | 615 |
 | Narrative generation (async) | Working | [analysis/generate_narratives.py](analysis/generate_narratives.py) | 168 |
 | Bridge HTML report | Working | [tests/data_integrity/bridge_report.py](tests/data_integrity/bridge_report.py) | 383 |
 
@@ -48,23 +52,26 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 - Text embeddings: `all-MiniLM-L6-v2` (384-dim)
 - Image embeddings: `clip-ViT-B-32` (512-dim)
 - Bridge score: `0.40*text + 0.30*image + 0.30*structural` (with image), `0.55*text + 0.45*structural` (without)
-- Only **22/7,324 bridges** have narratives generated (3 need to be batch-run)
+- **6-dimensional bridge classification**: temporal_type, crossing_type, connection_mode (contrast/resonance/affinity), primary_axis, secondary_axis, contrast_pair
+- **9 opposition pairs** for contrast detection across 4 aesthetic axes (volume, ornament, body, register)
+- Bridges being recomputed — narratives will be regenerated with mode-specific hints
 
 ### 3. API Layer — IMPLEMENTED
 
 | Component | Status | Files | Details |
 |-----------|--------|-------|---------|
-| FastAPI main | Working | [api/main.py](api/main.py) | CORS, 4 router includes, /health |
-| Dependencies | Working | [api/dependencies.py](api/dependencies.py) | get_vector_db, get_embedding_generator (lru_cache singletons) |
-| Router: search | Working | [api/routers/search.py](api/routers/search.py) | POST /search/text (with Qdrant filters), POST /search/image (base64 + CLIP) |
+| FastAPI main | Working | [api/main.py](api/main.py) | CORS, 5 router includes, /health |
+| Dependencies | Working | [api/dependencies.py](api/dependencies.py) | get_vector_search, get_embedding_generator (Session-based + lru_cache) |
+| Router: search | Working | [api/routers/search.py](api/routers/search.py) | POST /search/text (pgvector + SQL filters), POST /search/image (base64 + CLIP) |
 | Router: products | Working | [api/routers/products.py](api/routers/products.py) | 5 endpoints (detail, bridges, modern-echoes, style-ancestry, style-siblings) |
-| Router: bridges | Working | [api/routers/bridges.py](api/routers/bridges.py) | 4 endpoints (top, stats, between, detail) |
+| Router: bridges | Working | [api/routers/bridges.py](api/routers/bridges.py) | 4 endpoints (top with 6 dimension filters + shared_function, stats, between, detail) |
+| Router: explore | **NEW** | [api/routers/explore.py](api/routers/explore.py) | 2 endpoints (list functions, function detail with culture/era filters) |
 | Router: filters | Working | [api/routers/filters.py](api/routers/filters.py) | 1 endpoint (8 SELECT DISTINCT queries) |
-| Schemas | Working | [api/schemas/](api/schemas/) | 13 Pydantic v2 models across 4 files + __init__.py |
+| Schemas | Working | [api/schemas/](api/schemas/) | 16 Pydantic v2 models across 5 files + __init__.py |
 
-**13 endpoints, 13 schemas.** Run with `venv/bin/uvicorn api.main:app --reload`. Auto-generated docs at `/docs` (Swagger) and `/redoc`.
+**16 endpoints, 16 schemas.** Run with `venv/bin/uvicorn api.main:app --reload`. Auto-generated docs at `/docs` (Swagger) and `/redoc`.
 
-### 4. Frontend Layer — IN PROGRESS (Phase 3C.8 next)
+### 4. Frontend Layer — COMPLETE
 
 | Component | Status | Files |
 |-----------|--------|-------|
@@ -72,21 +79,20 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 | **Phase 2: Types & API** | **DONE** | types/index.ts (Product + 6 bridge types), api.ts (12 functions), constants.ts |
 | **Phase 3A: Layout** | **DONE** | Header.tsx (sticky, mobile hamburger), Footer.tsx (3-col), root layout wired |
 | **Phase 3B: Search** | **DONE** | SearchBar.tsx (debounced, 2 variants), ImageUpload.tsx (drag-drop + base64), ProductCard.tsx (image, badges, score) |
-| **Phase 3C: Bridge components** | **7/10 DONE** | PlatformBadge, EraBadge, ScoreCircle, BridgeConnector, AttributePill, NarrativeBlock, ScoreBreakdown |
-| **Phase 3C: Remaining** | **NEXT** | BridgeCardFull.tsx, BridgeCardCompact.tsx (empty stubs), index.ts barrel |
-| Phase 3D: Utility components | Pending | Skeleton.tsx, ImageWithFallback.tsx |
-| Phase 4: Pages | Pending | Home rebuild, Search, Product detail, About |
-| Phase 5: Polish | Pending | Error boundaries, loading states, SEO, accessibility |
+| **Phase 3C: Bridge components** | **DONE** | PlatformBadge, EraBadge, ScoreCircle, BridgeConnector, AttributePill, NarrativeBlock, ScoreBreakdown, BridgeCardFull, BridgeCardCompact, index.ts barrel |
+| **Phase 3D: Utility components** | **DONE** | Skeleton.tsx (shimmer loader), ImageWithFallback.tsx (next/Image with gradient fallback) |
+| **Phase 4: Pages** | **DONE** | Home (hero + how-it-works + featured bridges), Search (text search + filters + grid), Product detail (hero + ancestry + siblings), About |
+| **Phase 5: Polish** | **DONE** | Error boundaries (global + page-level), loading states (home skeleton), SEO (generateMetadata, OG images), accessibility (aria-labels, roles, touch targets), scroll snap, ISR caching |
 
 **Stack:** Next.js 16.1.6, React 19.2.3, Tailwind CSS 4, TypeScript 5, lucide-react icons.
 
-**Design system aligned to Figma:** Cormorant Garamond serif, flat color tokens (terracotta, gold, sage, cream, charcoal), custom shadows/radii. All UI primitives updated. `npm run build` and `npx tsc --noEmit` pass clean.
+**Build status:** `npx tsc --noEmit` and `npm run build` both pass clean. All 4 routes compile:
+- `/` — static, revalidates every hour (ISR)
+- `/about` — static
+- `/search` — static (client-side data fetching)
+- `/product/[id]` — dynamic (server-rendered per request)
 
-**API client complete:** All 12 backend endpoints callable (4 search/product + 8 bridge functions). Types mirror backend Pydantic schemas exactly.
-
-**Search components complete:** SearchBar (debounced, large/compact), ImageUpload (drag-drop, base64 conversion, preview), ProductCard (union type for SearchResult|ProductSummary, next/Image with fill, platform badge, era badge, match %).
-
-**Bridge primitives complete (7/10):** PlatformBadge, EraBadge, ScoreCircle, BridgeConnector, AttributePill, NarrativeBlock, ScoreBreakdown. BridgeCardFull and BridgeCardCompact are empty stubs.
+**Not yet implemented:** Image search frontend (backend API exists at `POST /search/image`).
 
 ### 5. Testing — WORKING
 
@@ -98,7 +104,7 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 | Data integrity tests | Complete | [tests/data_integrity/](tests/data_integrity/) (2 test files) |
 | Search quality tests | Complete | [tests/search_quality/](tests/search_quality/) (1 test file) |
 
-**156 tests, ~43s runtime.** Unit tests need no external services; integration/data_integrity need Postgres + Qdrant.
+Unit tests need no external services; integration/data_integrity need Supabase PostgreSQL (pgvector).
 
 ### 6. Scrapers — PARTIAL
 
@@ -130,17 +136,18 @@ The Etsy scraper does real HTTP scraping with BeautifulSoup. Depop returns hardc
 
 | Plan Item | Planned In | Status |
 |-----------|-----------|--------|
-| 866 products across 3 platforms | technical_plan.md | **Done** |
-| Claude enrichment for all products | PHASE_1_IMPLEMENTATION.md | **Done** (866/866) |
-| Qdrant payloads with platform + fp_category | PHASE_1_IMPLEMENTATION.md (Priority 1) | **Done** |
-| StyleBridge model + compute pipeline | PHASE_1_IMPLEMENTATION.md (Priority 2-3) | **Done** (7,324 bridges) |
-| Narrative generation for bridges | PHASE_1_IMPLEMENTATION.md (Priority 4) | **Code done, only 22/7324 run** |
-| Bridge query utilities | PHASE_1_IMPLEMENTATION.md (Priority 5) | **Done** (bridge_queries.py) |
-| FastAPI endpoints | PHASE_1_IMPLEMENTATION.md (Priority 6) | **Done** (13 endpoints, 13 schemas, implemented 2026-02-21/22) |
-| Next.js frontend | PHASE_1_IMPLEMENTATION.md (Priority 7) | **In progress** (Phases 1-3A done, 3B search done, 3C bridge 7/10 done; pages pending) |
-| Figma design system | FIGMA_DESIGN_HANDOFF.md | **Populated in Figma** (5 pages captured 2026-02-23; user refining) |
-| Frontend implementation plan | FRONTEND_IMPLEMENTATION_PLAN.md | **Complete** (5 phases, 41 files, mobile-first) |
+| 4,234 products across 4 platforms | functional-hopping-barto.md | **Done** |
+| Claude enrichment for all products | PHASE_1_IMPLEMENTATION.md | **Done** (4,234/4,234) |
+| Embeddings for all products | PHASE_1_IMPLEMENTATION.md (Priority 1) | **Done** (4,234 text + 4,234 image) |
+| StyleBridge model + compute pipeline | PHASE_1_IMPLEMENTATION.md (Priority 2-3) | **Recomputing** (`--rebuild` running) |
+| 6-dimensional bridge classification | .claude/plans/zazzy-seeking-falcon.md | **Code done, pending run** (classifier + tests written) |
+| Social Function Explorer API | docs/plans/FRONTEND_UPDATES.md | **Backend done** (2 new endpoints + shared_function filter) |
+| Narrative generation for bridges | PHASE_1_IMPLEMENTATION.md (Priority 4) | **Pending** (will regenerate with mode-specific hints) |
+| Bridge query utilities | PHASE_1_IMPLEMENTATION.md (Priority 5) | **Done** (bridge_queries.py, now with 6 dimension filters) |
+| FastAPI endpoints | PHASE_1_IMPLEMENTATION.md (Priority 6) | **Done** (16 endpoints, 16 schemas) |
+| Next.js frontend | PHASE_1_IMPLEMENTATION.md (Priority 7) | **Complete** (all 5 phases done, build passes, 4 routes compile) |
+| Frontend updates (explorer, bridge badges) | docs/plans/FRONTEND_UPDATES.md | **Planned** |
+| Supabase migration | .claude/plans/zazzy-seeking-falcon.md | **Complete** (all 20 steps done 2026-03-05) |
+| Knowledge Graph | docs/plans/KG_IMPLEMENTATION/ | **Planned** (6 phase docs, prerequisites partly done) |
 | Deployment (Railway + Vercel) | implement_full_plan.md (Week 3) | **Not started** |
-| Blog post + portfolio | implement_full_plan.md (Week 4) | **Draft exists** |
-| IIT 4.0 integration | IIT_4.0_INTEGRATION_PLAN.md | **Planned only** (future epic) |
-| CNN visual attributes | CNN_INTEGRATION_SUMMARY.md | **Planned only** (future epic) |
+| IIT 4.0 integration | IIT_4.0_INTEGRATION_PLAN.md | **Planned only** |

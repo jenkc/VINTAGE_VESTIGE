@@ -1,8 +1,8 @@
 """
 Unit tests for bridge computation logic.
 
-Tests structural scoring, temporal classification, and date extraction
-without requiring database or Qdrant connections.
+Tests structural scoring, temporal classification (named-era),
+and revival threshold without requiring database or Qdrant connections.
 """
 import pytest
 import sys
@@ -13,7 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from analysis.compute_bridges import (
     compute_structural_score,
     classify_temporal_type,
-    extract_approximate_year,
+    parse_decade_to_year,
+    REVIVAL_STRUCTURAL_THRESHOLD,
+    CONTINUATION_DISTANCE,
 )
 
 
@@ -32,7 +34,7 @@ class MockProduct:
             'opening_type': None, 'garment_parts': None,
             'decorations': None, 'textile_finishing': None,
             'year': None, 'decade': None, 'object_date': None,
-            'era': None, 'vibe': None,
+            'era': None, 'vibe': None, 'culture': None,
         }
         defaults.update(kwargs)
         for k, v in defaults.items():
@@ -102,90 +104,136 @@ class TestStructuralScore:
 
 
 # ---------------------------------------------------------------------------
-# Temporal classification
+# Temporal classification (named-era)
 # ---------------------------------------------------------------------------
 
 class TestTemporalClassification:
-    """classify_temporal_type correctness."""
+    """classify_temporal_type uses named eras with platform fallback."""
 
-    def test_cross_era_by_date(self):
-        result = classify_temporal_type('met_museum', 'fashionpedia', 1860, 2020)
-        assert result == 'cross_era'
+    def test_different_eras_returns_transmission(self):
+        result = classify_temporal_type('Victorian', 'Contemporary', 'met_museum', 'fashionpedia')
+        assert result == 'transmission'
 
-    def test_near_era_by_date(self):
-        result = classify_temporal_type('met_museum', 'met_museum', 1900, 1920)
-        assert result == 'near_era'
+    def test_same_era_no_decades_returns_none(self):
+        result = classify_temporal_type('Art Deco', 'Art Deco', 'met_museum', 'smithsonian')
+        assert result is None
 
-    def test_same_era_by_date(self):
-        result = classify_temporal_type('met_museum', 'met_museum', 1860, 1865)
-        assert result == 'same_era'
+    def test_same_era_close_decades_returns_none(self):
+        result = classify_temporal_type(
+            'Victorian', 'Victorian', 'met_museum', 'smithsonian',
+            '1860s', '1870s',
+        )
+        assert result is None
 
-    def test_platform_fallback_cross_era(self):
-        """Historical vs modern platform → cross_era when no dates."""
-        result = classify_temporal_type('met_museum', 'fashionpedia', None, None)
-        assert result == 'cross_era'
+    def test_same_era_far_decades_returns_continuation(self):
+        result = classify_temporal_type(
+            'Victorian', 'Victorian', 'met_museum', 'smithsonian',
+            '1840s', '1890s',
+        )
+        assert result == 'continuation'
 
-    def test_platform_fallback_same_era(self):
-        """Same platform type → same_era when no dates."""
-        result = classify_temporal_type('met_museum', 'smithsonian', None, None)
-        assert result == 'same_era'
+    def test_case_insensitive(self):
+        result = classify_temporal_type('victorian', 'VICTORIAN', 'met_museum', 'smithsonian')
+        assert result is None
 
-    def test_boundary_cross_era(self):
-        """Exactly 31 years apart → cross_era."""
-        result = classify_temporal_type('a', 'b', 1900, 1931)
-        assert result == 'cross_era'
+    def test_whitespace_stripped(self):
+        result = classify_temporal_type('  Art Deco ', 'Art Deco', 'met_museum', 'smithsonian')
+        assert result is None
 
-    def test_boundary_near_era(self):
-        """Exactly 11 years apart → near_era."""
-        result = classify_temporal_type('a', 'b', 1900, 1911)
-        assert result == 'near_era'
+    def test_platform_fallback_historical_vs_modern(self):
+        """Historical vs modern platform → transmission when no eras."""
+        result = classify_temporal_type(None, None, 'met_museum', 'fashionpedia')
+        assert result == 'transmission'
 
-    def test_boundary_same_era(self):
-        """Exactly 10 years apart → same_era."""
-        result = classify_temporal_type('a', 'b', 1900, 1910)
-        assert result == 'same_era'
+    def test_platform_fallback_modern_vs_historical(self):
+        """Reversed direction: modern vs historical → transmission."""
+        result = classify_temporal_type(None, None, 'fashionpedia', 'smithsonian')
+        assert result == 'transmission'
+
+    def test_platform_fallback_same_type_returns_none(self):
+        """Same platform type → None when no eras."""
+        result = classify_temporal_type(None, None, 'met_museum', 'smithsonian')
+        assert result is None
+
+    def test_one_era_missing_uses_platform_fallback(self):
+        """If only one product has an era, fall back to platform."""
+        result = classify_temporal_type('Victorian', None, 'met_museum', 'fashionpedia')
+        assert result == 'transmission'
 
 
 # ---------------------------------------------------------------------------
-# Date extraction
+# Revival classification
 # ---------------------------------------------------------------------------
 
-class TestDateExtraction:
-    """extract_approximate_year correctness."""
+class TestRevivalClassification:
+    """Revival threshold constant and logic."""
 
-    def test_direct_year(self):
-        p = MockProduct(year=1865)
-        assert extract_approximate_year(p) == 1865
+    def test_threshold_value(self):
+        """REVIVAL_STRUCTURAL_THRESHOLD should be 0.50."""
+        assert REVIVAL_STRUCTURAL_THRESHOLD == 0.50
 
-    def test_decade_parsing(self):
-        p = MockProduct(decade='1870s')
-        assert extract_approximate_year(p) == 1875
+    def test_threshold_is_reasonable(self):
+        """Threshold should be between 0.3 and 0.8 — high enough to mean
+        real structural overlap, not so high that nothing qualifies."""
+        assert 0.3 <= REVIVAL_STRUCTURAL_THRESHOLD <= 0.8
 
-    def test_object_date_range(self):
-        p = MockProduct(object_date='1860-1870')
-        assert extract_approximate_year(p) == 1865
 
-    def test_object_date_circa(self):
-        p = MockProduct(object_date='ca. 1920')
-        assert extract_approximate_year(p) == 1920
+# ---------------------------------------------------------------------------
+# Decade parsing
+# ---------------------------------------------------------------------------
 
-    def test_object_date_bare_year(self):
-        p = MockProduct(object_date='1955')
-        assert extract_approximate_year(p) == 1955
+class TestDecadeParsing:
+    """parse_decade_to_year correctness."""
 
-    def test_object_date_century(self):
-        p = MockProduct(object_date='late 19th century')
-        assert extract_approximate_year(p) == 1880
+    def test_standard_decade(self):
+        assert parse_decade_to_year('1870s') == 1875
 
-    def test_era_fallback(self):
-        p = MockProduct(era='Victorian')
-        assert extract_approximate_year(p) == 1870
+    def test_modern_decade(self):
+        assert parse_decade_to_year('2020s') == 2025
 
-    def test_no_date_returns_none(self):
-        p = MockProduct()
-        assert extract_approximate_year(p) is None
+    def test_none_returns_none(self):
+        assert parse_decade_to_year(None) is None
 
-    def test_priority_year_over_decade(self):
-        """Direct year takes priority over decade."""
-        p = MockProduct(year=1920, decade='1930s')
-        assert extract_approximate_year(p) == 1920
+    def test_empty_string_returns_none(self):
+        assert parse_decade_to_year('') is None
+
+    def test_whitespace_stripped(self):
+        assert parse_decade_to_year('  1920s  ') == 1925
+
+    def test_invalid_returns_none(self):
+        assert parse_decade_to_year('unknown') is None
+
+
+# ---------------------------------------------------------------------------
+# Cross-time classification
+# ---------------------------------------------------------------------------
+
+class TestContinuationClassification:
+    """continuation: same era, decades 20+ years apart."""
+
+    def test_distance_constant(self):
+        assert CONTINUATION_DISTANCE == 20
+
+    def test_exactly_20_years_returns_continuation(self):
+        """20 years is >= 20, should be continuation."""
+        result = classify_temporal_type(
+            'Victorian', 'Victorian', 'met_museum', 'smithsonian',
+            '1850s', '1870s',  # 1855 vs 1875 = 20
+        )
+        assert result == 'continuation'
+
+    def test_under_20_years_returns_none(self):
+        """Under 20 years → None."""
+        result = classify_temporal_type(
+            'Victorian', 'Victorian', 'met_museum', 'smithsonian',
+            '1860s', '1870s',  # 1865 vs 1875 = 10
+        )
+        assert result is None
+
+    def test_different_eras_still_transmission(self):
+        """transmission takes precedence regardless of decade distance."""
+        result = classify_temporal_type(
+            'Victorian', 'Art Deco', 'met_museum', 'smithsonian',
+            '1870s', '1920s',
+        )
+        assert result == 'transmission'

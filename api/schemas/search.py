@@ -1,8 +1,7 @@
 """Pydantic schemas for search endpoints."""
-
 from __future__ import annotations
-
-from pydantic import BaseModel, Field
+import json
+from pydantic import BaseModel, field_validator, Field
 
 
 class SearchFilters(BaseModel):
@@ -72,6 +71,17 @@ class SearchResult(BaseModel):
     culture: str | None = None
     object_date: str | None = None
     price: float | None = None
+    
+    @field_validator("style_tags", "colors", mode="before")
+    @classmethod
+    def parse_json_lists(cls, v):
+        """Handle JSON strings coming from SQL (vs lists from old Qdrant)."""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v if isinstance(v, list) else []
 
 
 class SearchResponse(BaseModel):

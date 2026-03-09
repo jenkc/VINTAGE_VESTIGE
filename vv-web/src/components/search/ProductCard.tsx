@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import ImageWithFallback from "@/components/ui/ImageWithFallback";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { PLATFORM_COLORS, PLATFORM_NAMES } from "@/styles/theme";
@@ -42,8 +42,8 @@ export default function ProductCard({
             {/* Image container - 3:4 ratio */}
             <div className="relative aspect-[3/4] overflow-hidden bg-cream">
                 {product.primary_image ? (
-                    <Image
-                        src={product.primary_image}
+                    <ImageWithFallback
+                        src={product.primary_image ?? ""}
                         alt={product.title}
                         fill
                         sizes="(max-width: 768px) 50vw, 25vw"

@@ -14,11 +14,23 @@ def top_bridges(
     max_score: float | None = None,
     source_platform: str | None = None,
     target_platform: str | None = None,
+    temporal_type: str | None = None,
+    crossing_type: str | None = None,
+    connection_mode: str | None = None,
+    primary_axis: str | None = None,
+    shared_function: str | None = None,
+    sort: str = 'default',
     limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    result = get_top_bridges(db, bridge_type=bridge_type, min_score=min_score, max_score=max_score, source_platform=source_platform, target_platform=target_platform, limit=limit, offset=offset)
+    result = get_top_bridges(
+        db, bridge_type=bridge_type, min_score=min_score, max_score=max_score,
+        source_platform=source_platform, target_platform=target_platform,
+        temporal_type=temporal_type, crossing_type=crossing_type,
+        connection_mode=connection_mode, primary_axis=primary_axis, shared_function=shared_function,
+        sort=sort, limit=limit, offset=offset,
+    )
     return result
 
 

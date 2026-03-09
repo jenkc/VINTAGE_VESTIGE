@@ -2,15 +2,14 @@ from datasets import load_dataset
 from storage.database import SessionLocal, Product
 import json
 import random
-import base64
 from io import BytesIO
+from storage.image_storage import upload_product_image
 
-def pil_image_to_data_url(pil_image):
-    """Convert PIL Image to data URL for storage"""
-    buffered = BytesIO()
-    pil_image.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    return f"data:image/jpeg;base64,{img_str}"
+def upload_pil_image(pil_image, storage_key):
+    """Save PIL Image to Supabase Storage, return public URL."""
+    buf = BytesIO()
+    pil_image.save(buf, format="JPEG", quality=80)
+    return upload_product_image(storage_key, buf.getvalue())
 
 def load_fashion_data(num_products=50):
     """Load fashion dataset from Hugging Face with real images"""
@@ -62,7 +61,8 @@ def load_fashion_data(num_products=50):
             # Convert to data URL for storage
             # (This embeds the image directly in the database)
             if pil_image:
-                image_data_url = pil_image_to_data_url(pil_image)
+                ex_id = f'fashion_{item.get("id", i)}'
+                image_data_url = upload_pil_image(pil_image, ex_id)
             else:
                 image_data_url = None
             

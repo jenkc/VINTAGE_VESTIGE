@@ -1,7 +1,7 @@
 """
 Smoke tests for the FastAPI API layer.
 
-Hit every endpoint against live Postgres + Qdrant and verify basic
+Hit every endpoint against live Postgres + pgvector and verify basic
 response structure. Uses FastAPI TestClient (no uvicorn needed).
 """
 import base64

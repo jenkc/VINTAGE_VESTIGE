@@ -10,16 +10,15 @@ from datasets import load_dataset
 from storage.database import SessionLocal, Product
 import json
 import random
-import base64
 from io import BytesIO
+from storage.image_storage import upload_product_image
 
 
-def pil_image_to_data_url(pil_image):
-    """Convert PIL Image to data URL for storage"""
-    buffered = BytesIO()
-    pil_image.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    return f"data:image/jpeg;base64,{img_str}"
+def upload_pil_image(pil_image, storage_key):
+    """Save PIL Image to Supabase Storage, return public URL."""
+    buf = BytesIO()
+    pil_image.save(buf, format="JPEG", quality=80)
+    return upload_product_image(storage_key, buf.getvalue())
 
 
 # Only real clothing - no watches, perfume, socks, belts, etc.
@@ -92,7 +91,7 @@ def load_vintage_data(num_products=100):
 
             # Get image
             pil_image = item.get('image')
-            image_data_url = pil_image_to_data_url(pil_image) if pil_image else None
+            image_data_url = upload_pil_image(pil_image, ext_id) if pil_image else None
 
             price = round(random.uniform(15, 120), 2)
 

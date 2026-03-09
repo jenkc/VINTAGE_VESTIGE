@@ -11,14 +11,15 @@ License: CC BY 4.0 (annotations/ontology), mixed image licenses
 
 import sys
 import os
+from storage.image_storage import upload_product_image
 
 # Ensure project root is first in path so local storage/ is found
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import requests
 import json
-import base64
 import time
+import random
 from io import BytesIO
 from PIL import Image
 from collections import defaultdict
@@ -75,20 +76,22 @@ def download_annotations():
     return data
 
 
-def download_image(url):
-    """Download image and convert to base64 data URL (400x400 JPEG)."""
+def download_image(url, storage_key):
+    """Download image, upload to Supabase Storage, return public URL."""
     try:
         resp = SESSION.get(url, timeout=15)
         if resp.status_code != 200:
             return None
         img = Image.open(BytesIO(resp.content)).convert('RGB')
         img.thumbnail((400, 400))
+
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=80)
-        encoded = base64.b64encode(buf.getvalue()).decode()
-        return f"data:image/jpeg;base64,{encoded}"
+        return upload_product_image(storage_key, buf.getvalue())
+
     except Exception:
         return None
+
 
 
 def map_annotations_to_fields(annotations):
@@ -241,7 +244,7 @@ def build_description(fields):
     return " | ".join(desc_parts) if desc_parts else None
 
 
-def load_fashionpedia(target=500):
+def load_fashionpedia(num_new=500):
     print("\n" + "=" * 60)
     print("LOADING FASHION FROM FASHIONPEDIA DATASET")
     print("=" * 60 + "\n")
@@ -273,6 +276,8 @@ def load_fashionpedia(target=500):
             fashion_images.append(img)
     print(f"With main apparel annotations: {len(fashion_images)}")
 
+    random.shuffle(fashion_images)
+
     # Check existing
     db = SessionLocal()
     existing = set(
@@ -288,7 +293,7 @@ def load_fashionpedia(target=500):
     skipped_no_fields = 0
 
     for i, img in enumerate(fashion_images):
-        if stored >= target:
+        if stored >= num_new:
             break
 
         ext_id = f"fp_{img['id']}"
@@ -309,7 +314,7 @@ def load_fashionpedia(target=500):
             continue
 
         # Download image
-        image_data = download_image(original_url)
+        image_data = download_image(original_url, ext_id)
         if not image_data:
             skipped_download_fail += 1
             continue
@@ -354,14 +359,14 @@ def load_fashionpedia(target=500):
             stored += 1
             nickname = fields.get('nickname', '')
             pattern = fields.get('textile_pattern', '')
-            print(f"  [{stored}/{target}] {title[:50]} ({nickname or pattern or ''})")
+            print(f"  [{stored}/{num_new}] {title[:50]} ({nickname or pattern or ''})")
         except Exception as e:
             db.rollback()
             print(f"  DB error: {e}")
 
         # Checkpoint every 50
         if stored % 50 == 0 and stored > 0:
-            print(f"\n  --- Checkpoint: {stored}/{target} stored ---\n")
+            print(f"\n  --- Checkpoint: {stored}/{num_new} stored ---\n")
 
     # Summary
     all_count = db.query(Product).count()
@@ -381,5 +386,5 @@ def load_fashionpedia(target=500):
 
 
 if __name__ == '__main__':
-    target = int(sys.argv[1]) if len(sys.argv) > 1 else 500
-    load_fashionpedia(target=target)
+    num_new = int(sys.argv[1]) if len(sys.argv) > 1 else 500
+    load_fashionpedia(num_new=num_new)

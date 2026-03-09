@@ -1,7 +1,329 @@
 # Vintage Vestige — Session Handoff Document
 
-**Last updated: 2026-02-25**
+**Last updated: 2026-03-07**
 **Read this first in any new Claude Code session.**
+
+---
+
+## Session Log: 2026-03-07 — Multi-Dimensional Bridge Classification + Social Function Explorer API
+
+### What Was Accomplished
+
+**Multi-Dimensional Bridge Classification (replaces `semantic_type`):**
+- Designed and implemented 6-column classification system replacing the single overloaded `semantic_type` column on StyleBridge
+- 6 new columns: `temporal_type`, `crossing_type`, `connection_mode`, `primary_axis`, `secondary_axis`, `contrast_pair`
+- Started with 5 connection modes (citation/echo/parallel/contrast/kinship), then **simplified to 3 sharp modes**: contrast, resonance, affinity — after critique identified echo was too broad, parallel too rare, and citation couldn't detect intentionality
+- 9 opposition pairs across 4 aesthetic axes (volume, ornament, body, register) for contrast detection
+- Classifier script built, tested, and ready to run post-bridge-computation
+
+**Social Function Explorer API:**
+- New `/explore` router with 2 endpoints for browsing products by social function
+- `shared_function` filter added to existing `/bridges/top` endpoint for "Same Question, Different Answers" view
+- Uses PostgreSQL `jsonb` containment operators for efficient JSON array querying
+
+**Narrative Pipeline Update:**
+- `generate_bridge_narrative_async()` now accepts `connection_mode` and `contrast_pair`
+- Mode-specific prompt hints: contrast bridges explain tension, resonance bridges explain echoes, affinity bridges use existing generic prompt
+- `generate_narratives.py` fetches and threads the new fields through
+
+**Test Updates:**
+- Updated `test_bridge_classification.py` for 3-mode system (deleted echo/parallel/kinship tests, added resonance/affinity/contrast-beats-resonance tests)
+
+**KG Plan Updates:**
+- Updated 5 KG implementation plan docs to reflect 6-dimension model
+
+### Files Created This Session
+
+| File | Purpose |
+|------|---------|
+| `scripts/classify_bridge_dimensions.py` | Multi-dimensional bridge classifier (330 lines) |
+| `tests/unit/test_bridge_classification.py` | Unit tests for classifier (414 lines) |
+| `analysis/product_queries.py` | Social function query helpers (JSON containment queries) |
+| `api/routers/explore.py` | Explore router (`/explore/functions`, `/explore/functions/{fn}`) |
+| `api/schemas/explore.py` | Pydantic schemas for explore endpoints |
+| `docs/plans/FRONTEND_UPDATES.md` | Proposed frontend changes for new API endpoints |
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `storage/database.py` | Added 6 new columns to StyleBridge model |
+| `analysis/bridge_queries.py` | Added 6 fields to BridgeResult/build/filters + `shared_function` filter with jsonb query + `text` import |
+| `api/routers/bridges.py` | Added `temporal_type`, `crossing_type`, `connection_mode`, `primary_axis`, `shared_function` query params |
+| `api/schemas/bridge.py` | Added 6 new optional fields to BridgeResult Pydantic schema |
+| `enrichment/claude.py` | Added `connection_mode`/`contrast_pair` params to `generate_bridge_narrative_async()` with mode hint logic |
+| `analysis/generate_narratives.py` | Fetches `connection_mode`/`contrast_pair` from bridges, passes through to enricher |
+| `api/main.py` | Registered explore router |
+| `docs/plans/KG_IMPLEMENTATION/KG_PHASE1_SCHEMA_DESIGN.md` | Replaced semantic_type with 6-dimension model |
+| `docs/plans/KG_IMPLEMENTATION/KG_PHASE0_PREREQUISITES.md` | Updated classifier reference |
+| `docs/plans/KG_IMPLEMENTATION/KG_PHASE4_EXPORT_SCRIPTS.md` | Updated export to 6 columns |
+| `docs/plans/KG_IMPLEMENTATION/KG_PHASE7_FRONTEND.md` | Updated color coding to 3 modes |
+| `docs/plans/KG_IMPLEMENTATION/KG_DECISIONS.md` | Rewrote KGD-005 for 6-dimension model |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| 6 orthogonal dimensions over single `semantic_type` | Can't filter "all contrast bridges that are also cross-cultural transmissions" with a single column |
+| 3 connection modes (contrast/resonance/affinity) over 5 | Echo was "not kinship" rather than something specific; parallel was too rare; citation can't detect intentionality from embeddings |
+| Contrast priority over resonance | Opposing vibes on same structural axis is more interesting than high text similarity |
+| Post-hoc classifier (not integrated into compute_bridges) | Bridge computation is already complex; classification is a separate concern that runs after |
+| Include bridge_vibes in contrast/resonance detection | bridge_vibes are "secondary aesthetic tendencies" — excluding them misses valid oppositions |
+| New `/explore` router (not extending `/products`) | Social function exploration is conceptually different from single-product CRUD; will grow with technique/motif explorers |
+| `jsonb` containment for social_function queries | `social_function::jsonb @> '["wedding"]'::jsonb` is efficient and indexable |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `classify_crossing_type` signature had 3 args but tests expected 2 | Dropped `bridge` param — function doesn't use it |
+| Mode hint code placed inside f-string | Moved logic above the f-string, interpolate `{mode_hint}` variable |
+| `bindparams()` closing paren misaligned in shared_function filter | Fixed indentation so bindparams closes before filter |
+
+### What's Left Open
+
+- **`compute_bridges.py --rebuild` still running** — classifier can't run until it finishes
+- **Classifier dry-run** — `venv/bin/python scripts/classify_bridge_dimensions.py --dry-run` (pending bridge completion)
+- **Generate narratives** — after classifier populates connection_mode, new narratives will get mode-specific hints
+- **Supabase ALTER TABLE** — 6 new columns added to style_bridges (done this session)
+- **Frontend updates** — documented in `docs/plans/FRONTEND_UPDATES.md`, not yet implemented
+
+RESUME POINT: Wait for `compute_bridges.py` to finish → run classifier dry-run → review distribution → full classifier run → generate narratives. Frontend updates are planned but not started.
+
+---
+
+## Session Log: 2026-03-06 — Async Enrichment Pipeline + Embedding Script Fixes + Bug Fixes
+
+### What Was Accomplished
+
+**Bug Fixes:**
+- **f-string bug in `enrichment/claude.py`** — `{"term": confidence_float}` inside f-strings on lines 332 and 405 was being parsed as a format specifier. Fixed by doubling braces: `{{"term": confidence_float}}`. This was causing most enrichment calls to fail (only 70/3298 succeeded before fix).
+- **Stale print/docstrings in `analysis/compute_bridges.py`** — Updated "3 passes" → "2 passes" after the cross_category pass was removed in a prior session. Updated module docstring, function docstring, and runtime print.
+
+**New Enrichment Scripts:**
+- **`enrichment/enrich_async.py`** — Async concurrent enrichment using `asyncio.Semaphore` for bounded concurrency. 5x speedup over sequential. Supports `--limit=N`, `--concurrency=N`, `--yes`. Prints progress every 10 completions with rate and ETA. Does NOT generate embeddings (user runs those separately).
+- **`enrichment/enrich_batch.py`** — Message Batches API enrichment (50% cost reduction). Submit/poll workflow. Ultimately user chose async approach for real-time feedback.
+
+**Embedding Script Updates:**
+- **`embeddings/generator.py`** — `generate_embeddings_for_database()` now uses `enriched_text` (with fallback to title+description) instead of raw title+description. Filter changed from `embedded_at == None` to `enriched_at != None, text_embedding == None`. Also generates image embeddings inline if missing.
+
+**Enrichment Progress:**
+- User ran multiple batches of 300 products using `enrich_async.py`
+- Enrichment count: 866 → **1,490** (624 new products enriched this session)
+- Text embeddings: 866 → **1,190** (324 new)
+- 624 products now have `core_vibes` (new vibe vocabulary fields)
+
+**Architecture Discussion:**
+- Discussed multimodal embedding fusion approaches (early fusion, concatenation, learned projection)
+- Decided to keep current late fusion approach (separate text + image vectors, combined at bridge scoring) — better for fashion domain because "looks similar" and "means similar" are different signals
+
+### Files Created This Session
+
+| File | Purpose |
+|------|---------|
+| `enrichment/enrich_async.py` | Async concurrent enrichment (asyncio, semaphore-bounded) |
+| `enrichment/enrich_batch.py` | Message Batches API enrichment (50% cost, submit/poll) |
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `enrichment/claude.py` | Fixed f-string bug: `{}` → `{{}}` for vibe_scores on lines 332, 405 |
+| `analysis/compute_bridges.py` | Updated docstrings + print: "3 passes" → "2 passes" |
+| `embeddings/generator.py` | `generate_embeddings_for_database()`: use enriched_text, changed filter, inline image embedding |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| Keep separate text + image embeddings (no fusion) | Late fusion at bridge scoring preserves MiniLM semantic richness + CLIP visual similarity as independent signals |
+| Async concurrent over Batch API for enrichment | User prefers real-time feedback; async is 5x faster; batch saves 50% cost but has 24hr turnaround |
+| Embedding generation stays separate from enrichment | User's established workflow — enrich first, embed after |
+| Use enriched_text for text embeddings (not title+description) | enriched_text contains 23 enrichment fields → richer semantic signal |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `Invalid format specifier ' confidence_float'` in f-string | Doubled braces: `{{"term": confidence_float}}` in claude.py |
+| No progress output from async script | Added shared counter dict, prints every 10 completions with rate/ETA |
+| Old embeddings used title+description, not enriched_text | Updated `generate_embeddings_for_database()` filter and text source |
+
+### What's Left Open
+
+- **~2,744 products still unenriched** (1,490/4,234 done)
+- **~3,044 products missing text embeddings** (1,190/4,234 done)
+- **~3,368 products missing image embeddings** (866/4,234 done)
+- **Old 866 products** embedded from title+description (not enriched_text) — should be re-embedded
+- **Bridges need recomputation** after enrichment + embedding completes (`compute_bridges.py --rebuild`)
+- **Unrecognized eras** — review CSV after enrichment completes, add aliases
+
+RESUME POINT: User is running enrichment batches of 300 via `enrich_async.py`. After enrichment completes: run embedding generation → recompute bridges → review era taxonomy.
+
+---
+
+## Session Log: 2026-03-04 — Supabase Migration (Steps 5-11 of 20) + IIT Todoist CSV
+
+### What Was Accomplished
+
+**Supabase Migration Progress (Steps 5-11 complete):**
+
+Continuing the Supabase migration plan at `.claude/plans/zazzy-seeking-falcon.md`. Steps 1-4 were completed in a prior session (enable pgvector, create storage bucket, pg_dump/restore, update .env). This session completed:
+
+- **Step 5: Image migration** — All 4,234 products migrated from base64 `data:image/...` → Supabase Storage URLs (`https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/{id}.jpg`). Zero base64 remaining.
+- **Step 6: Qdrant → pgvector embedding migration** — 866 text embeddings + 866 image embeddings migrated from local Qdrant to pgvector columns. HNSW indexes created. Verified similarity queries work. Local Qdrant stopped and `QDRANT_HOST`/`QDRANT_PORT` removed from `.env`.
+- **Step 7: ORM model update** — Added `from pgvector.sqlalchemy import Vector` and two columns (`text_embedding Vector(384)`, `image_embedding Vector(512)`) to Product class in `storage/database.py`.
+- **Step 8: Vector search module** — Created `storage/vector_search.py` with `VectorSearch` class (4 methods: `search_text`, `search_image`, `get_embedding`, `upsert_embedding`). Takes SQLAlchemy Session instead of managing Qdrant connection.
+- **Step 9: API dependencies** — Rewrote `api/dependencies.py` to use `VectorSearch` instead of old `VectorDB`.
+- **Step 10: Search router** — Rewrote `api/routers/search.py` to use `VectorSearch` + pgvector instead of Qdrant.
+- **Step 11: Search schema validators** — Added `@field_validator` to `SearchResult` in `api/schemas/search.py` to parse JSON strings from SQL for `style_tags` and `colors` fields.
+
+**IIT 4.0 Todoist CSV:**
+- Created comprehensive task list at `docs/IIT_4.0_TODOIST_TASKS.csv` with ~130 tasks across 8 sections, 3 indent levels, ready for Todoist CSV import.
+
+### Files Created This Session
+
+| File | Purpose |
+|------|---------|
+| `storage/vector_search.py` | pgvector-backed VectorSearch class (replaces `storage/vector_db.py`) |
+| `docs/IIT_4.0_TODOIST_TASKS.csv` | 130-task Todoist import file for IIT 4.0 implementation |
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `storage/database.py` | Added pgvector Vector import + text_embedding/image_embedding columns |
+| `api/dependencies.py` | Swapped VectorDB → VectorSearch, removed Qdrant dependency |
+| `api/routers/search.py` | Full rewrite: Qdrant → pgvector VectorSearch |
+| `api/schemas/search.py` | Added `parse_json_lists` field_validator for style_tags/colors |
+| `scripts/migrate_qdrant_to_pgvector.py` | User-written migration script (fixed: function signature, `==` vs `=`, collection name `vintage_images` plural) |
+| `.env` | Removed QDRANT_HOST, QDRANT_PORT |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| pgvector over Qdrant Cloud | Single database (Supabase) for everything — simpler ops, both embeddings on same row simplifies Φ calculation |
+| VectorSearch takes Session (not own connection) | Shares request's DB session — no separate vector DB connection to manage |
+| Keep `storage/vector_db.py` for now | Will delete in Step 16 after all references are updated |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| Qdrant collection name mismatch: `vintage_image` vs `vintage_images` | Collection was `vintage_images` (plural) — fixed in migration script |
+| `_build_filter_dict` logic inverted (`if not filters:` then used `filters`) | Fixed: early return `None` when no filters |
+| Typo `pgvector.sqalchemy` (missing 'l') | Fixed to `pgvector.sqlalchemy` |
+| Typo `b64dercode` | Fixed to `b64decode` |
+| Typo `.itemns()` | Fixed to `.items()` |
+| Similarity query returned no rows | Product ID 1 didn't exist — used subquery to find any product with embeddings |
+
+### What's Left Open
+
+- **Steps 12-20 of Supabase migration** remain:
+  - Step 12: Update compute_bridges.py (biggest remaining file — swap Qdrant for pgvector queries)
+  - Step 13: Update embeddings/generator.py (handle URL images)
+  - Step 14: Update enrichment/claude.py
+  - Step 15: Update enrichment scripts
+  - Step 16: Delete obsolete files (vector_db.py, etc.)
+  - Step 17: Update frontend (next.config.ts image domains)
+  - Step 18: Update tests
+  - Step 19-20: Verify + cleanup
+
+RESUME POINT: Start Step 12 (compute_bridges.py). User is writing all code themselves — walk through each step, check their work, flag bugs.
+
+---
+
+## Session Log: 2026-02-27 — Frontend Polish COMPLETE + Database Growth Plan + Deployment Discussion
+
+### What Was Accomplished
+
+**Frontend Polish (Step 10 — COMPLETE):**
+
+All polish items finished. TypeScript check and `npm run build` both pass clean. All 4 routes compile:
+- `/` — static, revalidates every hour
+- `/about` — static
+- `/search` — static (client-side data fetching)
+- `/product/[id]` — dynamic (server-rendered per request)
+
+Polish items completed:
+- **Error boundaries**: `global-error.tsx` (root-level, with `<html>`/`<body>` tags), `error.tsx` (page-level for home), `product/[id]/loading.tsx` already existed
+- **ImageWithFallback swap**: Replaced `next/image` with `ImageWithFallback` in BridgeCardFull, BridgeCardCompact, ProductCard. Kept ternary fallbacks as belt-and-suspenders.
+- **Search error handling**: Added `error` state, catch block, and error display to search page
+- **Home data caching**: `export const revalidate = 3600` (1-hour ISR)
+- **Scroll snap**: `snap-x snap-mandatory` on carousels (home + product detail), `snap-start` on BridgeCardCompact
+- **Mobile touch targets**: Search submit button enlarged to `size-11` (44px) for WCAG 2.5.5
+- **Mobile search UX**: `autoFocus={!searchParams.get("q")}` — focuses input only when no existing query
+- **SEO metadata**: Static `metadata` export on about page, dynamic `generateMetadata` on product detail page (title, description, OpenGraph image)
+- **Accessibility**: `role="img" aria-label` on ScoreCircle, `role="search" aria-label` on search form, `aria-label="Submit search"` on button, `role="region" aria-label` on carousel containers
+- **Loading skeleton**: Created `loading.tsx` for home page (hero + how-it-works shimmer)
+- **CSS cleanup**: Confirmed no legacy `vintage-*` classes remain
+
+**Database Growth Plan (866 → 1,500 products):**
+- Analyzed all 3 data loaders and enrichment pipeline to plan growth
+- Created 6-phase plan at `.claude/plans/functional-hopping-barto.md`
+- Strategy: maximize free API data before Claude enrichment
+- Target distribution: Fashionpedia 750, Met 400, Smithsonian 350
+- Estimated cost: ~$27 (~$14 with Batch API)
+- Bridge scaling analysis: confirmed linear growth due to `top_n` caps per product
+
+**Backend Deployment Discussion:**
+- Covered deployment options: Railway (all-in-one), Vercel+Render+Supabase+Qdrant Cloud (mix-and-match), Fly.io
+- Explained key deployment concepts: env vars, build vs runtime, health checks, cold starts, CORS
+- Recommended starting with: Qdrant Cloud (free 1GB) + Supabase (free Postgres) + Railway (FastAPI) + Vercel (Next.js)
+- User decided to grow dataset before deploying (richer content = better first impression)
+
+### Files Created This Session
+
+| File | Purpose |
+|------|---------|
+| `vv-web/src/app/global-error.tsx` | Root-level error boundary (replaces root layout) |
+| `vv-web/src/app/error.tsx` | Home page error boundary |
+| `vv-web/src/app/loading.tsx` | Home page loading skeleton (Skeleton shimmer) |
+| `.claude/plans/functional-hopping-barto.md` | Database growth plan: 866 → 1,500 products |
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `vv-web/src/app/page.tsx` | Added `revalidate = 3600`, `snap-x snap-mandatory`, `role="region" aria-label` |
+| `vv-web/src/app/search/page.tsx` | Added error state + display, 44px touch target, autoFocus, `role="search"`, `aria-label` |
+| `vv-web/src/app/product/[id]/page.tsx` | Added `generateMetadata` (title, description, OG image), `snap-x snap-mandatory`, `role="region" aria-label` |
+| `vv-web/src/app/about/page.tsx` | Added static `metadata` export (title + description) |
+| `vv-web/src/components/bridge/BridgeCardFull.tsx` | Swapped `Image` → `ImageWithFallback` |
+| `vv-web/src/components/bridge/BridgeCardCompact.tsx` | Swapped `Image` → `ImageWithFallback`, added `snap-start` |
+| `vv-web/src/components/bridge/ScoreCircle.tsx` | Added `role="img"` + `aria-label` |
+| `vv-web/src/components/search/ProductCard.tsx` | Swapped `Image` → `ImageWithFallback` |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| Keep ternary fallbacks alongside ImageWithFallback | Belt-and-suspenders: ImageWithFallback handles load errors, ternary handles missing URLs |
+| Search page doesn't need `loading.tsx` | Client component manages its own loading state with `useState` |
+| `revalidate = 3600` for home page | 1-hour ISR cache — bridges don't change often, avoids per-request DB calls |
+| 44px touch targets (`size-11`) | WCAG 2.5.5 minimum target size for mobile accessibility |
+| `autoFocus` only when no existing query | Prevents keyboard popping up when returning to search with results |
+| Grow dataset before deploying | Sparse data = empty pages = bad first impression |
+| Target 1,500 products for growth | Balances content density vs Claude API cost (~$27) |
+| Fashionpedia-heavy distribution (750/1500) | Expert-annotated taxonomy = cheaper enrichment ($0.015 vs $0.03/item) |
+| `"use client"` pages can't export `metadata` | Next.js constraint — root layout's default title applies instead |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `npx tsc --noEmit` failed — `npx` not found | Prepended PATH: `export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH"` |
+| Port 8000 already in use | Backend was already running from a previous session (PID 17312) |
+
+### What's Left Open
+
+- **Database growth**: Plan documented at `.claude/plans/functional-hopping-barto.md` — user will implement themselves
+- **Deployment**: Discussed options but not started — user wants data density first
+- **Image search frontend**: Backend API exists but no frontend implementation yet
+- **Bridge narratives**: Still 22/7,324 generated — will be addressed during Phase 6 of growth plan
+
+RESUME POINT: User is implementing the database growth plan (Phase 1: load data from all 3 sources, then Phases 2-6). After data growth, deployment is next.
 
 ---
 
@@ -289,28 +611,10 @@ RESUME POINT: Start implementing Phase 3B — search components (SearchBar.tsx, 
 
 ### Prerequisites
 
-- **Docker Desktop** — must be running (Jen starts this manually before sessions)
 - Python 3.13+ with venv
 - Node.js 25+ with npm
-- PostgreSQL (local, database: `vintage_vestige`)
-- Qdrant (local, port 6333) — runs in Docker, **must be started manually**
+- Supabase project (PostgreSQL + pgvector + Storage)
 - Anthropic API key (for Claude enrichment/narratives)
-
-### Start Services
-
-```bash
-# Start PostgreSQL (if not running via Homebrew)
-brew services start postgresql@16
-
-# Start Qdrant (Docker or binary — must be running for tests and search)
-# Docker:
-docker run -p 6333:6333 qdrant/qdrant
-# Or if installed locally, check how user runs it
-
-# Verify services
-psql -d vintage_vestige -c "SELECT COUNT(*) FROM products;"  # Should return 866
-curl http://localhost:6333/collections                        # Should list vintage_text, vintage_images
-```
 
 ### Python Environment
 
@@ -327,9 +631,10 @@ venv/bin/pytest tests/
 File: `.env` (exists in project root)
 
 ```
-DATABASE_URL=postgresql+psycopg://localhost/vintage_vestige
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
+DATABASE_URL=postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_KEY=<service-role-key>
+SUPABASE_STORAGE_BUCKET=product-images
 ANTHROPIC_API_KEY=sk-ant-...  # Required for enrichment/narratives
 ```
 
@@ -344,102 +649,93 @@ npm run dev    # http://localhost:3000
 ### Run Tests
 
 ```bash
-venv/bin/pytest tests/                    # Full suite (156 tests, ~43s)
+venv/bin/pytest tests/                    # Full suite
 venv/bin/pytest tests/unit/               # Unit only (no DB needed)
-venv/bin/pytest tests/integration/        # Needs Postgres + Qdrant
-venv/bin/pytest tests/data_integrity/     # Needs Postgres + Qdrant
-venv/bin/pytest tests/search_quality/     # Needs Postgres + Qdrant
+venv/bin/pytest tests/integration/        # Needs Supabase PostgreSQL
+venv/bin/pytest tests/data_integrity/     # Needs Supabase PostgreSQL
+venv/bin/pytest tests/search_quality/     # Needs Supabase PostgreSQL
 venv/bin/pytest -m "not slow"             # Skip slow tests
 ```
 
 ---
 
-## Current State (2026-02-25)
+## Current State (2026-03-07)
 
 ### What Works
 
-- **866 products** in Postgres across 3 platforms (fashionpedia 500, met_museum 200, smithsonian 166)
-- **All 866 enriched** by Claude Sonnet 4 with 23 structured fields
-- **All 866 in Qdrant** — vintage_text (384d, 28 payload fields) + vintage_images (512d, 28 payload fields)
-- **7,324 style bridges** computed (5 types: same_era, cross_category, cross_era, near_era, cross_vibe)
-- **Bridge query library** (`analysis/bridge_queries.py`) — paginated, typed, filter-ready
-- **FastAPI backend COMPLETE** — 14 endpoints across 4 routers, 13 Pydantic schemas, native Qdrant filtering
-- **156 tests passing** (unit, integration, data_integrity, search_quality)
-- **Frontend components built** — Next.js 16 app with design system, layout, types, API client, 3 search components, 7 bridge primitives
-- **Figma design populated** — 5 pages captured into Figma file (design system, components, home, search, product detail)
-- **Frontend implementation plan** — 5-phase mobile-first plan at `docs/plans/FRONTEND_IMPLEMENTATION_PLAN.md`
+- **4,234 products** in Supabase PostgreSQL across 4 platforms (va_museum 1,856, fashionpedia 1,000, smithsonian 778, met_museum 600)
+- **ALL 4,234 enriched** by Claude Sonnet 4 with 23 structured fields + core_vibes/bridge_vibes
+- **ALL 4,234 text embeddings** + **ALL 4,234 image embeddings** in pgvector columns (HNSW indexed)
+- **Bridge recomputation running** (`compute_bridges.py --rebuild`) — replacing old 3,367 bridges
+- **6-dimensional bridge classification** designed and coded (pending classifier run)
+- **Bridge query library** (`analysis/bridge_queries.py`) — supports 6 new dimension filters + `shared_function`
+- **FastAPI backend** — 16 endpoints across 5 routers, 16 Pydantic schemas, pgvector search
+- **Social Function Explorer API** — `/explore/functions` + `/explore/functions/{fn}`
+- **Frontend COMPLETE** — Next.js 16 app: design system, layout, search, bridge components, 4 pages, polish
+- **Supabase migration COMPLETE** — PostgreSQL + pgvector + Supabase Storage (all 20 steps done)
+
+### What's In Progress
+
+- **Bridge recomputation** — `compute_bridges.py --rebuild` running (775/4134 scanned at last check)
+- **Bridge classification** — classifier script ready, waiting for bridge computation to finish
 
 ### What's Incomplete
 
-- **22/7,324 bridge narratives** generated — the other 7,302 need `analysis/generate_narratives.py` run (~$13, ~1hr)
-- **`embedded_at` column** only set for 200/866 products (tracking gap — actual embeddings exist for all)
-- **Frontend implementation** — Phases 1-3A done, 3B search done, 3C bridge 7/10 done. BridgeCardFull, BridgeCardCompact, index.ts barrel, 3D utilities, all pages still pending
-- **API smoke tests** — 17/17 passing (fixed httpx version + CLIP image test)
-- **Figma design refinement** — User is still iterating on the design
+- **Classifier run** — after bridges finish: `scripts/classify_bridge_dimensions.py --dry-run` then full run
+- **Narrative regeneration** — after classifier: `analysis/generate_narratives.py` (now with mode hints)
+- **Frontend updates** — social function explorer page, bridge card connection mode badges, bridge filtering UI
+- **Image search frontend** — Backend API exists, frontend not yet implemented
 
 ### What's Not Started
 
-- **Deployment** (Railway + Vercel)
+- **Deployment** — Supabase + Railway + Vercel
+- **Knowledge Graph** — plans written, prerequisites partly done
 
 ---
 
 ## Key File Locations
 
 ### Core Data Layer
-| File | Purpose | Lines |
-|------|---------|-------|
-| [storage/database.py](../storage/database.py) | Product + StyleBridge ORM models | 127 |
-| [storage/vector_db.py](../storage/vector_db.py) | Qdrant client (2 collections) | 137 |
-| [analysis/bridge_queries.py](../analysis/bridge_queries.py) | Bridge query functions (TypedDict returns) | 540 |
-
-### Intelligence Layer
-| File | Purpose | Lines |
-|------|---------|-------|
-| [enrichment/claude.py](../enrichment/claude.py) | ClaudeEnricher (sync + async, enrichment + narratives) | 571 |
-| [enrichment/fashionpedia_taxonomy.py](../enrichment/fashionpedia_taxonomy.py) | Full Fashionpedia ontology (27 cat, 294 attr) | 678 |
-| [embeddings/generator.py](../embeddings/generator.py) | EmbeddingGenerator (text + image) | 176 |
-| [embeddings/models.py](../embeddings/models.py) | Singleton model loader (MiniLM + CLIP) | 99 |
-
-### Scripts
-| File | Purpose | Lines |
-|------|---------|-------|
-| [analysis/compute_bridges.py](../analysis/compute_bridges.py) | 3-pass bridge discovery | 615 |
-| [analysis/generate_narratives.py](../analysis/generate_narratives.py) | Async narrative generation | 168 |
-| [tests/data_integrity/bridge_report.py](../tests/data_integrity/bridge_report.py) | HTML bridge visualization | 383 |
-
-### API (IMPLEMENTED)
-| File | Purpose | Endpoints/Schemas |
-|------|---------|-------------------|
-| [api/main.py](../api/main.py) | FastAPI app entry point | CORS, 4 router includes, /health |
-| [api/dependencies.py](../api/dependencies.py) | Singleton providers | get_vector_db, get_embedding_generator |
-| [api/routers/search.py](../api/routers/search.py) | Search endpoints | POST /search/text, POST /search/image |
-| [api/routers/products.py](../api/routers/products.py) | Product endpoints | GET /products/{id}, /bridges, /modern-echoes, /style-ancestry, /style-siblings |
-| [api/routers/bridges.py](../api/routers/bridges.py) | Bridge endpoints | GET /bridges/top, /stats, /between/{a}/{b}, /{id} |
-| [api/routers/filters.py](../api/routers/filters.py) | Filter endpoint | GET /filters |
-| [api/schemas/](../api/schemas/) | Pydantic models | 13 schemas across 4 files + __init__.py |
-
-### Frontend
-| File | Purpose | Lines |
-|------|---------|-------|
-| [vv-web/src/app/page.tsx](../vv-web/src/app/page.tsx) | Homepage (hero + how it works) | 95 |
-| [vv-web/src/app/layout.tsx](../vv-web/src/app/layout.tsx) | Root layout (fonts, metadata) | 36 |
-| [vv-web/src/lib/api.ts](../vv-web/src/lib/api.ts) | API client (4 endpoints) | 58 |
-| [vv-web/src/types/index.ts](../vv-web/src/types/index.ts) | TypeScript types (Product, Search, Filters) | 106 |
-
-### Planning & Documentation
 | File | Purpose |
 |------|---------|
-| [docs/plans/technical_plan.md](../docs/plans/technical_plan.md) | Strategic architecture + 4-phase roadmap |
-| [docs/plans/PHASE_1_IMPLEMENTATION.md](../docs/plans/PHASE_1_IMPLEMENTATION.md) | Detailed 8-priority Phase 1 plan |
-| [docs/plans/implement_full_plan.md](../docs/plans/implement_full_plan.md) | 5-week detailed plan |
-| [docs/IIT_4.0_INTEGRATION_PLAN.md](../docs/IIT_4.0_INTEGRATION_PLAN.md) | IIT 4.0 integration design (78K words, post-MVP) |
-| [docs/IIT_REFERENCE.md](../docs/IIT_REFERENCE.md) | IIT quick-reference with code examples |
-| [docs/CNN_INTEGRATION_SUMMARY.md](../docs/CNN_INTEGRATION_SUMMARY.md) | CNN visual attribute extraction plan |
-| [docs/reference/fashion_intelligence_platform.md](../docs/reference/fashion_intelligence_platform.md) | Product strategy (6 customer segments, 5-phase roadmap) |
-| [docs/reference/cross_source_bridges.md](../docs/reference/cross_source_bridges.md) | Bridge system design document |
-| [docs/reference/outreach_templates.md](../docs/reference/outreach_templates.md) | Email templates for museum/dataset partnerships |
-| [docs/reference/vintage_databases.md](../docs/reference/vintage_databases.md) | Data source guide (museum APIs, scraping) |
-| [docs/blog_bridge_system.md](../docs/blog_bridge_system.md) | Technical blog post about building bridges |
+| [storage/database.py](../storage/database.py) | Product + StyleBridge ORM models (6 new classification columns) |
+| [storage/vector_search.py](../storage/vector_search.py) | pgvector search module |
+| [analysis/bridge_queries.py](../analysis/bridge_queries.py) | Bridge query functions (6 dimension filters + shared_function) |
+| [analysis/product_queries.py](../analysis/product_queries.py) | Social function query helpers (jsonb containment) |
+
+### Intelligence Layer
+| File | Purpose |
+|------|---------|
+| [enrichment/claude.py](../enrichment/claude.py) | ClaudeEnricher (sync + async, enrichment + narratives with mode hints) |
+| [enrichment/fashionpedia_taxonomy.py](../enrichment/fashionpedia_taxonomy.py) | Full Fashionpedia ontology (27 cat, 294 attr) |
+| [embeddings/generator.py](../embeddings/generator.py) | EmbeddingGenerator (text + image) |
+| [embeddings/models.py](../embeddings/models.py) | Singleton model loader (MiniLM + CLIP) |
+
+### Scripts
+| File | Purpose |
+|------|---------|
+| [analysis/compute_bridges.py](../analysis/compute_bridges.py) | 2-pass bridge discovery (open + cross-culture) |
+| [analysis/generate_narratives.py](../analysis/generate_narratives.py) | Async narrative generation (with connection_mode hints) |
+| [scripts/classify_bridge_dimensions.py](../scripts/classify_bridge_dimensions.py) | 6-dimension bridge classifier |
+
+### API
+| File | Purpose | Endpoints |
+|------|---------|-----------|
+| [api/main.py](../api/main.py) | FastAPI app entry point | CORS, 5 router includes, /health |
+| [api/routers/search.py](../api/routers/search.py) | Search endpoints | POST /search/text, POST /search/image |
+| [api/routers/products.py](../api/routers/products.py) | Product endpoints | GET /products/{id}, /bridges, /modern-echoes, /style-ancestry, /style-siblings |
+| [api/routers/bridges.py](../api/routers/bridges.py) | Bridge endpoints | GET /bridges/top (+ 6 dimension filters + shared_function), /stats, /between/{a}/{b}, /{id} |
+| [api/routers/explore.py](../api/routers/explore.py) | Explore endpoints | GET /explore/functions, /explore/functions/{fn} |
+| [api/routers/filters.py](../api/routers/filters.py) | Filter endpoint | GET /filters |
+| [api/schemas/](../api/schemas/) | Pydantic models | 16 schemas across 5 files |
+
+### Frontend
+| File | Purpose |
+|------|---------|
+| [vv-web/src/app/page.tsx](../vv-web/src/app/page.tsx) | Homepage (hero + how it works) |
+| [vv-web/src/app/layout.tsx](../vv-web/src/app/layout.tsx) | Root layout (fonts, metadata) |
+| [vv-web/src/lib/api.ts](../vv-web/src/lib/api.ts) | API client (12 functions) |
+| [vv-web/src/types/index.ts](../vv-web/src/types/index.ts) | TypeScript types |
 
 ---
 
@@ -447,42 +743,44 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 1. **Always use `venv/bin/python`** — system Python won't have the packages.
 
-2. **Qdrant must be running** for integration tests, data integrity tests, and any search functionality. It's not auto-started.
+2. **`embedded_at` is misleading** — only 200/866 products have this timestamp, but all 866 have pgvector embeddings. Don't filter by `embedded_at IS NOT NULL` to find "embedded" products.
 
-3. **`embedded_at` is misleading** — only 200/866 products have this timestamp, but all 866 are in Qdrant. Don't filter by `embedded_at IS NOT NULL` to find "embedded" products.
+3. **Bridge canonical ordering** — `source_id < target_id` always. When looking up a bridge between products A and B, use `min(A,B)` as source and `max(A,B)` as target.
 
-4. **Bridge canonical ordering** — `source_id < target_id` always. When looking up a bridge between products A and B, use `min(A,B)` as source and `max(A,B)` as target.
+4. **`bridge_narrative` not `narrative`** — The column is `bridge_narrative`. Earlier code/docs may reference just `narrative`.
 
-5. **`bridge_narrative` not `narrative`** — The column is `bridge_narrative`. Earlier code/docs may reference just `narrative`.
+5. **Embedding model loading is slow** — First import of `embeddings.models` downloads ~500MB of model weights. Subsequent loads are cached.
 
-6. **Embedding model loading is slow** — First import of `embeddings.models` downloads ~500MB of model weights. Subsequent loads are cached.
+6. **JSON fields in Postgres** — `style_tags`, `colors`, `textile_finishing`, `garment_parts`, `decorations`, `image_urls` are all `Text` columns storing JSON strings, not JSONB. Parse with `json.loads()`.
 
-7. **`vintage_images` payloads were backfilled** on 2026-02-22. Both collections now have 28 payload fields. No Postgres join needed for image search.
+7. **Score distribution is tight** — Fashion corpus items cluster closely in embedding space. The minimum bridge score threshold is 0.30 and the average is 0.556. Don't expect scores as spread out as general-purpose search.
 
-8. **JSON fields in Postgres** — `style_tags`, `colors`, `textile_finishing`, `garment_parts`, `decorations`, `image_urls` are all `Text` columns storing JSON strings, not JSONB. Parse with `json.loads()`.
+8. **`generate_bridge_narrative` max_tokens=200** — Was 100 originally, caused truncation. If narratives are still truncating, increase this.
 
-9. **Score distribution is tight** — Fashion corpus items cluster closely in embedding space. The minimum bridge score threshold is 0.30 and the average is 0.556. Don't expect scores as spread out as general-purpose search.
+9. **Old 866 products have stale text embeddings** — Embedded from title+description, not enriched_text. Need re-embedding after enrichment pipeline stabilizes.
 
-10. **`generate_bridge_narrative` max_tokens=200** — Was 100 originally, caused truncation. If narratives are still truncating, increase this.
+10. **V&A products enrichment in progress** — `test_all_products_are_enriched` will fail until all 4,234 products are enriched (1,490/4,234 as of 2026-03-06).
 
 ---
 
 ## Priorities for Next Session
 
-### Immediate
+### Immediate (Bridge Pipeline Completion)
 
-1. **Phase 3C.8 BridgeCardFull** — The big composition component (source/target images, connector, narrative, DNA pills, score breakdown). Stacked on mobile, side-by-side on desktop.
+1. **Wait for `compute_bridges.py --rebuild`** to finish (currently running)
+2. **Run classifier dry-run** — `venv/bin/python scripts/classify_bridge_dimensions.py --dry-run` — review distribution
+3. **Run classifier** — `venv/bin/python scripts/classify_bridge_dimensions.py` — populate 6 dimension columns
+4. **Generate narratives** — `venv/bin/python analysis/generate_narratives.py` — new narratives get mode-specific hints
 
-2. **Phase 3C.9 BridgeCardCompact** — Carousel card (240px mobile, 280px desktop).
+### Frontend Updates
 
-3. **Phase 3C.10 index.ts** — Barrel export for all bridge components.
+5. **Social Function Explorer page** — `/explore/functions` (landing + detail views)
+6. **Bridge card enhancements** — connection mode badges (contrast/resonance/affinity), axis pills
+7. **Bridge filtering UI** — dimension toggles on bridges/top view
+8. **Frontend TypeScript types** — add new bridge fields + explore API types
 
-4. **Phase 3D** — Skeleton.tsx (shimmer loader) + ImageWithFallback.tsx (next/Image with gradient fallback).
+### After Pipeline Complete
 
-5. **Phase 4: Pages** — Home (hero + featured bridges), Search (grid + filters), Product detail (hero + bridge sections), About.
-
-### Stretch
-
-6. **Run narrative generation** — `venv/bin/python analysis/generate_narratives.py` to populate all 7,324 bridge narratives (~$13, ~1hr).
-7. **Deploy** — Backend to Railway, frontend to Vercel.
-8. **Write case study** — Build on existing blog drafts.
+9. **Deployment** — Supabase + Railway + Vercel
+10. **Knowledge Graph implementation** — plans in `docs/plans/KG_IMPLEMENTATION/`
+11. **Image search frontend** — Connect `searchByImage` API to frontend UI

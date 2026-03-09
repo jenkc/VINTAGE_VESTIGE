@@ -1,6 +1,6 @@
 # Vintage Vestige — Architecture
 
-**As of: 2026-02-22 (end of day)**
+**As of: 2026-03-07**
 
 ---
 
@@ -14,7 +14,7 @@ Vintage Vestige is a 3-layer fashion intelligence platform:
 │                                                         │
 │   Next.js 16 Frontend         FastAPI Backend           │
 │   (vv-web/)                   (api/)                    │
-│   [PARTIAL]                   [IMPLEMENTED]             │
+│   [COMPLETE]                  [IMPLEMENTED]             │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │                  INTELLIGENCE LAYER                     │
@@ -26,10 +26,11 @@ Vintage Vestige is a 3-layer fashion intelligence platform:
 ├─────────────────────────────────────────────────────────┤
 │                      DATA LAYER                         │
 │                                                         │
-│   PostgreSQL            Qdrant Vector DB                │
-│   (products,            (vintage_text 384d,             │
-│    style_bridges)        vintage_images 512d)           │
-│   [WORKING]             [WORKING]                       │
+│   Supabase PostgreSQL + pgvector     Supabase Storage   │
+│   (products, style_bridges,          (product-images    │
+│    text_embedding 384d,               public bucket)    │
+│    image_embedding 512d)                                │
+│   [WORKING]                          [WORKING]          │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -49,10 +50,11 @@ Smithsonian API ───────┘
   load_data/*.py          # Parse, normalize, insert
         │
         ▼
-  PostgreSQL:products     # 866 rows (raw metadata)
+  PostgreSQL:products     # 4,234 rows (raw metadata)
         │
         ▼
   enrichment/claude.py    # Claude Sonnet 4 enrichment
+  enrichment/enrich_async.py  # Async concurrent (5x speedup)
         │                   (23 structured fields per product)
         ▼
   PostgreSQL:products     # Updated with enrichment fields
@@ -60,26 +62,25 @@ Smithsonian API ───────┘
         ├──► embeddings/generator.py  # all-MiniLM-L6-v2 (text)
         │         │
         │         ▼
-        │    Qdrant:vintage_text      # 866 points, 384-dim
+        │    products.text_embedding  # 866 rows, vector(384), HNSW index
         │
         └──► embeddings/generator.py  # clip-ViT-B-32 (image)
                   │
                   ▼
-             Qdrant:vintage_images    # 866 points, 512-dim
+             products.image_embedding # 866 rows, vector(512), HNSW index
 ```
 
 ### Bridge Discovery Pipeline
 
 ```
-  Qdrant:vintage_text ──┐
-  Qdrant:vintage_images ┘
+  products.text_embedding ──┐
+  products.image_embedding ─┘
         │
         ▼
   analysis/compute_bridges.py
   │
   │  Pass 1: Open discovery (text + image similarity)
-  │  Pass 2: Cross-category (different fp_category)
-  │  Pass 3: Cross-vibe (different vibe)
+  │  Pass 2: Cross-culture (different culture)
   │
   │  For each candidate pair:
   │    text_similarity   ← cosine(text_a, text_b)
@@ -89,16 +90,16 @@ Smithsonian API ───────┘
   │                        (or 0.55*text + 0.45*structural if no image)
   │
   ▼
-  PostgreSQL:style_bridges  # 7,324 rows
+  PostgreSQL:style_bridges  # 3,367 rows
         │
         ▼
   analysis/generate_narratives.py  # Async Claude calls
         │
         ▼
-  PostgreSQL:style_bridges.bridge_narrative  # 22/7324 populated
+  PostgreSQL:style_bridges.bridge_narrative  # 3,367/3,367 (100%)
 ```
 
-### Search Flow (IMPLEMENTED 2026-02-22)
+### Search Flow (UPDATED 2026-03-04 for pgvector)
 
 ```
   User Query (text or image)
@@ -108,21 +109,21 @@ Smithsonian API ───────┘
         │
         ├──► POST /search/text
         │     → EmbeddingGenerator.generate_text_embedding(query)
-        │     → _build_qdrant_filter(SearchFilters) → Qdrant Filter
-        │     → VectorDB.search_similar(vintage_text, vector, query_filter)
-        │     → Map hits to SearchResult (from Qdrant payload)
+        │     → _build_filter_dict(SearchFilters) → SQL WHERE params
+        │     → VectorSearch.search_text(vector, filters)  [pgvector <=> cosine]
+        │     → Map SQL rows to SearchResult
         │
         └──► POST /search/image
               → base64 decode → PIL Image
               → EmbeddingGenerator.generate_image_embedding(pil_image)
-              → VectorDB.search_similar(vintage_images, vector)
-              → Map hits to SearchResult (from Qdrant payload)
+              → VectorSearch.search_image(vector)  [pgvector <=> cosine]
+              → Map SQL rows to SearchResult
                     │
                     ▼
-              Next.js frontend renders    [STUBS ONLY]
+              Next.js frontend renders    [COMPLETE]
 ```
 
-Both collections have identical 28-field payloads — no Postgres join needed for either search type.
+Search uses pgvector cosine distance (`<=>`) with HNSW indexes. Filters are native SQL WHERE clauses — no separate vector database needed.
 
 ---
 
@@ -134,12 +135,13 @@ Both collections have identical 28-field payloads — no Postgres join needed fo
 |---------|---------|---------|
 | SQLAlchemy | 2.0.36 | PostgreSQL ORM |
 | psycopg | (via psycopg2) | PostgreSQL driver |
-| qdrant-client | 1.12.1 | Vector database client |
+| pgvector | latest | SQLAlchemy Vector column type + HNSW indexes |
 | anthropic | 0.40.0 | Claude API (enrichment + narratives) |
 | sentence-transformers | 3.3.1 | CLIP + MiniLM models |
 | FastAPI | 0.104.1 | REST API (13 endpoints, 13 schemas) |
 | Pillow | (bundled) | Image processing |
 | python-dotenv | (bundled) | Environment variables |
+| supabase | latest | Supabase Storage client (image uploads) |
 | pytest | (dev) | Testing framework |
 
 ### Frontend (Node.js 25.2.0)
@@ -155,21 +157,21 @@ Both collections have identical 28-field payloads — no Postgres join needed fo
 
 ### Infrastructure
 
-| Service | Local Config | Purpose |
-|---------|-------------|---------|
-| PostgreSQL | `localhost/vintage_vestige` | Relational data |
-| Qdrant | `localhost:6333` | Vector search |
+| Service | Config | Purpose |
+|---------|--------|---------|
+| Supabase PostgreSQL + pgvector | `db.tusswxlrdoamintvswjs.supabase.co:5432` | Relational data + vector search |
+| Supabase Storage | `product-images` public bucket | Product image hosting |
 | Claude API | `claude-sonnet-4-20250514` | AI enrichment |
 
 ---
 
 ## Database Schema
 
-### PostgreSQL (confirmed via live query)
+### Supabase PostgreSQL + pgvector (confirmed via live query 2026-03-04)
 
 **Tables in database:** `products`, `style_bridges`
 
-#### `products` table (866 rows)
+#### `products` table (4,234 rows, 1,490 enriched, 1,190 with text embeddings)
 
 ```sql
 -- storage/database.py:16-83
@@ -184,7 +186,7 @@ price           FLOAT
 currency        VARCHAR     DEFAULT 'USD'
 
 -- Images
-primary_image   VARCHAR     -- URL or data URL
+primary_image   VARCHAR     -- Supabase Storage HTTP URL
 image_urls      TEXT        -- JSON array
 
 -- Seller info
@@ -231,6 +233,10 @@ nickname           VARCHAR  nullable  -- 508/866
 garment_parts      TEXT     nullable  -- 866/866 (JSON array)
 decorations        TEXT     nullable  -- 866/866 (JSON array)
 
+-- Vector embeddings (pgvector)
+text_embedding  vector(384) nullable  -- all-MiniLM-L6-v2, HNSW cosine index
+image_embedding vector(512) nullable  -- clip-ViT-B-32, HNSW cosine index
+
 -- Timestamps
 created_at      DATETIME    DEFAULT utcnow
 updated_at      DATETIME    DEFAULT utcnow, on_update
@@ -238,7 +244,7 @@ embedded_at     DATETIME    nullable  -- 200/866 set (tracking gap)
 enriched_at     DATETIME    nullable  -- 866/866 set
 ```
 
-#### `style_bridges` table (7,324 rows)
+#### `style_bridges` table (3,367 rows)
 
 ```sql
 -- storage/database.py:85-111
@@ -247,13 +253,13 @@ source_id           INTEGER     FK → products.id, indexed
 target_id           INTEGER     FK → products.id, indexed
 
 text_similarity     FLOAT       NOT NULL
-image_similarity    FLOAT       nullable  -- 2,243/7,324 have values
+image_similarity    FLOAT       nullable
 structural_score    FLOAT       NOT NULL
 bridge_score        FLOAT       NOT NULL  -- range: 0.30–0.93
 
 shared_attributes   TEXT        nullable  -- JSON string
-bridge_type         VARCHAR     nullable  -- same_era, near_era, cross_era, cross_category, cross_vibe
-bridge_narrative    TEXT        nullable  -- 22/7,324 populated
+bridge_type         VARCHAR     nullable  -- cross_era, near_era, cross_category, cross_vibe
+bridge_narrative    TEXT        nullable  -- 3,367/3,367 (100%)
 
 -- IIT 4.0 future columns (nullable, unused)
 phi_score           FLOAT       nullable
@@ -265,27 +271,16 @@ created_at          DATETIME    DEFAULT utcnow
 UNIQUE (source_id, target_id)  -- canonical ordering: source_id < target_id
 ```
 
-### Qdrant Collections (confirmed via live query)
+### pgvector Indexes
 
-#### `vintage_text` — 866 points
+| Index | Column | Type | Params |
+|-------|--------|------|--------|
+| `idx_products_text_embedding` | `text_embedding` | HNSW | `vector_cosine_ops`, m=16, ef_construction=64 |
+| `idx_products_image_embedding` | `image_embedding` | HNSW | `vector_cosine_ops`, m=16, ef_construction=64 |
 
-| Property | Value |
-|----------|-------|
-| Vector dimensions | 384 |
-| Distance metric | Cosine |
-| Points count | 866 |
-| Payload fields | product_id, title, category, era, decade, style_tags, colors, material, pattern, garment_type, vibe, fit_style, occasion, ai_description, season, price, primary_image, culture, object_date, platform, fp_category |
+1,190/4,234 products have text embeddings, 866/4,234 have image embeddings. Search uses cosine distance operator `<=>` with `1 - distance` for similarity scores.
 
-#### `vintage_images` — 866 points
-
-| Property | Value |
-|----------|-------|
-| Vector dimensions | 512 |
-| Distance metric | Cosine |
-| Points count | 866 |
-| Payload fields | Same 28 fields as vintage_text (backfilled 2026-02-22) |
-
-**Note:** Payloads were backfilled on 2026-02-22 to match `vintage_text`. Both collections have identical payload shapes.
+**Note:** Qdrant was used prior to 2026-03-04 (`vintage_text` and `vintage_images` collections). All embeddings were migrated to pgvector columns and Qdrant has been removed.
 
 ---
 
@@ -348,12 +343,23 @@ With image:    bridge_score = 0.40 × text_sim + 0.30 × image_sim + 0.30 × str
 Without image: bridge_score = 0.55 × text_sim + 0.45 × structural
 ```
 
-### Temporal Classification
+### Multi-Dimensional Bridge Classification
 
-Based on decade parsing with ERA_YEAR_MAP fallback:
-- `same_era`: |year_a - year_b| ≤ 25
-- `near_era`: |year_a - year_b| ≤ 75
-- `cross_era`: |year_a - year_b| > 75
+After bridge computation, `scripts/classify_bridge_dimensions.py` populates 6 orthogonal dimensions on each bridge:
+
+| Column | Values | Source |
+|--------|--------|--------|
+| `temporal_type` | transmission \| continuation \| contemporary | Era/decade distance or platform proxy |
+| `crossing_type` | same_context \| cross_category \| cross_culture \| cross_category_culture | Category group + culture comparison |
+| `connection_mode` | contrast \| resonance \| affinity | Vibe opposition, text similarity, or fallback |
+| `primary_axis` | volume \| ornament \| body \| register | Dominant axis from shared_attributes field mapping |
+| `secondary_axis` | volume \| ornament \| body \| register | Second axis (if any) |
+| `contrast_pair` | e.g. "Exaggerated Volume <-> Column Minimalism" | Only for contrast mode |
+
+**Connection mode detection (priority order):**
+1. **contrast** — opposing vibes from 9 opposition pairs + structural_score > 0.4
+2. **resonance** — text_sim >= 0.85 + temporal_type == 'transmission'
+3. **affinity** — everything else (primary_axis tells the story)
 
 ---
 

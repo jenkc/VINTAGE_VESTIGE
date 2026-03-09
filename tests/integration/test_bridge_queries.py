@@ -77,10 +77,10 @@ class TestGetBridgesForProduct:
 
     def test_filter_by_type(self, db, bridged_product_id):
         result = get_bridges_for_product(
-            db, bridged_product_id, bridge_type='same_era', limit=50
+            db, bridged_product_id, bridge_type='transmission', limit=50
         )
         for b in result['bridges']:
-            assert b['bridge_type'] == 'same_era'
+            assert b['bridge_type'] == 'transmission'
 
     def test_filter_by_min_score(self, db, bridged_product_id):
         result = get_bridges_for_product(db, bridged_product_id, min_score=0.7, limit=50)
@@ -114,9 +114,9 @@ class TestGetTopBridges:
         assert scores == sorted(scores, reverse=True)
 
     def test_filter_by_type(self, db):
-        result = get_top_bridges(db, bridge_type='cross_era', limit=10)
+        result = get_top_bridges(db, bridge_type='transmission', limit=10)
         for b in result['bridges']:
-            assert b['bridge_type'] == 'cross_era'
+            assert b['bridge_type'] == 'transmission'
 
     def test_filter_by_score_range(self, db):
         result = get_top_bridges(db, min_score=0.6, max_score=0.8, limit=20)

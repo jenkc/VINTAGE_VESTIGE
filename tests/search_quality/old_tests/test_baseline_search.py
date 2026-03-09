@@ -4,7 +4,7 @@ This establishes baseline performance with Met Museum data.
 """
 
 from embeddings.generator import EmbeddingGenerator
-from storage.vector_db import VectorDB
+from scripts.vector_db import VectorDB
 from storage.database import SessionLocal, Product
 from typing import List, Dict
 import base64

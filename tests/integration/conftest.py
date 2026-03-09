@@ -14,11 +14,13 @@ def check_postgres(db_session):
 
 
 @pytest.fixture(scope="session")
-def require_qdrant(vector_db):
-    """Opt-in fixture for tests that need Qdrant."""
+def require_vectors(db_session):
+    """Opt-in fixture for tests that need pgvector embeddings."""
     try:
-        info = vector_db.get_collection_info()
-        for name in ("vintage_images", "vintage_text"):
-            assert name in info, f"Missing Qdrant collection: {name}"
+        from sqlalchemy import text
+        count = db_session.execute(
+            text("SELECT COUNT(*) FROM products WHERE text_embedding IS NOT NULL")
+        ).scalar()
+        assert count > 0, "No text embeddings found in products table"
     except Exception as e:
-        pytest.skip(f"Qdrant not available: {e}")
+        pytest.skip(f"pgvector not available: {e}")

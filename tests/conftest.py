@@ -49,13 +49,13 @@ def db_session():
 
 
 # ---------------------------------------------------------------------------
-# Session-scoped: Qdrant client
+# Session-scoped: pgvector search
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
-def vector_db():
-    """VectorDB instance connected to live Qdrant."""
-    from storage.vector_db import VectorDB
-    return VectorDB()
+def vector_search(db_session):
+    """VectorSearch instance using the test DB session."""
+    from storage.vector_search import VectorSearch
+    return VectorSearch(db_session)
 
 
 # ---------------------------------------------------------------------------

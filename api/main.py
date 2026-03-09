@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import products, filters, bridges, search
+from api.routers import products, filters, bridges, search, explore
 
 app = FastAPI(title="Vintage Vestige API", version="1.0.0")
 
@@ -16,6 +16,7 @@ app.include_router(search.router)
 app.include_router(products.router)
 app.include_router(filters.router)
 app.include_router(bridges.router)
+app.include_router(explore.router)
 
 @app.get("/health")
 def health():

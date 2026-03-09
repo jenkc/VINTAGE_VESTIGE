@@ -12,6 +12,8 @@ export default function ScoreCircle({ score }: ScoreCircleProps) {
     <div
       className="flex flex-col items-center justify-center rounded-full size-11 md:size-[52px]"
       style={{ border: `2.5px solid ${color}` }}
+      role="img"
+      aria-label={`${percent}% match score`}
     >
       <span
         className="font-serif text-base font-bold leading-none"

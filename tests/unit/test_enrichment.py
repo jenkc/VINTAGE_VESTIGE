@@ -123,7 +123,7 @@ class TestFallbackEnrichment:
         assert result["textile_finishing"] == []
         assert result["garment_parts"] == []
         assert result["decorations"] == []
-        assert result["era"] == "Modern"
+        assert result["era"] == "Quiet Luxury"
 
     @pytest.mark.parametrize("category", ["Dress", "JACKET", "pants", "Skirt"])
     def test_category_variations(self, category):
@@ -204,7 +204,7 @@ class TestJSONParsing:
         self._mock_response(mock_claude_response_clean)
         result = self.enricher.enrich_product("Gown", "dress")
         assert result["fp_category"] == "dress"
-        assert result["era"] == "Victorian"
+        assert result["era"] == "Victorian Late / Bustle"
 
     def test_markdown_wrapped_json_parsed(self, mock_claude_response_markdown_wrapped):
         self._mock_response(mock_claude_response_markdown_wrapped)
@@ -219,5 +219,5 @@ class TestJSONParsing:
     def test_malformed_json_returns_fallback(self, mock_claude_response_malformed):
         self._mock_response(mock_claude_response_malformed)
         result = self.enricher.enrich_product("Gown", "dress")
-        assert result["era"] == "Modern"
+        assert result["era"] == "Quiet Luxury"
         assert result["fp_category"] is None

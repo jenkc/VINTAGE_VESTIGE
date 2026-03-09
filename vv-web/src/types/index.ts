@@ -146,6 +146,12 @@ export interface BridgeResult {
   bridge_narrative: string | null;
   shared_attributes: Record<string, unknown>;
   created_at: string;
+  temporal_type: string | null;
+  crossing_type: string | null;
+  connection_mode: string | null;
+  primary_axis: string | null;
+  secondary_axis: string | null;
+  contrast_pair: string | null;
 }
 
 export interface BridgeListResponse {
@@ -173,4 +179,24 @@ export interface BridgeStats {
   total_products_with_bridges: number;
   by_type: BridgeTypeStats[];
   score_histogram: ScoreHistogramBucket[];
+}
+
+// ─── Explore ──────────────────────────────────────────────────────
+
+export interface FunctionSummary {
+  function: string;
+  count: number;
+}
+
+export interface FunctionListResponse {
+  functions: FunctionSummary[];
+  total: number;
+}
+
+export interface FunctionDetailResponse {
+  function: string;
+  products: ProductSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 }

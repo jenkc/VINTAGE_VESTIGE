@@ -8,7 +8,7 @@ Usage:
   python analysis/generate_narratives.py [--limit=N] [--concurrency=N]
 
   --limit=N        Total bridges to process (default: all)
-  --concurrency=N  Parallel API calls (default: 10)
+  --concurrency=N  Parallel API calls (default: 5)
 
 Safe to interrupt and resume — only processes bridges where
 bridge_narrative IS NULL.
@@ -29,7 +29,7 @@ from storage.database import SessionLocal, Product, StyleBridge
 from enrichment.claude import ClaudeEnricher
 
 
-async def process_bridge(enricher, bridge_id, source_id, target_id, shared_json, product_map, semaphore):
+async def process_bridge(enricher, bridge_id, source_id, target_id, shared_json, product_map, semaphore, connection_mode=None, contrast_pair=None):
     """Process a single bridge under the semaphore."""
     async with semaphore:
         src = product_map.get(source_id)
@@ -42,25 +42,30 @@ async def process_bridge(enricher, bridge_id, source_id, target_id, shared_json,
             'decade': src['decade'], 'material': src['material'],
             'silhouette': src['silhouette'], 'vibe': src['vibe'],
             'fp_category': src['fp_category'],
+            'culture': src['culture'], 'social_function': src['social_function'],
         }
         item_b = {
             'title': tgt['title'], 'era': tgt['era'],
             'decade': tgt['decade'], 'material': tgt['material'],
             'silhouette': tgt['silhouette'], 'vibe': tgt['vibe'],
             'fp_category': tgt['fp_category'],
+            'culture': tgt['culture'], 'social_function': tgt['social_function'],
         }
+
         shared = json.loads(shared_json) if shared_json else {}
 
         try:
             narrative = await enricher.generate_bridge_narrative_async(
-                item_a, item_b, shared
+                item_a, item_b, shared,
+                connection_mode=connection_mode,
+                contrast_pair=contrast_pair,
             )
             return bridge_id, narrative, None
         except Exception as e:
             return bridge_id, None, str(e)
 
 
-async def generate_narratives(limit=None, concurrency=10):
+async def generate_narratives(limit=None, concurrency=5):
     db = SessionLocal()
     enricher = ClaudeEnricher()
     semaphore = asyncio.Semaphore(concurrency)
@@ -88,6 +93,7 @@ async def generate_narratives(limit=None, concurrency=10):
             'title': p.title, 'era': p.era, 'decade': p.decade,
             'material': p.material, 'silhouette': p.silhouette,
             'vibe': p.vibe, 'fp_category': p.fp_category,
+            'culture': p.culture, 'social_function': p.social_function,
         }
 
     generated = 0
@@ -100,10 +106,11 @@ async def generate_narratives(limit=None, concurrency=10):
         bridges = (
             db.query(
                 StyleBridge.id, StyleBridge.source_id, StyleBridge.target_id,
-                StyleBridge.shared_attributes, StyleBridge.bridge_score,
+                StyleBridge.shared_attributes,
+                StyleBridge.connection_mode, StyleBridge.contrast_pair,
             )
             .filter(StyleBridge.bridge_narrative == None)
-            .order_by(StyleBridge.bridge_score.desc())
+            .order_by(StyleBridge.text_similarity.desc())
             .limit(fetch_size)
             .all()
         )
@@ -116,9 +123,11 @@ async def generate_narratives(limit=None, concurrency=10):
             process_bridge(
                 enricher, b.id, b.source_id, b.target_id,
                 b.shared_attributes, product_map, semaphore,
+                connection_mode=b.connection_mode, contrast_pair=b.contrast_pair,
             )
             for b in bridges
         ]
+
         results = await asyncio.gather(*tasks)
 
         # Write results to DB
@@ -156,7 +165,7 @@ async def generate_narratives(limit=None, concurrency=10):
 
 if __name__ == '__main__':
     limit_val = None
-    concurrency_val = 10
+    concurrency_val = 5
 
     for arg in sys.argv[1:]:
         if arg.startswith('--limit='):

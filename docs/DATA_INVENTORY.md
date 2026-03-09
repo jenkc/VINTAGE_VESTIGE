@@ -1,15 +1,15 @@
 # Vintage Vestige — Data Inventory
 
-**As of: 2026-02-22 (all numbers from live queries)**
+**As of: 2026-03-07**
 
 ---
 
-## PostgreSQL Database
+## Supabase PostgreSQL Database (with pgvector)
 
 ### Connection
 
 ```
-DATABASE_URL=postgresql+psycopg://localhost/vintage_vestige
+DATABASE_URL=postgresql+psycopg://postgres:***@db.tusswxlrdoamintvswjs.supabase.co:5432/postgres
 ```
 
 ### Tables
@@ -21,237 +21,171 @@ DATABASE_URL=postgresql+psycopg://localhost/vintage_vestige
   style_bridges
 ```
 
-No other tables exist. The IIT 4.0 plan calls for `phi_scores`, `maximal_complexes`, and `discovered_complexes` — none of these have been created.
+No other tables exist. The IIT 4.0 plan calls for `phi_scores`, `maximal_complexes`, and `discovered_complexes` — none of these have been created. The products table now includes pgvector columns `text_embedding vector(384)` and `image_embedding vector(512)` with HNSW indexes.
 
 ---
 
-### Products Table: 866 rows
+### Products Table: 4,234 rows
 
 #### By Platform
 
 ```sql
--- Query: SELECT platform, COUNT(*) FROM products GROUP BY platform
+-- Query: SELECT platform, COUNT(*) FROM products GROUP BY platform ORDER BY COUNT(*) DESC
 -- Result:
-  fashionpedia:  500
-  met_museum:    200
-  smithsonian:   166
-  ─────────────────
-  Total:         866
+  va_museum:     1,856
+  fashionpedia:  1,000
+  smithsonian:     778
+  met_museum:      600
+  ─────────────────────
+  Total:         4,234
 ```
 
 #### Enrichment Coverage
 
 ```sql
 -- Query: SELECT COUNT(*) FROM products WHERE enriched_at IS NOT NULL
--- Result: 866/866 (100%)
+-- Result: 4,234/4,234 (100%)
 ```
 
-All products have been enriched by Claude Sonnet 4.
+All products enriched via `enrich_async.py` (concurrency 10-15). All products have `core_vibes` (vibe vocabulary from updated enrichment prompts).
 
-#### Embedding Timestamp Coverage
+#### Embedding Coverage
 
 ```sql
--- Query: SELECT COUNT(*) FROM products WHERE embedded_at IS NOT NULL
--- Result: 200/866 (23%)
+-- Query: SELECT COUNT(*) FROM products WHERE text_embedding IS NOT NULL
+-- Result: 4,234/4,234 (100%)
+
+-- Query: SELECT COUNT(*) FROM products WHERE image_embedding IS NOT NULL
+-- Result: 4,234/4,234 (100%)
 ```
 
-**Important caveat:** All 866 products ARE in Qdrant (confirmed below). The `embedded_at` timestamp was only set for the first 200 products (Met Museum batch). The remaining 666 were embedded via `rebuild_embeddings.py` or `enrich_and_reembed_all.py` which didn't update this timestamp. This is a tracking gap, not a data gap.
+All products re-embedded using `enriched_text` via `rebuild_embeddings.py` (2026-03-06).
 
-#### Field Coverage (non-null, non-empty counts out of 866)
+#### Field Coverage (non-null, non-empty counts out of 4,234)
 
 | Field | Count | Coverage | Notes |
 |-------|-------|----------|-------|
-| **title** | 866 | 100% | |
-| **description** | 866 | 100% | |
-| **primary_image** | 866 | 100% | URLs or data URLs |
-| **price** | 866 | 100% | Set to 0.0 for museum items |
-| **url** | 866 | 100% | |
-| **seller_name** | 866 | 100% | Museum name for museum items |
-| **image_urls** | 866 | 100% | JSON array |
-| **era** | 866 | 100% | From enrichment |
-| **decade** | 865 | 99.9% | 1 item missing |
-| **category** | 866 | 100% | |
-| **vibe** | 866 | 100% | From enrichment |
-| **fit_style** | 866 | 100% | From enrichment |
-| **occasion** | 866 | 100% | From enrichment |
-| **ai_description** | 866 | 100% | From enrichment |
-| **enriched_text** | 866 | 100% | Built from enrichment fields |
-| **colors** | 866 | 100% | JSON array, from enrichment |
-| **material** | 866 | 100% | From enrichment |
-| **style_tags** | 866 | 100% | JSON array, from enrichment |
-| **garment_type** | 866 | 100% | From enrichment |
-| **textile_finishing** | 866 | 100% | JSON array, from enrichment |
-| **garment_parts** | 866 | 100% | JSON array, from enrichment |
-| **decorations** | 866 | 100% | JSON array, from enrichment |
-| **fp_category** | 855 | 98.7% | 11 items missing |
-| **textile_pattern** | 845 | 97.6% | 21 items missing |
-| **silhouette** | 753 | 86.9% | Accessories lack silhouette |
-| **waistline** | 697 | 80.5% | Not applicable to all garments |
-| **length** | 656 | 75.8% | Not applicable to all garments |
-| **nickname** | 508 | 58.7% | Many items have no specific sub-type |
-| **culture** | 344 | 39.7% | Museum items have culture; Fashionpedia doesn't |
-| **sleeve_length** | 211 | 24.4% | Many garments are sleeveless/N/A |
-| **object_date** | 158 | 18.2% | Smithsonian items have dates |
-| **neckline** | 135 | 15.6% | Many garments lack visible neckline |
-| **color** | 0 | 0% | Original dataset field; superseded by `colors` |
-| **season** | 0 | 0% | Original dataset field; enrichment uses `season` from enrichment |
-| **year** | 0 | 0% | Original dataset field; superseded by `decade` |
-| **pattern** | 0 | 0% | Original dataset field; superseded by `textile_pattern` |
+| **title** | 4,234 | 100% | |
+| **description** | 4,234 | 100% | |
+| **primary_image** | 4,234 | 100% | All HTTP URLs (Supabase Storage) |
+| **price** | 4,234 | 100% | Set to 0.0 for museum items |
+| **url** | 4,234 | 100% | |
+| **seller_name** | 4,234 | 100% | Museum name for museum items |
+| **image_urls** | 4,234 | 100% | JSON array |
+| **era** | 4,234 | 100% | From enrichment |
+| **decade** | ~4,230 | ~99.9% | A few items missing |
+| **category** | 4,234 | 100% | |
+| **vibe** | 4,234 | 100% | From enrichment |
+| **core_vibes** | 4,234 | 100% | JSON array, controlled vocabulary |
+| **fit_style** | 4,234 | 100% | From enrichment |
+| **occasion** | 4,234 | 100% | From enrichment |
+| **ai_description** | 4,234 | 100% | From enrichment |
+| **enriched_text** | 4,234 | 100% | Built from enrichment fields |
+| **colors** | 4,234 | 100% | JSON array, from enrichment |
+| **material** | 4,234 | 100% | From enrichment |
+| **style_tags** | 4,234 | 100% | JSON array, from enrichment |
+| **garment_type** | 4,234 | 100% | From enrichment |
+| **textile_finishing** | 4,234 | 100% | JSON array, from enrichment |
+| **garment_parts** | 4,234 | 100% | JSON array, from enrichment |
+| **decorations** | 4,234 | 100% | JSON array, from enrichment |
+| **social_function** | 4,234 | 100% | JSON array, from enrichment |
+| **construction_technique** | 4,234 | 100% | JSON array, from enrichment |
+| **motif_family** | 4,234 | 100% | JSON array, from enrichment |
+| **fp_category** | ~98% | ~98% | Some items not classifiable |
+| **textile_pattern** | ~97% | ~97% | Some items missing |
+| **silhouette** | ~85% | ~85% | Accessories lack silhouette |
+| **waistline** | ~80% | ~80% | Not applicable to all garments |
+| **length** | ~75% | ~75% | Not applicable to all garments |
+| **nickname** | ~58% | ~58% | Many items have no specific sub-type |
+| **culture** | ~75% | ~75% | Museum items have culture; Fashionpedia enriched by Claude |
+| **sleeve_length** | ~25% | ~25% | Many garments are sleeveless/N/A |
+| **object_date** | ~18% | ~18% | Smithsonian items have dates |
+| **neckline** | ~16% | ~16% | Many garments lack visible neckline |
+| **color** | 0 | 0% | Dead column; superseded by `colors` |
+| **season** | 0 | 0% | Dead column; superseded by enrichment |
+| **year** | 0 | 0% | Dead column; superseded by `decade` |
+| **pattern** | 0 | 0% | Dead column; superseded by `textile_pattern` |
 | **period** | 0 | 0% | Never populated |
 
-**Key observation:** Several original dataset fields (`color`, `season`, `year`, `pattern`, `period`) are completely empty — enrichment fields (`colors`, `season` via enrichment, `decade`, `textile_pattern`) have replaced them. These columns are dead weight.
+**Key observation:** Several original dataset fields (`color`, `season`, `year`, `pattern`, `period`) are completely empty — enrichment fields have replaced them. These columns are dead weight.
 
 ---
 
-### Style Bridges Table: 7,324 rows
+### Style Bridges Table: Being Recomputed
 
-#### By Bridge Type
+Bridge recomputation (`compute_bridges.py --rebuild`) started 2026-03-07 over all 4,234 enriched/embedded products. Previous 3,367 bridges were wiped for rebuild.
 
-```sql
--- Query: SELECT bridge_type, COUNT(*) FROM style_bridges GROUP BY bridge_type
--- Result:
-  same_era:         3,957  (54.0%)
-  cross_category:   1,760  (24.0%)
-  cross_era:        1,076  (14.7%)
-  near_era:           425  ( 5.8%)
-  cross_vibe:         106  ( 1.4%)
-  ──────────────────────────────────
-  Total:            7,324
-```
+#### Bridge Types (from computation passes)
 
-#### Score Distribution
+- **Pass 1 (Open discovery):** text + image similarity across all products
+- **Pass 2 (Cross-culture):** bridges between products with different cultures
 
-```sql
--- Query: Score histogram (0.1 buckets)
--- Result:
-  0.0-0.1:     0
-  0.1-0.2:     0
-  0.2-0.3:     0
-  0.3-0.4:   623   ( 8.5%)
-  0.4-0.5: 1,841   (25.1%)
-  0.5-0.6: 2,182   (29.8%)  ← peak
-  0.6-0.7: 1,838   (25.1%)
-  0.7-0.8:   728   ( 9.9%)
-  0.8-0.9:   108   ( 1.5%)
-  0.9-1.0:     4   ( 0.1%)
+#### Classification Columns (NEW 2026-03-07)
 
-  AVG: 0.5560   MIN: 0.3000   MAX: 0.9348
-```
+6 orthogonal dimensions added to `style_bridges`:
 
-#### Image Similarity Coverage
+| Column | Values |
+|--------|--------|
+| `temporal_type` | transmission \| continuation \| contemporary |
+| `crossing_type` | same_context \| cross_category \| cross_culture \| cross_category_culture |
+| `connection_mode` | contrast \| resonance \| affinity |
+| `primary_axis` | volume \| ornament \| body \| register |
+| `secondary_axis` | volume \| ornament \| body \| register |
+| `contrast_pair` | e.g. "Exaggerated Volume <-> Column Minimalism" (contrast only) |
 
-```sql
--- Query: SELECT COUNT(*) FROM style_bridges WHERE image_similarity IS NOT NULL
--- Result: 2,243/7,324 (30.6%)
-```
-
-69.4% of bridges lack image similarity — these use the fallback scoring formula (0.55*text + 0.45*structural).
+Classification runs post-hoc via `scripts/classify_bridge_dimensions.py`.
 
 #### Narrative Coverage
 
-```sql
--- Query: SELECT COUNT(*) FROM style_bridges WHERE bridge_narrative IS NOT NULL
--- Result: 22/7,324 (0.3%)
-```
-
-Only 22 narratives generated out of 7,324 bridges. The async generation script ([analysis/generate_narratives.py](../analysis/generate_narratives.py)) is ready to run the remaining ~7,302.
-
-**Estimated cost to complete:** ~$13 at current Claude Sonnet 4 pricing (7,302 calls × ~200 tokens each).
-
-#### Cross-Platform Bridges
-
-```sql
--- Query: SELECT COUNT(*) FROM style_bridges sb
---   JOIN products p1 ON sb.source_id = p1.id
---   JOIN products p2 ON sb.target_id = p2.id
---   WHERE p1.platform != p2.platform
--- Result: 1,134/7,324 (15.5%)
-```
-
-#### Sample Bridge
-
-```sql
--- Query: SELECT * FROM style_bridges WHERE bridge_narrative IS NOT NULL LIMIT 1
--- Result:
-  source_id: 209, target_id: 221
-  bridge_score: 0.9348, bridge_type: same_era
-  text_similarity: 0.9551, image_similarity: NULL, structural_score: 0.91
-  narrative: "Both items embody the Georgian era's revolutionary shift toward
-    neoclassical simplicity, featuring the distinctive empire waistline that
-    sits just below the bust and flows into an A-line silhouette ma..."
-```
+Narratives will be regenerated after bridge recomputation via `analysis/generate_narratives.py`. New narratives receive mode-specific hints (contrast/resonance/affinity) from the classification dimensions.
 
 ---
 
-## Qdrant Vector Database
+## Vector Embeddings (pgvector — on products table)
 
-### Connection
+**Migrated from Qdrant 2026-03-04.** Local Qdrant is stopped and removed from `.env`.
 
-```
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-```
+### Text Embeddings
 
-### Collection: `vintage_text`
-
-```python
-# Query: client.get_collection('vintage_text')
-# Result:
-  points_count: 866
-  vector_size:  384
-  distance:     Cosine
+```sql
+-- Query: SELECT COUNT(*) FROM products WHERE text_embedding IS NOT NULL
+-- Result: 4,234/4,234 (100%)
+-- Dimensionality: 384 (all-MiniLM-L6-v2)
+-- Index: HNSW with vector_cosine_ops
 ```
 
-**Payload fields (21):** product_id, title, category, era, decade, style_tags, colors, material, pattern, garment_type, vibe, fit_style, occasion, ai_description, season, price, primary_image, culture, object_date, platform, fp_category
+### Image Embeddings
 
-**Platform distribution:**
-
-```python
-# Query: client.count(filter=FieldCondition(key='platform', match=MatchValue(value=X)))
-# Result:
-  fashionpedia: 500
-  met_museum:   200
-  smithsonian:  166
-  Total:        866
+```sql
+-- Query: SELECT COUNT(*) FROM products WHERE image_embedding IS NOT NULL
+-- Result: 4,234/4,234 (100%)
+-- Dimensionality: 512 (clip-ViT-B-32)
+-- Index: HNSW with vector_cosine_ops
 ```
 
-All 866 points have `platform` and `fp_category` in their payloads (confirmed by filter queries and sampling).
+All products embedded using `enriched_text` (text) and product images (CLIP). Re-embedded 2026-03-06 via `rebuild_embeddings.py`.
 
-### Collection: `vintage_images`
+## Supabase Storage
 
-```python
-# Query: client.get_collection('vintage_images')
-# Result:
-  points_count: 866
-  vector_size:  512
-  distance:     Cosine
+### Bucket: `product-images`
+
+```
+URL pattern: https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/{id}.{ext}
+Total files: 4,234 (one per product)
+Format: JPEG (.jpg)
+Access: Public bucket (no auth required)
 ```
 
-**Payload fields (28, backfilled 2026-02-22):** product_id, platform, title, category, era, decade, style_tags, colors, material, garment_type, vibe, fit_style, occasion, ai_description, price, primary_image, culture, object_date, fp_category, nickname, silhouette, neckline, waistline, length, sleeve_length, opening_type, textile_pattern, textile_finishing, garment_parts, decorations
-
-**Platform distribution:**
-
-```python
-# Query: (same as above)
-# Result:
-  fashionpedia: 500
-  met_museum:   200
-  smithsonian:  166
-  Total:        866
-```
-
-**Note:** Payloads were backfilled on 2026-02-22 using `embeddings/scripts/backfill_image_payloads.py` (Qdrant `set_payload()` — vectors untouched). Both collections now have identical payload shapes. The `generate_image_embeddings.py` script was also updated to include full payloads for future runs.
+**Migrated 2026-03-04** from base64 `data:image/jpeg;base64,...` strings in the `primary_image` column. All products now reference Supabase Storage URLs.
 
 ---
 
 ## Data Quality Notes
 
-1. **`embedded_at` tracking gap:** Only 200/866 products have this timestamp set, despite all 866 being in Qdrant. Safe to backfill with a one-liner: `UPDATE products SET embedded_at = NOW() WHERE embedded_at IS NULL`.
+1. **`embedded_at` tracking gap:** Not all products have this timestamp set despite having embeddings. Low priority — embeddings themselves are complete.
 
-2. **Dead columns:** `color`, `season`, `year`, `pattern`, `period` are all 0/866 populated. The enrichment fields (`colors`, `decade`, `textile_pattern`) have replaced them. These columns should be dropped or ignored.
+2. **Dead columns:** `color`, `season`, `year`, `pattern`, `period` are all 0% populated. The enrichment fields (`colors`, `decade`, `textile_pattern`) have replaced them.
 
-3. **Image payload asymmetry: RESOLVED.** `vintage_images` payloads were backfilled on 2026-02-22 to match `vintage_text` (28 fields each). No Postgres join needed for image search.
+3. **Neckline/sleeve_length sparsity:** ~16% and ~25% populated respectively. These contribute to structural scoring but are often NULL for non-applicable garment types. The scoring algorithm handles NULL correctly.
 
-4. **Narrative gap:** 22/7,324 bridges have narratives. Running `generate_narratives.py` would cost ~$13 and take ~1 hour (7,302 bridges × ~0.5s each with concurrency 10).
-
-5. **Neckline/sleeve_length sparsity:** Only 15.6% and 24.4% populated respectively. These contribute to structural scoring but are often NULL for non-applicable garment types (accessories, bags, hats). The scoring algorithm handles NULL correctly (field is simply ignored).
+4. **Bridge recomputation in progress:** `compute_bridges.py --rebuild` running 2026-03-07 over full 4,234-product corpus. After completion: classify dimensions, then generate narratives.

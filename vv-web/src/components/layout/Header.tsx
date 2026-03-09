@@ -20,6 +20,14 @@ export default function Header() {
                     <Link href="/search" className="text-sm text-charcoal-soft hover:text-terracotta">
                         Search
                     </Link>
+                    <Link href="/explore/functions" className="text-sm text-charcoal-soft hover:text-terracotta">
+                        Explore
+                    </Link>
+
+                    <Link href="/bridges" className="text-sm text-charcoal-soft hover:text-terracotta">
+                        Bridges
+                    </Link>
+
                     <Link href="/about" className="text-sm text-charcoal-soft hover:text-terracotta">
                         About
                     </Link>
@@ -46,6 +54,23 @@ export default function Header() {
                         >
                             Search
                         </Link>
+                        
+                        <Link
+                            href="/explore/functions"
+                            onClick={() => setMenuOpen(false)}
+                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                        >
+                            Explore
+                        </Link>
+
+                        <Link
+                            href="/bridges"
+                            onClick={() => setMenuOpen(false)}
+                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                        >
+                            Bridges
+                        </Link>
+
                         <Link
                             href="/about"
                             onClick={() => setMenuOpen(false)}

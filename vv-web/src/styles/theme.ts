@@ -29,3 +29,15 @@ export function scoreColorByValue(score: number): string {
   if (score > 0.6) return "#B8924A"; // gold
   return "#8A7E74";                  // muted
 }
+
+export const CONNECTION_MODE_COLORS: Record<string, string> = {
+  contrast: "#B5576D",    // rose
+  resonance: "#B8924A",   // amber/gold
+  affinity: "#8A7E74",    // muted
+};
+
+export const CONNECTION_MODE_LABELS: Record<string, string> = {
+  contrast: "Contrast",
+  resonance: "Resonance",
+  affinity: "Affinity",
+};

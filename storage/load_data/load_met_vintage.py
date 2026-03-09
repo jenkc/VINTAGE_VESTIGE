@@ -6,14 +6,21 @@ Two-phase approach:
   2. Download images only for the ones that have them
 """
 
+import sys
+import os
+
+from storage.image_storage import upload_product_image
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
+
 import requests
 from storage.database import SessionLocal, Product
+from enrichment.era_taxonomy import year_to_era
 import json
 import random
-import base64
 from io import BytesIO
 from PIL import Image
-import sys
 import time
 
 
@@ -49,30 +56,61 @@ def fetch_object(obj_id):
         return None
 
 
-def download_image(url):
-    """Download image and convert to data URL. Returns data_url or None."""
+def download_image(url, storage_key):
+    """Download image , upload to Supabase Storage, return public URL."""
     try:
         resp = SESSION.get(url, timeout=15)
         img = Image.open(BytesIO(resp.content)).convert('RGB')
         img.thumbnail((400, 400))
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=80)
-        encoded = base64.b64encode(buf.getvalue()).decode()
-        return f"data:image/jpeg;base64,{encoded}"
+        return upload_product_image(storage_key, buf.getvalue())
     except Exception:
         return None
+    
 
+# year_to_era imported from enrichment.era_taxonomy
 
-def extract_era(date_str):
-    """Extract era from Met date string"""
-    for decade in ['1920', '1930', '1940', '1950', '1960', '1970', '1980']:
-        if decade in date_str:
-            return f'{decade}s'
-    if '19th century' in date_str.lower():
-        return '1800s'
-    if '18th century' in date_str.lower():
-        return '1700s'
-    return None
+def extract_date_fields(obj):
+    """Extract decade, era, and object_date from Met API numeric + string date fields.
+
+    Uses objectBeginDate/objectEndDate (integers) for reliable decade/era,
+    falls back to objectDate (string) parsing if numeric fields are missing.
+    """
+    begin = obj.get('objectBeginDate')
+    end = obj.get('objectEndDate')
+    date_str = obj.get('objectDate', '')
+
+    decade = None
+    era = None
+    object_date = date_str if date_str else None
+
+    if isinstance(begin, (int, float)) and isinstance(end, (int, float)):
+        mid_year = int((begin + end) / 2)
+        decade = f'{(mid_year // 10) * 10}s'
+        era = year_to_era(mid_year)
+    elif date_str:
+        # Fallback: try parsing the string
+        import re
+        m = re.search(r'(\d{4})', date_str)
+        if m:
+            year = int(m.group(1))
+            decade = f'{(year // 10) * 10}s'
+            era = year_to_era(year)
+        else:
+            # Handle century references like "Late 18th Century"
+            m = re.search(r'(\d{1,2})(?:st|nd|rd|th)\s+century', date_str, re.IGNORECASE)
+            if m:
+                century = int(m.group(1))
+                mid_year = (century - 1) * 100 + 50
+                if 'late' in date_str.lower():
+                    mid_year += 25
+                elif 'early' in date_str.lower():
+                    mid_year -= 25
+                decade = f'{(mid_year // 10) * 10}s'
+                era = year_to_era(mid_year)
+
+    return era, decade, object_date
 
 
 def obj_to_product(obj, image_data):
@@ -83,6 +121,8 @@ def obj_to_product(obj, image_data):
     medium = obj.get('medium', '')
     culture = obj.get('culture', '')
     name = obj.get('objectName', 'clothing')
+
+    era, decade, object_date = extract_date_fields(obj)
 
     desc_parts = [p for p in [
         name,
@@ -107,18 +147,22 @@ def obj_to_product(obj, image_data):
         'category': name,
         'garment_type': name if name else None,
         'material': medium if medium else None,
-        'era': extract_era(date) or period or None,
-        'object_date': date if date else None,
+        'era': era or period or None,
+        'decade': decade,
+        'object_date': object_date,
         'culture': culture if culture else None,
         'period': period if period else None,
         'style_tags': json.dumps([p for p in [period, culture] if p]),
     }
 
 
-def load_met_vintage(num_items=200):
+def load_met_vintage(num_items=400, max_per_era_pct=0.25):
     print("\n" + "=" * 60)
     print("LOADING VINTAGE FROM MET MUSEUM COSTUME INSTITUTE")
     print("=" * 60 + "\n")
+
+    max_per_era = max(5, int(num_items * max_per_era_pct))
+    print(f"Era diversity cap: max {max_per_era} items per era ({max_per_era_pct:.0%})")
 
     all_ids = get_all_costume_ids()
     random.shuffle(all_ids)
@@ -134,8 +178,11 @@ def load_met_vintage(num_items=200):
     candidate_ids = [i for i in all_ids if f'met_{i}' not in existing]
 
     # Phase 1: Scan metadata sequentially to find objects with images
+    # Apply era quotas to ensure diverse date coverage
     print(f"\nPhase 1: Scanning objects for image availability (sequential, ~2 req/sec)...")
     has_image = []
+    era_counts = {}
+    skipped_era = 0
     scanned = 0
 
     for obj_id in candidate_ids:
@@ -148,12 +195,21 @@ def load_met_vintage(num_items=200):
         time.sleep(0.5)
 
         if obj and obj.get('department') == 'Costume Institute' and obj.get('primaryImage'):
+            era, _, _ = extract_date_fields(obj)
+            era_key = era or 'Unknown'
+
+            if era_counts.get(era_key, 0) >= max_per_era:
+                skipped_era += 1
+                continue
+
             has_image.append(obj)
+            era_counts[era_key] = era_counts.get(era_key, 0) + 1
 
         if scanned % 50 == 0:
-            print(f"  scanned {scanned} — {len(has_image)} with images | errors: {dict(errors)}")
+            print(f"  scanned {scanned} — {len(has_image)} accepted, {skipped_era} skipped (era cap) | errors: {dict(errors)}")
 
-    print(f"\nPhase 1 done: {len(has_image)} objects have images (scanned {scanned})")
+    print(f"\nPhase 1 done: {len(has_image)} objects accepted (scanned {scanned}, {skipped_era} skipped for era diversity)")
+    print(f"Era distribution: {dict(sorted(era_counts.items(), key=lambda x: -x[1]))}")
 
     if not has_image:
         print("No objects with images found!")
@@ -168,7 +224,7 @@ def load_met_vintage(num_items=200):
         if stored >= num_items:
             break
 
-        image_data = download_image(obj['primaryImage'])
+        image_data = download_image(obj['primaryImage'], f'met_{obj["objectID"]}')
         time.sleep(0.5)
 
         if image_data is None:
@@ -189,5 +245,6 @@ def load_met_vintage(num_items=200):
 
 
 if __name__ == '__main__':
-    num = int(sys.argv[1]) if len(sys.argv) > 1 else 200
+    num = int(sys.argv[1]) if len(sys.argv) > 1 else 400
+    
     load_met_vintage(num_items=num)

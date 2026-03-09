@@ -1,16 +1,18 @@
 from functools import lru_cache
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-from storage.vector_db import VectorDB
+from storage.database import get_db
+from storage.vector_search import VectorSearch
 from embeddings.generator import EmbeddingGenerator
 
-@lru_cache(maxsize=1)
-def get_vector_db() -> VectorDB:
-    """Create VectorDB once, reuse for all requests."""
-    return VectorDB()
+
+def get_vector_search(db: Session = Depends(get_db)) -> VectorSearch:
+    """VectorSearch using the request's DB session."""
+    return VectorSearch(db)
+
 
 @lru_cache(maxsize=1)
 def get_embedding_generator() -> EmbeddingGenerator:
-    """Create EmbeddingGenerator once, reuse for all requests.
-       This loads the ML models (~30 seconds on first call)
-    """
+    """Create EmbeddingGenerator once, reuse for all requests."""
     return EmbeddingGenerator()

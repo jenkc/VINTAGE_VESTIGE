@@ -2,12 +2,11 @@
 Data integrity tests for the style bridge system.
 
 Validates bridge data quality, deduplication invariants,
-and structural consistency after recent fixes:
+and structural consistency:
   - Canonical ordering (source_id < target_id)
   - No self-referencing bridges
   - No duplicate pairs
   - Narrative generation
-  - Qdrant payload completeness
 """
 import json
 import pytest
@@ -85,16 +84,12 @@ class TestBridgeInvariants:
 class TestBridgeDataQuality:
     """Bridge scores and metadata should be well-formed."""
 
-    def test_bridge_scores_in_valid_range(self, db):
-        """All bridge_score values should be between 0 and 1."""
-        bad = (
-            db.query(StyleBridge)
-            .filter(
-                (StyleBridge.bridge_score < 0) | (StyleBridge.bridge_score > 1)
-            )
-            .count()
-        )
-        assert bad == 0, f"Found {bad} bridges with score outside [0, 1]"
+    def test_component_scores_in_valid_range(self, db):
+        """All component scores should be between 0 and 1."""
+        for col_name, col in [('text_similarity', StyleBridge.text_similarity),
+                               ('structural_score', StyleBridge.structural_score)]:
+            bad = db.query(StyleBridge).filter((col < 0) | (col > 1)).count()
+            assert bad == 0, f"Found {bad} bridges with {col_name} outside [0, 1]"
 
     def test_text_similarity_in_valid_range(self, db):
         """text_similarity should be between 0 and 1."""
@@ -122,8 +117,9 @@ class TestBridgeDataQuality:
 
     def test_bridge_type_values_valid(self, db):
         """bridge_type should be one of the known types."""
-        valid_types = {'cross_era', 'near_era', 'same_era',
-                       'cross_category', 'cross_vibe'}
+        valid_types = {'transmission', 'continuation', 'revival',
+                       'cross_category', 'cross_vibe', 'cross_culture',
+                       'near_era'}
         types_in_db = set(
             r[0] for r in db.query(StyleBridge.bridge_type).distinct().all()
             if r[0] is not None
@@ -162,7 +158,7 @@ class TestBridgeCoverage:
 
     def test_all_bridge_types_represented(self, db):
         """Each bridge type should have at least some bridges."""
-        expected_types = {'cross_era', 'same_era', 'cross_category'}
+        expected_types = {'transmission', 'cross_category'}
         types_in_db = set(
             r[0] for r in db.query(StyleBridge.bridge_type).distinct().all()
             if r[0] is not None
@@ -170,19 +166,19 @@ class TestBridgeCoverage:
         missing = expected_types - types_in_db
         assert len(missing) == 0, f"Missing bridge types: {missing}"
 
-    def test_cross_era_bridges_span_platforms(self, db):
-        """cross_era bridges should connect different platforms."""
-        cross_era = (
+    def test_transmission_bridges_span_platforms(self, db):
+        """transmission bridges should connect different platforms."""
+        transmission = (
             db.query(StyleBridge)
-            .filter(StyleBridge.bridge_type == 'cross_era')
+            .filter(StyleBridge.bridge_type == 'transmission')
             .limit(50)
             .all()
         )
-        if not cross_era:
-            pytest.skip("No cross_era bridges")
+        if not transmission:
+            pytest.skip("No transmission bridges")
 
         product_ids = set()
-        for b in cross_era:
+        for b in transmission:
             product_ids.add(b.source_id)
             product_ids.add(b.target_id)
 
@@ -191,46 +187,7 @@ class TestBridgeCoverage:
         ).all()
         platforms = set(p.platform for p in products)
         assert len(platforms) >= 2, (
-            f"cross_era bridges only touch {platforms} — expected 2+ platforms"
+            f"transmission bridges only touch {platforms} — expected 2+ platforms"
         )
 
 
-# ---------------------------------------------------------------------------
-# Qdrant payload completeness
-# ---------------------------------------------------------------------------
-
-class TestQdrantPayloads:
-    """Qdrant payloads should have fields needed by bridge filters."""
-
-    def test_qdrant_has_platform_field(self, db):
-        """Qdrant text points should have platform in payload."""
-        from storage.vector_db import VectorDB
-        vdb = VectorDB()
-
-        # Sample a few points
-        points, _ = vdb.client.scroll(
-            collection_name=vdb.text_collection,
-            limit=10,
-            with_payload=True,
-            with_vectors=False,
-        )
-        missing = [p.id for p in points if 'platform' not in p.payload]
-        assert len(missing) == 0, (
-            f"Points missing 'platform' in payload: {missing}"
-        )
-
-    def test_qdrant_has_fp_category_field(self, db):
-        """Qdrant text points should have fp_category in payload."""
-        from storage.vector_db import VectorDB
-        vdb = VectorDB()
-
-        points, _ = vdb.client.scroll(
-            collection_name=vdb.text_collection,
-            limit=10,
-            with_payload=True,
-            with_vectors=False,
-        )
-        missing = [p.id for p in points if 'fp_category' not in p.payload]
-        assert len(missing) == 0, (
-            f"Points missing 'fp_category' in payload: {missing}"
-        )

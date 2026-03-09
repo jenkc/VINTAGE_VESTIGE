@@ -1,7 +1,7 @@
 """
 Unit tests for embeddings/generator.py and embeddings/models.py
 
-Tests decode_data_url(), embedding dimensions, determinism, and edge cases.
+Tests load_image(), embedding dimensions, determinism, and edge cases.
 """
 import pytest
 import numpy as np
@@ -11,41 +11,43 @@ import base64
 from io import BytesIO
 
 
-# ---- decode_data_url tests (no model loading required) ----
+# ---- load_image tests (no model loading required) ----
 
 
-class TestDecodeDataUrl:
+class TestLoadImage:
 
     def test_valid_png_data_url(self, valid_data_url):
-        from embeddings.generator import decode_data_url
-        result = decode_data_url(valid_data_url)
+        from embeddings.generator import load_image
+        result = load_image(valid_data_url)
         assert isinstance(result, Image.Image)
         assert result.size == (1, 1)
 
     def test_none_returns_none(self):
-        from embeddings.generator import decode_data_url
-        assert decode_data_url(None) is None
+        from embeddings.generator import load_image
+        assert load_image(None) is None
 
     def test_empty_string_returns_none(self):
-        from embeddings.generator import decode_data_url
-        assert decode_data_url("") is None
+        from embeddings.generator import load_image
+        assert load_image("") is None
 
     def test_non_data_url_returns_none(self, invalid_data_url):
-        from embeddings.generator import decode_data_url
-        assert decode_data_url(invalid_data_url) is None
+        from embeddings.generator import load_image
+        assert load_image(invalid_data_url) is None
 
-    def test_http_url_returns_none(self):
-        from embeddings.generator import decode_data_url
-        assert decode_data_url("https://example.com/image.png") is None
+    def test_pil_image_passthrough(self):
+        from embeddings.generator import load_image
+        img = Image.new("RGB", (3, 3), color=(255, 0, 0))
+        result = load_image(img)
+        assert result is img
 
     def test_jpeg_data_url(self):
-        from embeddings.generator import decode_data_url
+        from embeddings.generator import load_image
         img = Image.new("RGB", (2, 2), color=(0, 128, 255))
         buf = BytesIO()
         img.save(buf, format="JPEG")
         encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
         data_url = f"data:image/jpeg;base64,{encoded}"
-        result = decode_data_url(data_url)
+        result = load_image(data_url)
         assert isinstance(result, Image.Image)
         assert result.size == (2, 2)
 

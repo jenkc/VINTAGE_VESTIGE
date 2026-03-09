@@ -7,6 +7,8 @@ import type {
   BridgeListResponse,
   BridgeResult,
   BridgeStats,
+  FunctionListResponse,
+  FunctionDetailResponse,
 } from "@/types";
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -116,6 +118,9 @@ export async function getTopBridges(
   opts?: {
     bridge_type?: string; min_score?: number; max_score?: number;
     source_platform?: string; target_platform?: string;
+    temporal_type?: string; crossing_type?: string;
+    connection_mode?: string; primary_axis?: string;
+    shared_function?: string; sort?: string;
     limit?: number; offset?: number;
   }
 ): Promise<BridgeListResponse> {
@@ -127,6 +132,13 @@ export async function getTopBridges(
   if (opts?.target_platform) params.set("target_platform", opts.target_platform);
   if (opts?.limit) params.set("limit", String(opts.limit));
   if (opts?.offset) params.set("offset", String(opts.offset));
+  if (opts?.temporal_type) params.set("temporal_type", opts.temporal_type);
+  if (opts?.crossing_type) params.set("crossing_type", opts.crossing_type);
+  if (opts?.connection_mode) params.set("connection_mode", opts.connection_mode);
+  if (opts?.primary_axis) params.set("primary_axis", opts.primary_axis);
+  if (opts?.shared_function) params.set("shared_function", opts.shared_function);
+  if (opts?.sort) params.set("sort", opts.sort);
+
   const qs = params.toString();
   return fetchAPI<BridgeListResponse>(`/bridges/top${qs ? `?${qs}` : ""}`);
 }
@@ -143,3 +155,23 @@ export async function getBridgeDetail(bridgeId: number): Promise<BridgeResult> {
   return fetchAPI<BridgeResult>(`/bridges/${bridgeId}`);
 }
 
+// ─── Explore ────────────────────────────────────────────────────
+
+export async function getExploreFunctions(): Promise<FunctionListResponse> {
+  return fetchAPI<FunctionListResponse>("/explore/functions");
+}
+
+export async function getExploreFunction(
+  fn: string,
+  opts?: { culture?: string; era?: string; limit?: number; offset?: number }
+): Promise<FunctionDetailResponse> {
+  const params = new URLSearchParams();
+  if (opts?.culture) params.set("culture", opts.culture);
+  if (opts?.era) params.set("era", opts.era);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  if (opts?.offset) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return fetchAPI<FunctionDetailResponse>(
+    `/explore/functions/${encodeURIComponent(fn)}${qs ? `?${qs}` : ""}`
+  );
+}

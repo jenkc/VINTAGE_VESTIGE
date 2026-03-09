@@ -1,3 +1,20 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS
+.DS_Store
+
+# Generated outputs
+*.dump
+outputs/
+
+# Dev assets
+figma-pages/
+
 # Logs
 logs/
 *.log

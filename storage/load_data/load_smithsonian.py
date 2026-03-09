@@ -11,17 +11,20 @@ with available images. Key sources:
 import sys
 import os
 
+from storage.image_storage import upload_product_image
+
 # Ensure project root is first in path so local storage/ is found
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import requests
-from scripts.storage.database import SessionLocal, Product
+from storage.database import SessionLocal, Product
+from enrichment.era_taxonomy import year_to_era
 import json
-import base64
+import re
+import random
 from io import BytesIO
 from PIL import Image
 import time
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,28 +33,81 @@ API_KEY = os.getenv('SMITHSONIAN_API_KEY')
 BASE_URL = "https://api.si.edu/openaccess/api/v1.0"
 SESSION = requests.Session()
 
-# Fashion-specific search queries to cast a wide net
+# Fashion search queries — one term per query for precision, covering garment
+# types across all eras. The is_fashion_item() filter handles false positives.
 FASHION_QUERIES = [
-    "dress gown",
-    "evening dress",
-    "wedding gown",
-    "coat jacket",
-    "blouse skirt",
-    "hat bonnet",
-    "shoes boots",
-    "suit clothing",
-    "corset bodice",
-    "kimono robe",
-    "silk satin velvet",
-    "lace embroidery",
-    "handbag purse gloves",
-    "vintage fashion",
-    "costume garment",
-    "textile fabric",
-    "uniform military coat",
-    "fur cape shawl",
-    "cocktail dress",
-    "ball gown formal",
+    # Dresses & gowns
+    # "gown",
+    # "evening gown",
+    # "cocktail dress",
+    # # Tops
+    # "blouse",
+    # "bodice",
+    # "corset",
+    # # Outerwear
+    # "coat",
+    # "jacket",
+    # "shawl",
+    # # Bottoms
+    # "skirt",
+    # "trousers",
+    # # Full outfits
+    # "uniform",
+    # "ensemble",
+    # "kimono",
+    # "robe",
+   
+    # Era-specific queries (skip pre-1900, already well-covered)
+    # "1950s dress",
+    # "1950s garment",
+    # "1960s clothing",
+    # "1960s fashion",
+    # "1960s dress",
+    # "1970s clothing",
+    # "1970s dress",
+    # "1970s fashion",
+    # "1980s clothing",
+    # "1980s fashion",
+    # "1980s dress",
+    # "1990s clothing",
+    # "1990s fashion",
+    # "1990s dress",
+    # "contemporary dress",
+    # "contemporary fashion",
+    # Gap-filling queries for underrepresented eras
+    "punk fashion",
+    "punk clothing",
+    "hip hop fashion",
+    "streetwear",
+    "rave clothing",
+    "club fashion",
+    "power suit",
+    "grunge fashion",
+    "beatnik",
+
+    # Hip-hop / streetwear — garment-specific terms (catch items not tagged "hip hop")
+    "tracksuit",
+    "sneakers",
+    "leather jacket hip hop",
+    "gold chain",
+    "Kangol",
+    "Adidas Run DMC",
+
+    # Cultural diversity — African American fashion
+    "African American dress",
+    "African American clothing",
+    "African textile",
+    "kente cloth",
+    "dashiki",
+
+    # Cultural diversity — other traditions
+    "Native American clothing",
+    "Indigenous dress",
+    "Latin American textile",
+    "Chinese silk robe",
+    "Japanese kimono",
+    "Indian textile",
+    "sari",
 ]
 
 # Object types that are actual fashion (not books, prints, photos of people, etc.)
@@ -65,6 +121,11 @@ FASHION_OBJECT_TYPES = {
     'costume', 'textile', 'fabric', 'accessory', 'footwear', 'headwear',
     'outerwear', 'underwear', 'lingerie', 'negligee', 'peignoir', 'slipper',
     'sandal', 'pump', 'heel', 'mule', 'loafer', 'oxford',
+    # Streetwear / contemporary
+    'tracksuit', 'sneakers', 'hoodie', 'sweatshirt', 'cap', 'jersey',
+    # Non-Western garments
+    'sari', 'saree', 'kurta', 'dashiki', 'kente', 'kaftan', 'caftan',
+    'cheongsam', 'qipao', 'hanbok', 'huipil', 'moccasin', 'turban',
 }
 
 # Skip these - they show up in results but aren't wearable fashion
@@ -87,6 +148,11 @@ def is_fashion_item(row):
 
     obj_types = idx.get('object_type', [])
     obj_types_lower = [t.lower() for t in obj_types]
+
+    # Skip fragments
+    title = row.get('title', '').lower()
+    if 'fragment' in title:
+        return False
 
     # Explicit skip
     for t in obj_types_lower:
@@ -145,8 +211,8 @@ def get_image_url(row):
     return None
 
 
-def download_image(url):
-    """Download image and convert to data URL."""
+def download_image(url, storage_key):
+    """Download image and upload to Supabase Storage."""
     try:
         resp = SESSION.get(url, timeout=15)
         if resp.status_code != 200:
@@ -155,8 +221,7 @@ def download_image(url):
         img.thumbnail((400, 400))
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=80)
-        encoded = base64.b64encode(buf.getvalue()).decode()
-        return f"data:image/jpeg;base64,{encoded}"
+        return upload_product_image(storage_key, buf.getvalue())
     except Exception:
         return None
 
@@ -177,22 +242,20 @@ def extract_metadata(row):
     if not date_str and ft_dates:
         date_str = ft_dates[0]
 
-    # Era from date
+    # Era from date — use canonical taxonomy
     era = None
     if date_str:
-        for decade in range(1900, 2030, 10):
-            if str(decade) in date_str:
-                era = f'{decade}s'
-                break
-        if not era:
-            if '19th century' in date_str.lower() or '1800' in date_str:
-                era = '1800s'
-            elif '18th century' in date_str.lower() or '1700' in date_str:
-                era = '1700s'
-            elif '20th century' in date_str.lower():
-                era = '1900s'
-            elif '21st century' in date_str.lower():
-                era = '2000s'
+        m = re.search(r'(\d{4})', date_str)
+        if m:
+            era = year_to_era(int(m.group(1)))
+        elif '19th century' in date_str.lower():
+            era = year_to_era(1850)
+        elif '18th century' in date_str.lower():
+            era = year_to_era(1750)
+        elif '20th century' in date_str.lower():
+            era = year_to_era(1950)
+        elif '21st century' in date_str.lower():
+            era = year_to_era(2010)
 
     # Materials
     materials = [x.get('content', '') for x in ft.get('physicalDescription', [])]
@@ -271,20 +334,31 @@ def load_smithsonian(target=300):
     skipped_no_fashion = 0
     skipped_no_image = 0
     skipped_download_fail = 0
+    skipped_era = 0
+    era_counts = {}
+    max_per_era = max(5, int(target * 0.15))
 
-    for query in FASHION_QUERIES:
+    # Shuffle query order for variety across runs
+    queries = list(FASHION_QUERIES)
+    random.shuffle(queries)
+    max_per_query = max(5, target // len(queries))
+    print(f"Max per query: {max_per_query}, max per era: {max_per_era}")
+
+    for query in queries:
         if stored >= target:
             break
 
-        print(f"\n--- Searching: \"{query}\" ---")
+        query_stored = 0
         start = 0
+        print(f"\n--- Searching: \"{query}\" ---")
 
-        while stored < target:
+        while stored < target and query_stored < max_per_query:
             resp = SESSION.get(f"{BASE_URL}/search", params={
                 'api_key': API_KEY,
                 'q': query,
                 'rows': 50,
                 'start': start,
+                'sort': 'random',
             })
 
             if resp.status_code != 200:
@@ -296,6 +370,9 @@ def load_smithsonian(target=300):
 
             if not rows:
                 break
+
+            # Shuffle within batch for extra variety
+            random.shuffle(rows)
 
             for row in rows:
                 if stored >= target:
@@ -322,13 +399,19 @@ def load_smithsonian(target=300):
                 if metadata['external_id'] in existing:
                     continue
 
+                # Era diversity cap
+                era_key = metadata.get('era') or 'Unknown'
+                if era_counts.get(era_key, 0) >= max_per_era:
+                    skipped_era += 1
+                    continue
+
                 # Get image URL and download
                 img_url = get_image_url(row)
                 if not img_url:
                     skipped_no_image += 1
                     continue
 
-                image_data = download_image(img_url)
+                image_data = download_image(img_url, metadata['external_id'])
                 time.sleep(0.3)
 
                 if not image_data:
@@ -342,9 +425,10 @@ def load_smithsonian(target=300):
                     db.add(Product(**metadata))
                     db.commit()
                     existing.add(metadata['external_id'])
+                    era_counts[era_key] = era_counts.get(era_key, 0) + 1
                     stored += 1
-                    era = metadata.get('era', '?')
-                    print(f"  [{stored}/{target}] {metadata['title'][:50]} ({era})")
+                    query_stored += 1
+                    print(f"  [{stored}/{target}] {metadata['title'][:50]} ({era_key})")
                 except Exception as e:
                     db.rollback()
                     print(f"  DB error: {e}")
@@ -363,6 +447,10 @@ def load_smithsonian(target=300):
     print(f"  Skipped (not fashion): {skipped_no_fashion}")
     print(f"  Skipped (no image): {skipped_no_image}")
     print(f"  Skipped (download fail): {skipped_download_fail}")
+    print(f"  Skipped (era cap): {skipped_era}")
+    print(f"\nEra distribution (this run):")
+    for era_name, count in sorted(era_counts.items(), key=lambda x: -x[1]):
+        print(f"  {era_name}: {count}")
     print(f"  Total Smithsonian items: {si_count}")
     print(f"  Total in database: {all_count}")
 
