@@ -54,62 +54,64 @@ def make_bridge(**kwargs):
 
 class TestClassifyTemporalType:
 
-    def test_transmission_from_bridge_type(self):
-        """Open pass bridges with bridge_type='transmission' keep it."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='transmission')
-        src = make_product(era='Victorian Late / Bustle')
-        tgt = make_product(era='Quiet Luxury')
-        assert classify_temporal_type(bridge, src, tgt) == 'transmission'
+    def test_echo_from_very_distant_eras(self):
+        """Very distant named eras (80+ yr gap) → echo."""
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            'Victorian Late / Bustle', 'Quiet Luxury',
+            'met_museum', 'fashionpedia')
+        assert result == 'echo'
 
-    def test_continuation_from_bridge_type(self):
-        """Open pass bridges with bridge_type='continuation' keep it."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='continuation')
-        src = make_product(era='Victorian Late / Bustle', decade='1870s')
-        tgt = make_product(era='Victorian Late / Bustle', decade='1890s')
-        assert classify_temporal_type(bridge, src, tgt) == 'continuation'
+    def test_continuation_same_era_distant_decades(self):
+        """Same era, decades 20+ years apart → continuation."""
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            'Victorian Late / Bustle', 'Victorian Late / Bustle',
+            'met_museum', 'met_museum',
+            '1870s', '1890s')
+        assert result == 'continuation'
 
     def test_cross_category_with_distant_eras(self):
         """Cross-category bridges compute temporal from era distance."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='cross_category')
-        src = make_product(era='Victorian Late / Bustle')  # midpoint ~1880
-        tgt = make_product(era='Quiet Luxury')  # midpoint ~2025
-        assert classify_temporal_type(bridge, src, tgt) == 'transmission'
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            'Victorian Late / Bustle', 'Quiet Luxury',
+            'met_museum', 'fashionpedia')
+        assert result == 'echo'
 
     def test_cross_category_with_close_eras(self):
-        """Cross-category with close eras → continuation or contemporary."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='cross_category')
-        src = make_product(era='Atomic Age', decade='1950s')  # midpoint ~1955
-        tgt = make_product(era='Space Age', decade='1960s')   # midpoint ~1965
-        result = classify_temporal_type(bridge, src, tgt)
+        """Close eras → continuation or contemporary."""
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            'Atomic Age', 'Space Age',
+            'met_museum', 'met_museum',
+            '1950s', '1960s')
         assert result in ('continuation', 'contemporary')
 
     def test_same_era_close_decades_is_contemporary(self):
         """Same era, close decades → contemporary."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='cross_category')
-        src = make_product(era='Minimalism', decade='1990s')
-        tgt = make_product(era='Minimalism', decade='1990s')
-        assert classify_temporal_type(bridge, src, tgt) == 'contemporary'
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            'Minimalism', 'Minimalism',
+            'fashionpedia', 'fashionpedia',
+            '1990s', '1990s')
+        assert result == 'contemporary'
 
     def test_platform_fallback(self):
         """No era data → use platform proxy."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='cross_culture')
-        src = make_product(platform='met_museum')       # historical
-        tgt = make_product(platform='fashionpedia')      # modern
-        assert classify_temporal_type(bridge, src, tgt) == 'transmission'
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            None, None,
+            'met_museum', 'fashionpedia')
+        assert result == 'transmission'
 
-    def test_both_modern_platforms_contemporary(self):
-        """Both modern platforms → contemporary."""
-        from scripts.classify_bridge_dimensions import classify_temporal_type
-        bridge = make_bridge(bridge_type='cross_culture')
-        src = make_product(platform='fashionpedia')
-        tgt = make_product(platform='fashionpedia')
-        assert classify_temporal_type(bridge, src, tgt) == 'contemporary'
+    def test_both_modern_platforms_no_era_returns_none(self):
+        """Same platform type with no eras/decades → None (unknown)."""
+        from tools.analysis.classify_bridge_dimensions import classify_temporal_type
+        result = classify_temporal_type(
+            None, None,
+            'fashionpedia', 'fashionpedia')
+        assert result is None
 
 
 # ===========================================================================
@@ -120,42 +122,42 @@ class TestClassifyCrossingType:
 
     def test_same_context(self):
         """Same category group + same culture → same_context."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category='dress', culture='Western')
         tgt = make_product(fp_category='gown', culture='Western')
         assert classify_crossing_type(src, tgt) == 'same_context'
 
     def test_cross_category(self):
         """Different category groups → cross_category."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category='dress', culture='Western')
         tgt = make_product(fp_category='jacket', culture='Western')
         assert classify_crossing_type(src, tgt) == 'cross_category'
 
     def test_cross_culture(self):
         """Same category, different culture → cross_culture."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category='dress', culture='Japanese')
         tgt = make_product(fp_category='gown', culture='Western')
         assert classify_crossing_type(src, tgt) == 'cross_culture'
 
     def test_cross_category_culture(self):
         """Different category AND different culture → cross_category_culture."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category='coat', culture='Japanese')
         tgt = make_product(fp_category='dress', culture='Western')
         assert classify_crossing_type(src, tgt) == 'cross_category_culture'
 
     def test_null_category_is_same_context(self):
         """Null categories → same_context (can't determine crossing)."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category=None, culture=None)
         tgt = make_product(fp_category=None, culture=None)
         assert classify_crossing_type(src, tgt) == 'same_context'
 
     def test_case_insensitive_culture(self):
         """Culture comparison is case-insensitive."""
-        from scripts.classify_bridge_dimensions import classify_crossing_type
+        from tools.analysis.classify_bridge_dimensions import classify_crossing_type
         src = make_product(fp_category='dress', culture='western')
         tgt = make_product(fp_category='gown', culture='Western')
         assert classify_crossing_type(src, tgt) == 'same_context'
@@ -169,7 +171,7 @@ class TestDetectContrast:
 
     def test_volume_opposition(self):
         """Exaggerated Volume vs Column Minimalism triggers contrast."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         src_vibes = {'Exaggerated Volume', 'Maximalist Ornament'}
         tgt_vibes = {'Column Minimalism', 'Austere Restraint'}
         result = _detect_contrast(src_vibes, tgt_vibes, structural_score=0.5)
@@ -180,7 +182,7 @@ class TestDetectContrast:
 
     def test_body_opposition(self):
         """Body Display vs Body Concealment triggers contrast."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         src_vibes = {'Body Display'}
         tgt_vibes = {'Body Concealment'}
         result = _detect_contrast(src_vibes, tgt_vibes, structural_score=0.5)
@@ -190,7 +192,7 @@ class TestDetectContrast:
 
     def test_register_opposition(self):
         """Transgressive Subversion vs Elite Distinction triggers contrast."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         src_vibes = {'Transgressive Subversion'}
         tgt_vibes = {'Elite Distinction'}
         result = _detect_contrast(src_vibes, tgt_vibes, structural_score=0.5)
@@ -200,7 +202,7 @@ class TestDetectContrast:
 
     def test_body_concealment_triple_opposition(self):
         """Body Concealment participates in multiple pairs."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         # Pair 5: Transparency and Revelation ↔ Body Concealment
         result1 = _detect_contrast(
             {'Transparency and Revelation'}, {'Body Concealment'}, 0.5)
@@ -213,7 +215,7 @@ class TestDetectContrast:
 
     def test_structural_gate_blocks(self):
         """Low structural score blocks contrast detection."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         src_vibes = {'Exaggerated Volume'}
         tgt_vibes = {'Column Minimalism'}
         result = _detect_contrast(src_vibes, tgt_vibes, structural_score=0.2)
@@ -221,7 +223,7 @@ class TestDetectContrast:
 
     def test_no_opposition_returns_none(self):
         """Non-opposing vibes return None."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         src_vibes = {'Exaggerated Volume', 'Maximalist Ornament'}
         tgt_vibes = {'Layered Accumulation', 'Handcraft Visibility'}
         result = _detect_contrast(src_vibes, tgt_vibes, structural_score=0.5)
@@ -229,14 +231,14 @@ class TestDetectContrast:
 
     def test_same_vibes_no_contrast(self):
         """Shared vibes are not opposition."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         vibes = {'Body Liberation', 'Pastoral Naturalism'}
         result = _detect_contrast(vibes, vibes, structural_score=0.5)
         assert result is None
 
     def test_reversed_order_still_detects(self):
         """Opposition detected regardless of which product holds which vibe."""
-        from scripts.classify_bridge_dimensions import _detect_contrast
+        from tools.analysis.classify_bridge_dimensions import _detect_contrast
         r1 = _detect_contrast(
             {'Constructed Armor'}, {'Draped Fluidity'}, 0.5)
         r2 = _detect_contrast(
@@ -253,7 +255,7 @@ class TestClassifyConnectionMode:
 
     def test_resonance_detection(self):
         """Resonance detected when text_sim > 0.85 + transmission."""
-        from scripts.classify_bridge_dimensions import classify_connection_mode
+        from tools.analysis.classify_bridge_dimensions import classify_connection_mode
         bridge = make_bridge(
             text_similarity=0.90,
             structural_score=0.5,
@@ -268,7 +270,7 @@ class TestClassifyConnectionMode:
 
     def test_contrast_before_resonance(self):
         """Contrast takes priority over resonance when both conditions met."""
-        from scripts.classify_bridge_dimensions import classify_connection_mode
+        from tools.analysis.classify_bridge_dimensions import classify_connection_mode
         bridge = make_bridge(
             text_similarity=0.6,
             structural_score=0.5,
@@ -283,7 +285,7 @@ class TestClassifyConnectionMode:
 
     def test_contrast_beats_resonance(self):
         """Contrast wins even with text_sim > 0.85 + transmission."""
-        from scripts.classify_bridge_dimensions import classify_connection_mode
+        from tools.analysis.classify_bridge_dimensions import classify_connection_mode
         bridge = make_bridge(
             text_similarity=0.90,
             structural_score=0.5,
@@ -298,7 +300,7 @@ class TestClassifyConnectionMode:
 
     def test_affinity_fallback(self):
         """Affinity is the default when no other mode matches."""
-        from scripts.classify_bridge_dimensions import classify_connection_mode
+        from tools.analysis.classify_bridge_dimensions import classify_connection_mode
         bridge = make_bridge(
             text_similarity=0.7,
             image_similarity=0.6,
@@ -313,7 +315,7 @@ class TestClassifyConnectionMode:
 
     def test_empty_vibes_defaults_affinity(self):
         """Products with no core_vibes get affinity."""
-        from scripts.classify_bridge_dimensions import classify_connection_mode
+        from tools.analysis.classify_bridge_dimensions import classify_connection_mode
         bridge = make_bridge(
             text_similarity=0.7,
             structural_score=0.5,
@@ -334,31 +336,31 @@ class TestDeriveAxes:
 
     def test_silhouette_is_volume(self):
         """Shared silhouette → primary axis is volume."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         primary, secondary = _derive_axes_from_shared({'silhouette': 'empire'})
         assert primary == 'volume'
 
     def test_material_is_ornament(self):
         """Shared material → primary axis is ornament."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         primary, _ = _derive_axes_from_shared({'material': 'silk'})
         assert primary == 'ornament'
 
     def test_neckline_is_body(self):
         """Shared neckline → primary axis is body."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         primary, _ = _derive_axes_from_shared({'neckline': 'v-neck'})
         assert primary == 'body'
 
     def test_social_function_is_register(self):
         """Shared social_function → primary axis is register."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         primary, _ = _derive_axes_from_shared({'social_function': ['wedding']})
         assert primary == 'register'
 
     def test_multiple_fields_picks_dominant(self):
         """Multiple body fields outweigh single ornament field."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         shared = {
             'neckline': 'v-neck',
             'waistline': 'natural',
@@ -371,14 +373,14 @@ class TestDeriveAxes:
 
     def test_empty_shared_returns_none(self):
         """No shared attributes → both axes are None."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         primary, secondary = _derive_axes_from_shared({})
         assert primary is None
         assert secondary is None
 
     def test_construction_technique_splits(self):
         """construction_technique contributes to both volume and ornament."""
-        from scripts.classify_bridge_dimensions import _derive_axes_from_shared
+        from tools.analysis.classify_bridge_dimensions import _derive_axes_from_shared
         shared = {'construction_technique': ['hand-embroidery']}
         primary, secondary = _derive_axes_from_shared(shared)
         # Should contribute 0.5 to volume AND 0.5 to ornament

@@ -10,11 +10,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from analysis.compute_bridges import (
+from tools.analysis.compute_bridges import (
     compute_structural_score,
     classify_temporal_type,
     parse_decade_to_year,
-    REVIVAL_STRUCTURAL_THRESHOLD,
     CONTINUATION_DISTANCE,
 )
 
@@ -60,7 +59,7 @@ class TestStructuralScore:
             sleeve_length='sleeveless', textile_pattern='floral',
         )
         score, shared = compute_structural_score(a, b)
-        assert score > 0.8
+        assert score > 0.5  # 8/15 weighted fields match
         assert 'fp_category' in shared
         assert shared['fp_category'] == 'dress'
 
@@ -114,16 +113,16 @@ class TestTemporalClassification:
         result = classify_temporal_type('Victorian', 'Contemporary', 'met_museum', 'fashionpedia')
         assert result == 'transmission'
 
-    def test_same_era_no_decades_returns_none(self):
+    def test_same_era_no_decades_returns_contemporary(self):
         result = classify_temporal_type('Art Deco', 'Art Deco', 'met_museum', 'smithsonian')
-        assert result is None
+        assert result == 'contemporary'
 
-    def test_same_era_close_decades_returns_none(self):
+    def test_same_era_close_decades_returns_contemporary(self):
         result = classify_temporal_type(
             'Victorian', 'Victorian', 'met_museum', 'smithsonian',
             '1860s', '1870s',
         )
-        assert result is None
+        assert result == 'contemporary'
 
     def test_same_era_far_decades_returns_continuation(self):
         result = classify_temporal_type(
@@ -134,11 +133,11 @@ class TestTemporalClassification:
 
     def test_case_insensitive(self):
         result = classify_temporal_type('victorian', 'VICTORIAN', 'met_museum', 'smithsonian')
-        assert result is None
+        assert result == 'contemporary'
 
     def test_whitespace_stripped(self):
         result = classify_temporal_type('  Art Deco ', 'Art Deco', 'met_museum', 'smithsonian')
-        assert result is None
+        assert result == 'contemporary'
 
     def test_platform_fallback_historical_vs_modern(self):
         """Historical vs modern platform → transmission when no eras."""
@@ -151,7 +150,7 @@ class TestTemporalClassification:
         assert result == 'transmission'
 
     def test_platform_fallback_same_type_returns_none(self):
-        """Same platform type → None when no eras."""
+        """Same platform type with no eras/decades → None (unknown)."""
         result = classify_temporal_type(None, None, 'met_museum', 'smithsonian')
         assert result is None
 
@@ -165,17 +164,6 @@ class TestTemporalClassification:
 # Revival classification
 # ---------------------------------------------------------------------------
 
-class TestRevivalClassification:
-    """Revival threshold constant and logic."""
-
-    def test_threshold_value(self):
-        """REVIVAL_STRUCTURAL_THRESHOLD should be 0.50."""
-        assert REVIVAL_STRUCTURAL_THRESHOLD == 0.50
-
-    def test_threshold_is_reasonable(self):
-        """Threshold should be between 0.3 and 0.8 — high enough to mean
-        real structural overlap, not so high that nothing qualifies."""
-        assert 0.3 <= REVIVAL_STRUCTURAL_THRESHOLD <= 0.8
 
 
 # ---------------------------------------------------------------------------
@@ -222,13 +210,13 @@ class TestContinuationClassification:
         )
         assert result == 'continuation'
 
-    def test_under_20_years_returns_none(self):
-        """Under 20 years → None."""
+    def test_under_20_years_returns_contemporary(self):
+        """Under 20 years → contemporary."""
         result = classify_temporal_type(
             'Victorian', 'Victorian', 'met_museum', 'smithsonian',
             '1860s', '1870s',  # 1865 vs 1875 = 10
         )
-        assert result is None
+        assert result == 'contemporary'
 
     def test_different_eras_still_transmission(self):
         """transmission takes precedence regardless of decade distance."""

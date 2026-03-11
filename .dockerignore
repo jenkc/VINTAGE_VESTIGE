@@ -1,0 +1,17 @@
+venv/
+vv-web/
+.git/
+__pycache__/
+*.pyc
+tests/
+docs/
+tools/
+outputs/
+figma-pages/
+data/
+*.dump
+*.csv
+.claude/
+.env
+.DS_Store
+.pytest_cache/

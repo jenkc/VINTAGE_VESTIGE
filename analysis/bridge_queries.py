@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from typing import TypedDict
 
-from sqlalchemy import func, or_, case, cast, Integer, text
+from sqlalchemy import func, or_, case, cast, Integer, text, literal_column
 from sqlalchemy.orm import Session, aliased
 
 from storage.database import Product, StyleBridge
@@ -126,13 +126,21 @@ def compute_bridge_score(
 
 # SQL expression for mode-aware composite (used in ORDER BY / WHERE)
 # Uses CASE on connection_mode to pick weights at the database level.
-_COMPOSITE_SQL = text("""
-    CASE connection_mode
-        WHEN 'contrast'  THEN 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.60 * structural_score
-        WHEN 'resonance' THEN 0.60 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.20 * structural_score
-        ELSE                  0.40 * text_similarity + 0.30 * COALESCE(image_similarity, 0) + 0.30 * structural_score
-    END
-""".strip())
+_COMPOSITE_EXPR = ("(CASE"
+    " WHEN connection_mode = 'contrast' AND image_similarity IS NOT NULL"
+    "   THEN 0.20 * text_similarity + 0.20 * image_similarity + 0.60 * structural_score"
+    " WHEN connection_mode = 'contrast'"
+    "   THEN (0.20/0.80) * text_similarity + (0.60/0.80) * structural_score"
+    " WHEN connection_mode = 'resonance' AND image_similarity IS NOT NULL"
+    "   THEN 0.60 * text_similarity + 0.20 * image_similarity + 0.20 * structural_score"
+    " WHEN connection_mode = 'resonance'"
+    "   THEN (0.60/0.80) * text_similarity + (0.20/0.80) * structural_score"
+    " WHEN image_similarity IS NOT NULL"
+    "   THEN 0.40 * text_similarity + 0.30 * image_similarity + 0.30 * structural_score"
+    " ELSE (0.40/0.70) * text_similarity + (0.30/0.70) * structural_score"
+    " END)")
+_COMPOSITE_SQL = literal_column(_COMPOSITE_EXPR)
+_COMPOSITE_DESC = text(f"{_COMPOSITE_EXPR} DESC")
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────
@@ -223,13 +231,7 @@ def _build_bridge_result(
 # 'default' uses the mode-aware composite (contrast bridges rank by structural,
 # resonance by text, etc.). Other strategies override with a fixed formula.
 SORT_STRATEGIES = {
-    'default':    text("""
-        CASE connection_mode
-            WHEN 'contrast'  THEN 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.60 * structural_score
-            WHEN 'resonance' THEN 0.60 * text_similarity + 0.20 * COALESCE(image_similarity, 0) + 0.20 * structural_score
-            ELSE                  0.40 * text_similarity + 0.30 * COALESCE(image_similarity, 0) + 0.30 * structural_score
-        END DESC
-    """.strip()),
+    'default':    text(f"{_COMPOSITE_EXPR} DESC"),
     'text':       StyleBridge.text_similarity.desc(),
     'structural': StyleBridge.structural_score.desc(),
     'contrast':   text("(0.60 * structural_score + 0.20 * text_similarity + 0.20 * COALESCE(image_similarity, 0)) DESC"),
@@ -326,7 +328,7 @@ def get_bridges_for_product(
 
     total = base.count()
     bridges = (
-        base.order_by(_COMPOSITE_SQL.desc())
+        base.order_by(_COMPOSITE_DESC)
         .offset(offset)
         .limit(limit)
         .all()
@@ -555,7 +557,7 @@ def get_modern_echoes(
 
     total = query.count()
     bridges = (
-        query.order_by(_COMPOSITE_SQL.desc())
+        query.order_by(_COMPOSITE_DESC)
         .offset(offset)
         .limit(limit)
         .all()
@@ -597,7 +599,7 @@ def get_style_ancestry(
 
     total = query.count()
     bridges = (
-        query.order_by(_COMPOSITE_SQL.desc())
+        query.order_by(_COMPOSITE_DESC)
         .offset(offset)
         .limit(limit)
         .all()

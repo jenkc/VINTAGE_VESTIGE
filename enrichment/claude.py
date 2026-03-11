@@ -633,61 +633,101 @@ Return ONLY valid JSON with these fields:
 
         return " ".join(parts)
 
-    def generate_bridge_narrative(self, item_a, item_b, shared_attributes: dict) -> str:
-        """Generate a narrative explaining how two products from different eras are connected based on shared attributes."""
-        # Build prompt with source and target product details, emphasizing shared attributes
-        prompt = f"""These two fashion items share a style connection:
+    @staticmethod
+    def _format_shared_attributes(shared: dict) -> str:
+        """Format shared_attributes dict as readable text for the prompt."""
+        if not shared:
+            return "none identified"
+        parts = []
+        for key, val in shared.items():
+            label = key.replace('_', ' ')
+            if isinstance(val, list):
+                parts.append(f"{label}: {', '.join(str(v) for v in val)}")
+            else:
+                parts.append(f"{label}: {val}")
+        return "; ".join(parts)
 
-ITEM A: {item_a['title']}
-  Era: {item_a.get('era', 'unknown')} | Material: {item_a.get('material', 'unknown')} | Silhouette: {item_a.get('silhouette', 'unknown')}
+    @staticmethod
+    def _narrative_closing(temporal_type: str | None, crossing_type: str | None,
+                           connection_mode: str | None) -> str:
+        """Return a varied closing instruction based on classification."""
+        if connection_mode == 'contrast':
+            return "Explain the tension between these opposing approaches."
+        if connection_mode == 'resonance':
+            return "Explain what echoes between them despite the distance."
+        if temporal_type == 'echo':
+            return "Explain how this design idea resurfaced across such a wide time gap."
+        if temporal_type == 'transmission':
+            return "Explain how this design language traveled across eras."
+        if temporal_type == 'continuation':
+            return "Explain how this design thread persisted within its era."
+        if crossing_type and 'culture' in crossing_type:
+            return "Explain how different cultures arrived at this shared design idea."
+        if crossing_type == 'cross_category':
+            return "Explain what connects these different garment types."
+        return "Explain the design DNA they share."
 
-ITEM B: {item_b['title']}
-  Era: {item_b.get('era', 'unknown')} | Material: {item_b.get('material', 'unknown')} | Silhouette: {item_b.get('silhouette', 'unknown')}
+    async def generate_bridge_narrative_async(
+        self, item_a: dict, item_b: dict, shared_attributes: dict,
+        connection_mode: str | None = None, contrast_pair: str | None = None,
+        temporal_type: str | None = None, crossing_type: str | None = None,
+        primary_axis: str | None = None,
+    ) -> str:
+        """Generate a 1-sentence narrative for a style bridge."""
+        shared_text = self._format_shared_attributes(shared_attributes)
 
-Shared attributes: {shared_attributes}
-
-Explain what connects them. Focus on the shared design DNA and how it transcends time."""
-
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=120,
-            temperature=0.6,
-            system="You are a fashion historian. Write exactly one sentence, max 30 words. No quotes, no preamble.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.content[0].text.strip()
-
-    async def generate_bridge_narrative_async(self, item_a, item_b, shared_attributes: dict, connection_mode: str | None = None, contrast_pair: str | None = None) -> str:
-        """Async version of generate_bridge_narrative."""
+        # Mode-specific context line
         mode_hint = ""
         if connection_mode == 'contrast' and contrast_pair:
-            mode_hint = f"\nThese items make OPPOSING arguments on the same axis: {contrast_pair}. Explain the tension."
+            mode_hint = f"Connection: CONTRAST on {contrast_pair}."
         elif connection_mode == 'resonance':
-            mode_hint = "\nThese items speak the same aesthetic language despite temporal distance. Explain what echoes."
+            mode_hint = "Connection: RESONANCE — same aesthetic language across time."
+        elif connection_mode == 'affinity':
+            mode_hint = "Connection: AFFINITY — shared structural DNA."
 
-        prompt = f"""These two fashion items share a style connection:
+        # Vibes (core_vibes if available)
+        vibes_a = item_a.get('core_vibes') or []
+        vibes_b = item_b.get('core_vibes') or []
+        vibe_line = ""
+        if vibes_a or vibes_b:
+            vibe_line = (
+                f"Vibes A: {', '.join(vibes_a) if vibes_a else 'none'} | "
+                f"Vibes B: {', '.join(vibes_b) if vibes_b else 'none'}"
+            )
 
-        ITEM A: {item_a['title']}
-        Era: {item_a.get('era', 'unknown')} | Culture: {item_a.get('culture', 'unknown')}
-        Material: {item_a.get('material', 'unknown')} | Silhouette: {item_a.get('silhouette', 'unknown')}
-        Function: {item_a.get('social_function', 'unknown')}
+        closing = self._narrative_closing(temporal_type, crossing_type, connection_mode)
 
-        ITEM B: {item_b['title']}
-        Era: {item_b.get('era', 'unknown')} | Culture: {item_b.get('culture', 'unknown')}
-        Material: {item_b.get('material', 'unknown')} | Silhouette: {item_b.get('silhouette', 'unknown')}
-        Function: {item_b.get('social_function', 'unknown')}
+        lines = [
+            f"ITEM A: {item_a['title']}",
+            f"Era: {item_a.get('era', 'unknown')} | Culture: {item_a.get('culture', 'unknown')}",
+            f"Material: {item_a.get('material', 'unknown')} | Silhouette: {item_a.get('silhouette', 'unknown')}",
+            f"Function: {item_a.get('social_function', 'unknown')}",
+            "",
+            f"ITEM B: {item_b['title']}",
+            f"Era: {item_b.get('era', 'unknown')} | Culture: {item_b.get('culture', 'unknown')}",
+            f"Material: {item_b.get('material', 'unknown')} | Silhouette: {item_b.get('silhouette', 'unknown')}",
+            f"Function: {item_b.get('social_function', 'unknown')}",
+            "",
+            f"Shared attributes: {shared_text}",
+        ]
+        if vibe_line:
+            lines.append(vibe_line)
+        if mode_hint:
+            lines.append(mode_hint)
+        lines.append("")
+        lines.append(closing)
+        prompt = "\n".join(lines)
 
-        Shared attributes: {shared_attributes}
-        {mode_hint}
-        Explain what connects them. Focus on the shared design DNA and how it transcends time."""
+        if connection_mode == 'contrast':
+            system_msg = "You are a fashion historian. Write exactly two sentences, max 60 words total. First sentence: what they share. Second sentence: how they diverge. No quotes, no preamble."
+        else:
+            system_msg = "You are a fashion historian. Write exactly one sentence, max 40 words. No quotes, no preamble."
 
         response = await self.async_client.messages.create(
             model=self.model,
             max_tokens=200,
             temperature=0.6,
-            system="You are a fashion historian. Write exactly one sentence, max 30 words. No quotes, no preamble.",
+            system=system_msg,
             messages=[
                 {"role": "user", "content": prompt}
             ]

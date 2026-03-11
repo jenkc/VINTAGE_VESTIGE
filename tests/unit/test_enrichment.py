@@ -97,7 +97,7 @@ class TestFallbackEnrichment:
     def _setup(self):
         self.enricher = _make_enricher()
 
-    def test_returns_all_23_fields(self):
+    def test_returns_all_fields(self):
         result = self.enricher._get_fallback_enrichment("Test Title", "Shirts")
         expected_keys = {
             "fp_category", "nickname", "silhouette", "neckline", "waistline",
@@ -105,7 +105,8 @@ class TestFallbackEnrichment:
             "textile_finishing", "garment_parts", "decorations",
             "era", "decade", "style_tags", "colors", "material",
             "season", "garment_type", "vibe", "fit_style", "occasion",
-            "ai_description",
+            "ai_description", "core_vibes", "bridge_vibes", "vibe_scores",
+            "construction_technique", "social_function", "motif_family",
         }
         assert set(result.keys()) == expected_keys
 

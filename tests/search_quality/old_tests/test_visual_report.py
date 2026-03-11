@@ -4,7 +4,7 @@ Shows images alongside scores so you can judge quality by eye.
 """
 
 from embeddings.generator import EmbeddingGenerator
-from scripts.vector_db import VectorDB
+from tools.migration.vector_db import VectorDB
 from storage.database import SessionLocal, Product
 from datetime import datetime
 import html

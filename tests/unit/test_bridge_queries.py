@@ -49,6 +49,11 @@ class MockBridge:
             'bridge_type': 'same_era', 'bridge_narrative': 'They share DNA.',
             'shared_attributes': '{"fp_category": "dress", "silhouette": "a-line"}',
             'created_at': datetime(2026, 2, 20, 12, 0, 0),
+            'temporal_type': None,
+            'crossing_type': None,
+            'primary_axis': None,
+            'secondary_axis': None,
+            'contrast_pair': None,
         }
         defaults.update(kwargs)
         for k, v in defaults.items():
