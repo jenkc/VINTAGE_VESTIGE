@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import base64
 from io import BytesIO
 from PIL import Image
@@ -42,13 +42,15 @@ def search_text(
         colors=hit.get("colors", []),
         material=hit.get("material"),
         garment_type=hit.get("garment_type"),
-        vibe=hit.get("vibe"),
         fit_style=hit.get("fit_style"),
         occasion=hit.get("occasion"),
         ai_description=hit.get("ai_description"),
         culture=hit.get("culture"),
         object_date=hit.get("object_date"),
         price=hit.get("price"),
+        display_title=hit.get("display_title"),
+        designer=hit.get("designer"),
+        production_mode=hit.get("production_mode"),
     ) for hit in hits]
 
     return SearchResponse(results=results, query=body.query, total=len(results))
@@ -60,9 +62,12 @@ def search_image(
     emb: EmbeddingGenerator = Depends(get_embedding_generator),
 ):
     """Search products by image upload."""
-    header, b64data = body.image.split(",", 1)
-    raw = base64.b64decode(b64data)
-    pil_image = Image.open(BytesIO(raw))
+    try:
+        _, b64data = body.image.split(",", 1)
+        raw = base64.b64decode(b64data)
+        pil_image = Image.open(BytesIO(raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image data")
 
     vector = emb.generate_image_embedding(pil_image)
     hits = vs.search_image(vector, limit=body.limit)
@@ -79,13 +84,15 @@ def search_image(
         colors=hit.get("colors", []),
         material=hit.get("material"),
         garment_type=hit.get("garment_type"),
-        vibe=hit.get("vibe"),
         fit_style=hit.get("fit_style"),
         occasion=hit.get("occasion"),
         ai_description=hit.get("ai_description"),
         culture=hit.get("culture"),
         object_date=hit.get("object_date"),
         price=hit.get("price"),
+        display_title=hit.get("display_title"),
+        designer=hit.get("designer"),
+        production_mode=hit.get("production_mode"),
     ) for hit in hits]
 
     return SearchResponse(results=results, query="[image]", total=len(results))

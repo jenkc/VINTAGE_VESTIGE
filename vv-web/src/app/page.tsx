@@ -1,111 +1,109 @@
 import Link from "next/link";
-import { Sparkles, Search, ArrowLeftRight } from "lucide-react";
 import { getTopBridges } from "@/lib/api";
-import { FEATURED_BRIDGES_LIMIT } from "@/lib/constants";
-import { BridgeCardCompact } from "@/components/bridge";
-import { buttonVariants } from "@/components/ui/Button";
+import { BridgeCardFull } from "@/components/bridge";
 
 export const revalidate = 3600; // Revalidate every hour
+
 export default async function HomePage() {
-    const { bridges } = await getTopBridges({ limit: FEATURED_BRIDGES_LIMIT });
+    // Fetch one high-quality bridge for Bridge of the Day
+    // Prefer lineage bridges with narratives
+    const { bridges } = await getTopBridges({
+        connection_mode: 'lineage',
+        min_score: 0.6,
+        limit: 10,
+    }).catch(() => ({ bridges: [] }));
+
+    // Pick one that has a narrative — use date as pseudo-random seed
+    const today = new Date().toISOString().slice(0, 10);
+    const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
+    const withNarrative = bridges.filter(b => b.bridge_narrative);
+    const bridgeOfDay = withNarrative.length > 0
+        ? withNarrative[seed % withNarrative.length]
+        : bridges[0] ?? null;
 
     return (
         <div>
-            {/* Hero Section */}
-            <section className="bg-cream-dark px-6 pt-24 pb-16 md:pt-28 md:pb-20">
-                <div className="mx-auto max-w-[680px] text-center">
-                    <p className="font-serif text-[10px] font-semibold uppercase tracking-[6px] text-gold">
-                        Vintage Vestige
-                    </p>
-
-                    <h1 className="mt-6 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-charcoal md:text-[56px] md:leading-[61.6px]">
-                        A fashion knowledge graph connecting 500&nbsp;years of design history
+            {/* Hero */}
+            <section className="flex min-h-[85vh] flex-col justify-end px-6 pb-16 md:px-12 md:pb-20">
+                <div className="max-w-[720px]">
+                    <h1 className="font-display text-[clamp(56px,10vw,120px)] font-bold uppercase leading-[0.9] tracking-tight text-black">
+                        Vintage<br />Vestige
                     </h1>
-
-                    <p className="mt-6 text-lg leading-[1.6] text-charcoal-soft">
-                        Discover how historical garments inspire contemporary fashion through AI-computed style bridges. Explore connections across centuries of design.
+                    <p className="mt-8 max-w-[480px] font-editorial text-[26px] italic leading-[1.4] text-dark">
+                        Start from a question,<br />not a timeline.
                     </p>
-
-                    <div className="mt-10 flex items-center justify-center gap-4">
-                        <Link
-                            href="/search"
-                            className={buttonVariants({ size: "lg" })}
-                        >
-                            Start Searching
-                        </Link>
-                        <Link
-                            href="/search?mode=image"
-                            className={buttonVariants({ variant: "outline", size: "lg" })}
-                        >
-                            Upload Image
-                        </Link>
-                    </div>
+                    <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.1em] text-grey-400">
+                        3,700+ garments · 21,000+ connections · 500 years
+                    </p>
+                    <Link
+                        href="/search"
+                        className="mt-10 inline-block bg-black px-8 py-3.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:bg-dark"
+                    >
+                        Explore
+                    </Link>
                 </div>
             </section>
 
-            {/* How It Works */}
+            {/* Bridge of the Day */}
+            {bridgeOfDay && (
+                <section className="bg-off-white px-6 py-20 md:px-12">
+                    <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.15em] text-grey-400">
+                        <span>Bridge of the Day</span>
+                        <span className="h-px flex-1 bg-grey-200" />
+                    </div>
+                    <div className="mx-auto mt-8 max-w-[900px]">
+                        <BridgeCardFull bridge={bridgeOfDay} />
+                    </div>
+                </section>
+            )}
+
+            {/* Entry Points */}
             <section className="px-6 py-20 md:px-12">
-                <p className="text-center font-serif text-[10px] font-semibold uppercase tracking-[3px] text-charcoal-soft">
-                    The Pipeline
-                </p>
-                <h2 className="mt-2 text-center font-serif text-3xl font-bold text-charcoal md:text-4xl">
-                    How It Works
-                </h2>
-                <div className="mx-auto mt-12 grid max-w-[960px] gap-8 md:grid-cols-3">
+                <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.15em] text-grey-400">
+                    <span>Explore</span>
+                    <span className="h-px flex-1 bg-grey-200" />
+                </div>
+                <div className="mt-0 flex flex-col">
                     {[
                         {
-                            icon: Sparkles,
-                            title: "AI Style Analysis",
-                            description: "Every garment is analyzed by Claude AI to extract era, style attributes, materials, and aesthetic vibes from museum metadata.",
+                            title: "Browse by Era",
+                            desc: "Where design ideas traveled · 1400s to present",
+                            href: "/search?tab=era",
                         },
                         {
-                            icon: Search,
-                            title: "Multi-Modal Search",
-                            description: "Search by text description or upload an image. Our dual-embedding system finds matches across semantic meaning and visual similarity.",
+                            title: "Browse by Culture",
+                            desc: "Independent inventions · cross-cultural lineage · shared technique",
+                            href: "/search?tab=culture",
                         },
                         {
-                            icon: ArrowLeftRight,
-                            title: "Style Bridges",
-                            description: "Discover design connections across centuries. Each bridge reveals shared DNA between historical and contemporary garments.",
-                        }
-                    ].map((step) => (
-                        <div
-                            key={step.title}
-                            className="flex flex-col items-center rounded-2xl border border-border bg-warm-white px-6 py-8 text-center"
+                            title: "Browse by Function",
+                            desc: "Ceremonial · Mourning · Labor · Courtship · Military · Performance",
+                            href: "/explore/functions",
+                        },
+                        {
+                            title: "Explore Connections",
+                            desc: "21,000+ garment connections · lineage · shared entity · visual echo",
+                            href: "/bridges",
+                        },
+                    ].map((entry) => (
+                        <Link
+                            key={entry.title}
+                            href={entry.href}
+                            className="group flex items-baseline justify-between border-b border-grey-200 py-8 text-black no-underline transition-all"
                         >
-                            <div className="flex size-14 items-center justify-center rounded-full bg-gold/8">
-                                <step.icon className="size-6 text-gold" />
-                            </div>
-                            <h3 className="mt-5 font-serif text-xl font-bold text-charcoal">
-                                {step.title}
-                            </h3>
-                            <p className="mt-2 text-sm leading-[1.6] text-charcoal-soft">
-                                {step.description}
-                            </p>
-                        </div>
+                            <span className="font-display text-[clamp(28px,5vw,40px)] font-bold uppercase tracking-[0.02em] transition-[letter-spacing] duration-300 group-hover:tracking-[0.08em]">
+                                {entry.title}
+                                <span className="ml-4 text-[24px] text-grey-400 transition-all duration-200 group-hover:translate-x-2 group-hover:text-accent inline-block">
+                                    →
+                                </span>
+                            </span>
+                            <span className="hidden max-w-[300px] text-right font-mono text-[11px] uppercase leading-[1.6] tracking-[0.08em] text-grey-600 md:block">
+                                {entry.desc}
+                            </span>
+                        </Link>
                     ))}
                 </div>
             </section>
-
-            {/* Featured Bridges */}
-            <section className="border-t border-border bg-warm-white px-6 py-20 md:px-12">
-                <p className="font-serif text-[10px] font-semibold uppercase tracking-[3px] text-charcoal-soft">
-                    Discover
-                </p>
-                <h2 className="mt-2 text-center font-serif text-3xl font-bold text-charcoal md:text-4xl">
-                    Featured Bridges
-                </h2>
-                <div 
-                    className="mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4"
-                    role="region"
-                    aria-label="Featured style bridges"
-                >
-                    {bridges.map((bridge) => (
-                        <BridgeCardCompact key={bridge.id} bridge={bridge} />
-                    ))}
-                </div>
-            </section>
-
         </div>
     );
 }

@@ -11,7 +11,7 @@ updated = 0
 for b in bridges:
     src = db.query(Product).get(b.source_id)
     tgt = db.query(Product).get(b.target_id)
-    new_type = classify_temporal_type(src, tgt)
+    new_type = classify_temporal_type(src.era, tgt.era, src.decade, tgt.decade)
     if new_type != b.temporal_type:
         b.temporal_type = new_type
         updated += 1

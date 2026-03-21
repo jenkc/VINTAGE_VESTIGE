@@ -6,7 +6,8 @@ import os
 
 app = FastAPI(title="Vintage Vestige API", version="1.0.0")
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+
 
 app.add_middleware(
     CORSMiddleware,

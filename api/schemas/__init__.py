@@ -11,7 +11,7 @@ from api.schemas.search import (
 from api.schemas.bridge import (
     BridgeResult,
     BridgeListResponse,
-    BridgeTypeStats,
+    ConnectionModeStats,
     ScoreHistogramBucket,
     BridgeStats,
 )
@@ -27,7 +27,7 @@ __all__ = [
     "SearchResponse",
     "BridgeResult",
     "BridgeListResponse",
-    "BridgeTypeStats",
+    "ConnectionModeStats",
     "ScoreHistogramBucket",
     "BridgeStats",
     "FilterOptions",

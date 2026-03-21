@@ -7,6 +7,7 @@ export interface Product {
 
   // Basic info
   title: string;
+  display_title: string | null;
   description: string | null;
   category: string | null;
   price: number | null;
@@ -27,7 +28,7 @@ export interface Product {
   colors: string[];
   material: string | null;
   garment_type: string | null;
-  vibe: string | null;
+  vibe_scores: Record<string, [string, number] | null> | null;
   fit_style: string | null;
   occasion: string | null;
   ai_description: string | null;
@@ -46,6 +47,18 @@ export interface Product {
   garment_parts: string[];
   decorations: string[];
 
+  // Cross-cultural
+  construction_technique: string[];
+  social_function: string[];
+  motif_family: string[];
+
+  // Knowledge graph fields
+  designer: string | null;
+  influence_references: string[];
+  production_mode: string | null;
+  material_origin: string | null;
+  garment_system: string[];
+  named_movements: string[];
 }
 
 // ─── Search ─────────────────────────────────────────────────────────
@@ -122,36 +135,61 @@ export interface ProductSummary {
   id: number;
   platform: string;
   title: string;
+  display_title: string | null;
   primary_image: string | null;
   era: string | null;
   decade: string | null;
   fp_category: string | null;
   silhouette: string | null;
-  vibe: string | null;
   material: string | null;
+  culture: string | null;
   ai_description: string | null;
   style_tags: string[];
   colors: string[];
+  vibe_scores: Record<string, [string, number] | null> | null;
+  designer: string | null;
+  named_movements: string[];
+  influence_references: string[];
+  production_mode: string | null;
+}
+
+/** Entity-based shared connection data — the "why" of the bridge */
+export interface SharedEntities {
+  designer?: string[];
+  named_movements?: string[];
+  construction_technique?: string[];
+  social_function?: string[];
+  motif_family?: string[];
+  garment_system?: string[];
+  influence_references?: string[];
+  lineage_reference?: string;       // only on lineage bridges
+  lineage_match_score?: number;     // only on lineage bridges
+  image_similarity?: number;        // only on visual_echo bridges
 }
 
 export interface BridgeResult {
   id: number;
   source: ProductSummary;
   target: ProductSummary;
-  bridge_score: number;
-  text_similarity: number;
+
+  // Scores
+  bridge_score: number | null;
+  entity_score: number | null;
+  text_similarity: number | null;
   image_similarity: number | null;
-  structural_score: number;
-  bridge_type: string | null;
-  bridge_narrative: string | null;
-  shared_attributes: Record<string, unknown>;
-  created_at: string;
-  temporal_type: string | null;
+
+  // Classification
+  connection_mode: 'shared_entity' | 'lineage' | 'visual_echo' | null;
   crossing_type: string | null;
-  connection_mode: string | null;
-  primary_axis: string | null;
-  secondary_axis: string | null;
-  contrast_pair: string | null;
+  year_gap: number | null;
+  directed: boolean;
+
+  // Entity data
+  shared_entities: SharedEntities;
+
+  // Narrative
+  bridge_narrative: string | null;
+  created_at: string | null;
 }
 
 export interface BridgeListResponse {
@@ -161,12 +199,10 @@ export interface BridgeListResponse {
   offset: number;
 }
 
-export interface BridgeTypeStats {
-  bridge_type: string;
+export interface ConnectionModeStats {
+  connection_mode: string;
   count: number;
   avg_score: number;
-  min_score: number;
-  max_score: number;
 }
 
 export interface ScoreHistogramBucket {
@@ -177,7 +213,7 @@ export interface ScoreHistogramBucket {
 export interface BridgeStats {
   total_bridges: number;
   total_products_with_bridges: number;
-  by_type: BridgeTypeStats[];
+  by_mode: ConnectionModeStats[];
   score_histogram: ScoreHistogramBucket[];
 }
 

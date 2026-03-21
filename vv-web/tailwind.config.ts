@@ -1,4 +1,3 @@
-import { Pill } from "lucide-react";
 import type { Config } from "tailwindcss";
 
 const config: Config = {
@@ -10,47 +9,36 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Core
-        cream:           "#F7F3ED",
-        "cream-dark":    "#F0ECE4",
-        "warm-white":    "#FFFCF7",
-        charcoal:        "#2C2420",
-        "charcoal-soft": "#4A423A",
-        muted:           "#8A7E74",
-        // Borders
-        border:          "#E8E0D4",
-        "border-light":  "#D9D0C4",
-        // Accents
-        terracotta:      "#C4553A",
-        gold:            "#B8924A",
-        sage:            "#7A8B6F",
-        "sage-dark":     "#5C7A5E",
-        "sage-text":     "#4A5A40",
-        // Platform badges
+        // Core — monochrome base
+        "off-white":     "#F5F5F0",
+        black:           "#0A0A0A",
+        dark:            "#1A1A1A",
+        "grey-600":      "#6B6B6B",
+        "grey-400":      "#9B9B9B",
+        "grey-200":      "#E0E0E0",
+        "grey-100":      "#F0F0F0",
+        // Accent — one sharp color, used sparingly
+        accent:          "#C4553A",
+        "accent-hover":  "#A8432E",
+        // Signal colors — data viz only
+        "signal-blue":   "#2E5A88",
+        "signal-brown":  "#8B5E3C",
+        "signal-sage":   "#7A8B6F",
+        // Platform labels — text color only, never fills
         met:             "#8B2332",
         smithsonian:     "#2E5A88",
-        fashionpedia:    "#5C7A5E",
-        etsy:            "#D35400",
-        depop:           "#FF2300",
-        // Score breakdown
-        semantic:        "#2E5A88",
-        visual:          "#8B5E3C",
-        structural:      "#7A8B6F",
+        fashionpedia:    "#6B6B6B",
+        va_museum:       "#4A4A4A",
       },
       fontFamily: {
-        serif: ["var(--font-serif)"],
-        sans: ["var(--font-sans)"],
-      },
-      boxShadow: {
-        card: "0 2px 8px rgba(44,36,32,0.04)",
-        "card-hover": "0 20px 40px rgba(44,36,32,0.12), 0 4px 12px rgba(44,36,32,0.06)",
-        connector: "0 4px 16px rgba(44,36,32,0.15)",
+        display:   ["var(--font-display)", "sans-serif"],
+        editorial: ["var(--font-editorial)", "serif"],
+        mono:      ["var(--font-mono)", "monospace"],
       },
       borderRadius: {
-        sm: "10px",
-        md: "12px",
-        lg: "16px",
-        pill: "20px",
+        none: "0px",
+        sm:   "4px",
+        tag:  "999px",
       },
     },
   },

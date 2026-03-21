@@ -8,27 +8,27 @@ export default function Header() {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
-        <header className="sticky top-0 z-50 h-16 border-b border-border bg-cream-dark/95 backdrop-blur-[12px]">
+        <header className="z-50 h-16 border-b border-grey-200 bg-white/95 backdrop-blur-[12px]">
              <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
                 {/* Logo */}
-                <Link href="/" className="font-serif text-xl font-bold text-charcoal">
+                <Link href="/" className="font-display text-xl font-bold text-black">
                     Vintage Vestige
                 </Link>
 
                 {/* Desktop nav */}
                 <nav className="hidden items-center gap-6 md:flex">
-                    <Link href="/search" className="text-sm text-charcoal-soft hover:text-terracotta">
+                    <Link href="/search" className="text-sm text-dark hover:text-accent">
                         Search
                     </Link>
-                    <Link href="/explore/functions" className="text-sm text-charcoal-soft hover:text-terracotta">
+                    <Link href="/explore/functions" className="text-sm text-dark hover:text-accent">
                         Explore
                     </Link>
 
-                    <Link href="/bridges" className="text-sm text-charcoal-soft hover:text-terracotta">
+                    <Link href="/bridges" className="text-sm text-dark hover:text-accent">
                         Bridges
                     </Link>
 
-                    <Link href="/about" className="text-sm text-charcoal-soft hover:text-terracotta">
+                    <Link href="/about" className="text-sm text-dark hover:text-accent">
                         About
                     </Link>
                 </nav>
@@ -45,20 +45,20 @@ export default function Header() {
 
             {/* Mobile menu dropdown */}
             {menuOpen && (
-                <div className="border-b border-border bg-cream-dark px-4 pb-4 md:hidden">
+                <div className="border-b border-grey-200 bg-white px-4 pb-4 md:hidden">
                     <nav className="flex flex-col gap-3">
                         <Link
                             href="/search"
                             onClick={() => setMenuOpen(false)}
-                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                            className="text-sm text-dark hover:text-accent"
                         >
                             Search
                         </Link>
-                        
+
                         <Link
                             href="/explore/functions"
                             onClick={() => setMenuOpen(false)}
-                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                            className="text-sm text-dark hover:text-accent"
                         >
                             Explore
                         </Link>
@@ -66,7 +66,7 @@ export default function Header() {
                         <Link
                             href="/bridges"
                             onClick={() => setMenuOpen(false)}
-                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                            className="text-sm text-dark hover:text-accent"
                         >
                             Bridges
                         </Link>
@@ -74,7 +74,7 @@ export default function Header() {
                         <Link
                             href="/about"
                             onClick={() => setMenuOpen(false)}
-                            className="text-sm text-charcoal-soft hover:text-terracotta"
+                            className="text-sm text-dark hover:text-accent"
                         >
                             About
                         </Link>

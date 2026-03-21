@@ -40,18 +40,24 @@ class ProductSummary(BaseModel):
     id: int
     platform: str
     title: str
+    display_title: str | None = None
     primary_image: str | None = None
     era: str | None = None
     decade: str | None = None
     fp_category: str | None = None
     silhouette: str | None = None
-    vibe: str | None = None
     material: str | None = None
+    culture: str | None = None
     style_tags: list[str] = []
     colors: list[str] = []
     ai_description: str | None = None
+    vibe_scores: dict | None = None
+    designer: str | None = None
+    named_movements: list[str] = []
+    influence_references: list[str] = []
+    production_mode: str | None = None
 
-    @field_validator("style_tags", "colors", mode="before")
+    @field_validator("style_tags", "colors", "named_movements", "influence_references", mode="before")
     @classmethod
     def parse_json_lists(cls, v: object) -> list[str]:
         return _parse_json_list(v)
@@ -72,6 +78,7 @@ class ProductDetail(BaseModel):
 
     # Basic info
     title: str
+    display_title: str | None = None
     description: str | None = None
     category: str | None = None
     price: float | None = None
@@ -92,7 +99,7 @@ class ProductDetail(BaseModel):
     colors: list[str] = []
     material: str | None = None
     garment_type: str | None = None
-    vibe: str | None = None
+    vibe_scores: dict | None = None
     fit_style: str | None = None
     occasion: str | None = None
     ai_description: str | None = None
@@ -111,9 +118,24 @@ class ProductDetail(BaseModel):
     garment_parts: list[str] = []
     decorations: list[str] = []
 
+    # Cross-cultural bridge fields
+    construction_technique: list[str] = []
+    social_function: list[str] = []
+    motif_family: list[str] = []
+
+    # Knowledge graph fields
+    designer: str | None = None
+    influence_references: list[str] = []
+    production_mode: str | None = None
+    material_origin: str | None = None
+    garment_system: list[str] = []
+    named_movements: list[str] = []
+
     @field_validator(
         "style_tags", "colors", "textile_finishing",
         "garment_parts", "decorations",
+        "construction_technique", "social_function", "motif_family",
+        "influence_references", "garment_system", "named_movements",
         mode="before",
     )
     @classmethod

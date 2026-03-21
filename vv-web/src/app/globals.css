@@ -3,32 +3,28 @@
 
 @layer base {
   :root {
-    --radius: 0.5rem;
-  }
-
-  * {
-    @apply border-border;
+    --radius: 0px;
   }
 
   body {
-    @apply bg-cream-dark text-charcoal;
+    @apply bg-white text-black;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif;
+    @apply font-display;
   }
 
-  /* Thin gold scrollbar for carousels */
+  /* Minimal grey scrollbar */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #B8924A transparent;
+    scrollbar-color: #E0E0E0 transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     height: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #B8924A;
-    border-radius: 20px;
+    background: #E0E0E0;
+    border-radius: 0;
   }
 }
 

@@ -65,27 +65,15 @@ export async function getFilters(): Promise<FilterOptions> {
 
 export async function getProductBridges(
   productId: number,
-  opts?: { bridge_type?: string; min_score?: number; limit?: number; offset?: number }
+  opts?: { connection_mode?: string; min_score?: number; limit?: number; offset?: number }
 ): Promise<BridgeListResponse> {
   const params = new URLSearchParams();
-  if (opts?.bridge_type) params.set("bridge_type", opts.bridge_type);
+  if (opts?.connection_mode) params.set("connection_mode", opts.connection_mode);
   if (opts?.min_score) params.set("min_score", String(opts.min_score));
   if (opts?.limit) params.set("limit", String(opts.limit));
   if (opts?.offset) params.set("offset", String(opts.offset));
   const qs = params.toString();
   return fetchAPI<BridgeListResponse>(`/products/${productId}/bridges${qs ? `?${qs}` : ""}`);
-}
-
-export async function getModernEchoes(
-  productId: number,
-  opts?: { min_score?: number; limit?: number; offset?: number }
-): Promise<BridgeListResponse> {
-  const params = new URLSearchParams();
-  if (opts?.min_score) params.set("min_score", String(opts.min_score));
-  if (opts?.limit) params.set("limit", String(opts.limit));
-  if (opts?.offset) params.set("offset", String(opts.offset));
-  const qs = params.toString();
-  return fetchAPI<BridgeListResponse>(`/products/${productId}/modern-echoes${qs ? `?${qs}` : ""}`);
 }
 
 export async function getStyleAncestry(
@@ -116,28 +104,27 @@ export async function getStyleSiblings(
 
 export async function getTopBridges(
   opts?: {
-    bridge_type?: string; min_score?: number; max_score?: number;
-    source_platform?: string; target_platform?: string;
-    temporal_type?: string; crossing_type?: string;
-    connection_mode?: string; primary_axis?: string;
-    shared_function?: string; sort?: string;
-    limit?: number; offset?: number;
+    connection_mode?: string;
+    crossing_type?: string;
+    min_score?: number;
+    max_score?: number;
+    min_year_gap?: number;
+    directed?: boolean;
+    sort?: string;
+    limit?: number;
+    offset?: number;
   }
 ): Promise<BridgeListResponse> {
   const params = new URLSearchParams();
-  if (opts?.bridge_type) params.set("bridge_type", opts.bridge_type);
+  if (opts?.connection_mode) params.set("connection_mode", opts.connection_mode);
+  if (opts?.crossing_type) params.set("crossing_type", opts.crossing_type);
   if (opts?.min_score) params.set("min_score", String(opts.min_score));
   if (opts?.max_score) params.set("max_score", String(opts.max_score));
-  if (opts?.source_platform) params.set("source_platform", opts.source_platform);
-  if (opts?.target_platform) params.set("target_platform", opts.target_platform);
+  if (opts?.min_year_gap) params.set("min_year_gap", String(opts.min_year_gap));
+  if (opts?.directed !== undefined) params.set("directed", String(opts.directed));
+  if (opts?.sort) params.set("sort", opts.sort);
   if (opts?.limit) params.set("limit", String(opts.limit));
   if (opts?.offset) params.set("offset", String(opts.offset));
-  if (opts?.temporal_type) params.set("temporal_type", opts.temporal_type);
-  if (opts?.crossing_type) params.set("crossing_type", opts.crossing_type);
-  if (opts?.connection_mode) params.set("connection_mode", opts.connection_mode);
-  if (opts?.primary_axis) params.set("primary_axis", opts.primary_axis);
-  if (opts?.shared_function) params.set("shared_function", opts.shared_function);
-  if (opts?.sort) params.set("sort", opts.sort);
 
   const qs = params.toString();
   return fetchAPI<BridgeListResponse>(`/bridges/top${qs ? `?${qs}` : ""}`);

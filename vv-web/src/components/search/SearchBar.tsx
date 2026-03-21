@@ -74,10 +74,10 @@ export default function SearchBar({
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
                 className={cn(
-                    "w-full rounded-md border border-border bg-warm-white pr-10 text-charcoal",
-                    "placeholder:text-muted",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2",
-                    isLarge ? "h-12 pl-4 text-base" : "h-10 pl-3 text-sm"
+                    "w-full border-b border-grey-200 bg-transparent pr-10 text-black",
+                    "placeholder:text-grey-400",
+                    "focus-visible:outline-none focus-visible:border-black",
+                    isLarge ? "h-12 text-lg" : "h-10 text-sm"
                 )}
             />
 
@@ -86,8 +86,8 @@ export default function SearchBar({
                 type="button"
                 onClick={value ? handleClear : undefined}
                 className={cn(
-                    "absolute right-3 top-1/2 -translate-y-1/2 text-muted",
-                    value && "hover:text-terracotta cursor-pointer"
+                    "absolute right-3 top-1/2 -translate-y-1/2 text-grey-400",
+                    value && "hover:text-accent cursor-pointer"
                 )}
                 aria-label={value ? "Clear search" : "Search"}
             >
@@ -95,4 +95,4 @@ export default function SearchBar({
             </button>
         </div>
     )
-};
+}

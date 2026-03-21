@@ -24,24 +24,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from storage.database import SessionLocal, Product
-from enrichment.claude import ClaudeEnricher, VIBE_VOCABULARY
+from enrichment.claude import ClaudeEnricher, VIBE_AXES
 from enrichment.era_taxonomy import (
     normalize_era, build_era_prompt_section,
     report_unrecognized_eras, export_unrecognized_eras,
 )
 
-
-SYSTEM_PROMPT = (
-    "You are enriching a historical fashion record for Vintage Vestige, "
-    "a knowledge graph that connects museum archival pieces to modern fashion. "
-    "You are a fashion historian and vintage style expert. "
-    "Return only valid JSON, no markdown."
-)
-
-CREATIVE_SYSTEM_PROMPT = (
-    "You are a fashion stylist and trend expert. "
-    "Return only valid JSON, no markdown."
-)
 
 MODEL = "claude-sonnet-4-20250514"
 
@@ -53,6 +41,8 @@ def build_request(product, enricher):
     )
 
     if has_expert:
+        # Fashionpedia: use enrich_creative_only path via the cached system prompt
+        # The system prompt contains all field definitions; user message has item details
         existing_fields = {
             'fp_category': product.fp_category,
             'nickname': product.nickname,
@@ -79,57 +69,17 @@ def build_request(product, enricher):
             if val and isinstance(val, list) and val:
                 struct_context.append(f"- {key}: {', '.join(val)}")
 
-        prompt = f"""Analyze this fashion item and provide CREATIVE metadata for search discovery.
+        prompt = f"""Analyze this item and return the JSON object specified in your instructions.
 
-**Item:** {product.title}
-**Category:** {product.category or product.fp_category or ''}
+**Item Details (from expert-annotated dataset — structural fields are pre-filled, do NOT change them):**
+- Title: {product.title}
+- Source category: {product.category or product.fp_category or ''}
 
-**Already-annotated structural attributes (expert-labeled, do NOT change these):**
+**Expert-annotated structural attributes (already correct):**
 {chr(10).join(struct_context) if struct_context else '(none)'}
 
-Based on the image and attributes above, provide the creative/search-bridge fields AND any missing structural fields.
-Think about: What modern aesthetic does this evoke? What would someone searching for this style type?
+Fill in creative, cross-cultural, and knowledge graph fields only. Keep all structural fields as provided."""
 
-Return ONLY valid JSON with these fields:
-
-=== MISSING STRUCTURAL FIELDS (infer from image, or null if not visible/applicable) ===
-
-"silhouette": Pick ONE or null: a-line | pencil | straight | fit and flare | flare | trumpet | mermaid | balloon | bell | wide leg | peg | tent | tight fit | regular fit | loose fit | oversized
-"neckline": Pick ONE or null: v-neck | crew neck | round neck | boat neck | scoop neck | square neckline | sweetheart | plunging | keyhole | halter neck | off-the-shoulder | one shoulder | turtle neck | cowl neck | high neck | collarless | surplice | u-neck | straight across
-"waistline": Pick ONE or null: empire waistline | high waist | normal waist | low waist | dropped waistline | no waistline
-"length": Pick ONE or null: above-the-hip | hip length | mini | above-the-knee | knee length | below the knee | midi | maxi | floor length
-"sleeve_length": Pick ONE or null: sleeveless | short | elbow-length | three quarter | wrist-length
-"opening_type": Pick ONE or null: single breasted | double breasted | zip-up | wrapping | lace up | no opening
-"textile_pattern": Pick ONE: plain | floral | stripe | check | dot | geometric | paisley | abstract | houndstooth | herringbone | leopard | toile de jouy
-"textile_finishing": Array of 0-3: distressed | quilted | pleated | ruched | cutout | slit | tiered | smocking | gathering | beaded | sequined | applique
-"garment_parts": Array: hood | collar | lapel | epaulette | sleeve | pocket | buckle | zipper
-"decorations": Array: applique | bead | bow | flower | fringe | ribbon | rivet | ruffle | sequin | tassel
-
-=== CREATIVE / SEARCH-BRIDGE FIELDS ===
-
-  "era": "EXACT name from taxonomy:\n""" + build_era_prompt_section() + """",
-  "decade": "e.g. 2010s, 2020s, or null",
-  "culture": "cultural/geographic influence (e.g. Western, Japanese, South Asian, African, Korean) or null",
-  "style_tags": ["3-5 modern aesthetic tags"],
-  "colors": ["2-4 specific colors"],
-  "material": "primary fabric",
-  "season": "spring/summer | fall/winter | all-season",
-  "garment_type": "natural language (e.g. fitted blazer, flowy sundress)",
-  """ + VIBE_VOCABULARY + """
-  "core_vibes": ["1-3 terms from controlled vocabulary above"],
-  "bridge_vibes": ["1-2 terms most likely to connect across eras"],
-  "vibe_scores": {{"term": confidence_float}},
-  "fit_style": "fit description (e.g. relaxed oversized, structured tailored)",
-  "occasion": "e.g. everyday casual, date night, office",
-  "ai_description": 100-150 words placing this piece in context, using assigned vibe terms. Specificity matters more than prose quality.
-
-=== CROSS-CULTURAL BRIDGE FIELDS ===
-
-  "construction_technique": Array of 1-3 techniques: hand-embroidery | machine-embroidery | hand-weaving | machine-weaving | knitting | crocheting | felting | draping | tailoring | resist-dyeing | block-printing | screen-printing | digital-printing | batik | tie-dye | quilting | smocking | pleating | lacework | beadwork | applique | tapestry | brocade-weaving | jacquard-weaving | hand-sewing | couture-construction | leather-working | metalwork | null
-  "social_function": Array of 1-2 social roles this garment serves. Prefer terms from this list: wedding | mourning | religious-ceremonial | court-formal | military-uniform | status-signaling | everyday-practical | workwear | sportswear | performance-costume | coming-of-age | festival-celebration | diplomatic-gift | academic-formal | protest-subculture | leisure-resort — but if the garment's function isn't captured by these terms, use your own concise label (e.g. "dance", "hunting", "nursing", "pilgrimage"). Use ["none"] only if truly no social function applies.
-  "motif_family": Array of 1-3 motif families: geometric | floral | paisley | chevron-zigzag | spiral-scroll | animal-figurative | bird-figurative | mythological | calligraphic | lattice-trellis | medallion | stripe-band | dot-spot | tree-of-life | cloud-wave | star-celestial | heraldic | abstract-organic | none
-"""
-        system = CREATIVE_SYSTEM_PROMPT
     else:
         prompt = enricher._build_enrichment_prompt(
             title=product.title,
@@ -144,8 +94,8 @@ Return ONLY valid JSON with these fields:
             era=product.era,
             object_date=product.object_date,
         )
-        system = SYSTEM_PROMPT
 
+    system = enricher._build_enrichment_system_prompt()
     content = enricher._build_image_content(product.primary_image)
     content.append({"type": "text", "text": prompt})
 
@@ -205,9 +155,10 @@ def apply_enrichment(product, enrichment, enricher, is_creative_only):
     product.material = enrichment.get('material')
     product.pattern = enrichment.get('pattern')
     product.garment_type = enrichment.get('garment_type')
-    product.vibe = enrichment.get('vibe')
-    product.core_vibes = enrichment.get('core_vibes')
-    product.bridge_vibes = enrichment.get('bridge_vibes')
+    # Vibe scores — new 6-axis format (old vibe/core_vibes/bridge_vibes cleared)
+    product.vibe = None
+    product.core_vibes = None
+    product.bridge_vibes = None
     product.vibe_scores = enrichment.get('vibe_scores')
     product.fit_style = enrichment.get('fit_style')
     product.occasion = enrichment.get('occasion')
@@ -243,6 +194,25 @@ def apply_enrichment(product, enrichment, enricher, is_creative_only):
         product.motif_family = json.dumps(mf)
     elif mf and mf != 'null':
         product.motif_family = json.dumps([mf])
+
+    # Knowledge graph fields
+    product.designer = enrichment.get('designer')
+    ir = enrichment.get('influence_references')
+    if ir and isinstance(ir, list):
+        product.influence_references = json.dumps(ir)
+    product.production_mode = enrichment.get('production_mode')
+    product.material_origin = enrichment.get('material_origin')
+    gs = enrichment.get('garment_system')
+    if gs and isinstance(gs, list):
+        product.garment_system = json.dumps(gs)
+    nm = enrichment.get('named_movements')
+    if nm and isinstance(nm, list):
+        product.named_movements = json.dumps(nm)
+    lcf = enrichment.get('low_confidence_fields')
+    if lcf is not None:
+        product.low_confidence_fields = json.dumps(lcf)
+    if enrichment.get('display_title'):
+        product.display_title = enrichment['display_title']
 
     product.enriched_at = datetime.now()
 
@@ -292,11 +262,14 @@ async def run_async(products, enricher, concurrency):
     return results
 
 
-def main(limit=None, concurrency=5):
+def main(limit=None, concurrency=5, rebuild=False):
     db = SessionLocal()
     enricher = ClaudeEnricher()
 
-    query = db.query(Product).filter(Product.enriched_at == None)
+    if rebuild:
+        query = db.query(Product)
+    else:
+        query = db.query(Product).filter(Product.enriched_at == None)
     if limit:
         query = query.limit(limit)
     products = query.all()
@@ -401,6 +374,7 @@ def main(limit=None, concurrency=5):
 if __name__ == '__main__':
     limit_val = None
     concurrency_val = 5
+    rebuild_val = '--rebuild' in sys.argv
 
     for arg in sys.argv[1:]:
         if arg.startswith('--limit='):
@@ -408,4 +382,4 @@ if __name__ == '__main__':
         elif arg.startswith('--concurrency='):
             concurrency_val = int(arg.split('=', 1)[1])
 
-    main(limit=limit_val, concurrency=concurrency_val)
+    main(limit=limit_val, concurrency=concurrency_val, rebuild=rebuild_val)

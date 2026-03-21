@@ -12,143 +12,64 @@ from enrichment.era_taxonomy import normalize_era, build_era_prompt_section
 
 load_dotenv()
 
-VIBE_VOCABULARY = """
-CONTROLLED VIBE VOCABULARY (pick only from these terms):
+VIBE_AXES = """
+AESTHETIC AXES — Place this garment on each spectrum.
 
-Each term is followed by its definition and the aesthetic argument it makes.
-Assign terms that reflect what the garment is ARGUING, not just what it looks like.
+Each axis is a spectrum between two opposing aesthetic arguments.
+For each axis: does this garment argue for pole A or pole B?
+If neither pole applies, skip the axis (null).
 
-AXIS 1 — Volume and Silhouette
-(The garment's relationship to the body through shape and mass)
-
-  - Exaggerated Volume     — structural mass exceeds functional necessity; 
-    the outline is the subject, not the body beneath.
-    Panniers, crinolines, puff sleeves, Comme des Garçons padding.
-    The argument: the garment itself is the subject.
-
-  - Column Minimalism      — unbroken vertical line, body-skimming or body-revealing,
-    no structural intervention between fabric and form.
+AXIS 1 — VOLUME
+  Exaggerated Volume: structural mass exceeds functional necessity; the outline is the
+    subject. Panniers, crinolines, puff sleeves, Comme des Garçons padding.
+  Column Minimalism: unbroken vertical line, body-skimming, no structural intervention.
     Fortuny, 1960s shift, The Row.
-    The argument: the body is sufficient.
 
-  - Empire Suspension      — high waistline releases the body below; fabric falls from
-    a single gathering point beneath the bust. Neoclassical,
-    Regency, 1910s reform dress, certain 1960s revivals.
-    The argument: liberation from below.
+AXIS 2 — ORNAMENT
+  Maximalist Ornament: surface decoration is the primary aesthetic event; excess is meaning.
+    Rococo embroidery, Valentino couture, Victorian beading.
+  Bare Surface: deliberate absence of decoration; the material itself is the statement.
+    Quaker dress, Japanese minimalism, Jil Sander, unadorned linen.
 
-  - Constructed Armor      — rigid or semi-rigid structure holds the body in a
-    predetermined shape; garment as exoskeleton. Stays,
-    corsetry, McQueen tailoring, Thom Browne.
-    The argument: the body must be managed.
+AXIS 3 — EXPOSURE
+  Body Display: stages the body for viewing; makes it the subject of attention.
+    Court dress décolletage, 1950s swimwear, contemporary bodycon.
+  Body Concealment: deliberately obscures the body's form; refuses the gaze.
+    Certain religious dress, 1980s power suiting, modest fashion, Balenciaga volume.
 
-  - Draped Fluidity        — fabric organized by gravity and body movement, not
-    structure; no fixed silhouette. Greek chiton, Vionnet
-    bias cut, Issey Miyake pleats.
-    The argument: the body and fabric are in conversation.
+AXIS 4 — GENDER
+  Gender Conforming: reinforces the gender expectations of its era. A corseted ballgown in
+    1860, a grey flannel suit on a man in 1955 — both conform to their moment's codes.
+  Gender Defiant: challenges or violates the gender norms of its moment. Bloomers in 1851,
+    Marlene Dietrich's tuxedo, men's skirts, androgynous fashion that refuses binary coding.
 
-  - Layered Accumulation   — multiple garments or fabric weights building depth;
-    no single silhouette readable. Medieval layering,
-    Rei Kawakubo, certain folk traditions.
-    The argument: identity is cumulative.
+AXIS 5 — REGISTER
+  Transgressive Subversion: deliberately violates sartorial norms; dress as protest.
+    Bloomers, punk, early queer fashion, certain streetwear.
+  Elite Distinction: communicates social position through understatement and insider codes.
+    Savile Row tailoring, old money aesthetics, quiet luxury.
 
-AXIS 2 — Ornament and Surface
-(What the garment does at its surface — decoration, material, texture)
+AXIS 6 — OCCASION
+  Pastoral Naturalism: invokes nature, rural life, or pre-industrial simplicity.
+    18th century pastoral, Arts and Crafts dress, 1970s folk revival, cottagecore.
+  Ceremonial Formalism: marks ritual occasion, separates it from the everyday.
+    Court dress, ecclesiastical vestment, wedding dress across cultures.
 
-  - Maximalist Ornament    — surface decoration exceeds structural function; the
-    ornament is the primary aesthetic event. Rococo
-    embroidery, Valentino couture, Victorian beading.
-    The argument: excess is meaning.
+Return as JSON:
+"vibe_axes": {
+  "volume":    ["Exaggerated Volume" or "Column Minimalism", confidence] or null,
+  "ornament":  ["Maximalist Ornament" or "Bare Surface", confidence] or null,
+  "exposure":  ["Body Display" or "Body Concealment", confidence] or null,
+  "gender":    ["Gender Conforming" or "Gender Defiant", confidence] or null,
+  "register":  ["Transgressive Subversion" or "Elite Distinction", confidence] or null,
+  "occasion":  ["Pastoral Naturalism" or "Ceremonial Formalism", confidence] or null
+}
 
-  - Austere Restraint      — deliberate removal of decoration; surface communicates
-    through absence. Quaker dress, Japanese minimalism,
-    Jil Sander.
-    The argument: restraint is its own statement.
-
-- Handcraft Visibility   — surface makes its own making visible; evidence of human
-    labor is the aesthetic content. Arts and Crafts dress,
-    folk embroidery, contemporary slow fashion.
-    The argument: the hand that made this matters.
-
-- Material Luxury        — communication through inherent material richness, not
-    applied decoration. Heavy silk, rare fur, fine wool,
-    certain contemporary leather goods.
-    The argument: substance speaks louder than ornament.
-
-  - Pattern as Language    — surface organized by repeating motifs carrying cultural
-    or symbolic content. Tartan, toile, ikat, Liberty prints.
-    The argument: pattern is a form of speech.
-
-  - Transparency and Revelation — deliberate use of sheer or open materials to
-    suggest or reveal what is beneath. Victorian lace,
-    1970s chiffon, contemporary mesh.
-    The argument: concealment and revelation are simultaneous.
-
-AXIS 3 — Body Relationship
-(The ideological relationship the garment proposes between itself and the body)
-
-  - Body Liberation        — designed to free the body from restriction; refuses
-    constraint. Reform dress, 1920s drop waist, 1970s
-    jersey, athletic crossover.
-    The argument: the body should move freely.
-
-  - Body Transformation    — designed to reshape the body into a culturally preferred
-    form. Corsetry, padding, foundation garments, certain
-    contemporary shapewear aesthetics.
-    The argument: the natural body is insufficient.
-
-  - Body Concealment       — deliberately obscures the body's form; refuses the gaze.
-    Certain religious dress, 1980s power suiting,
-    contemporary modest fashion, Balenciaga volume.
-    The argument: the body is private.
-
-  - Body Display           — stages the body for viewing; makes it the subject of
-    attention. Court dress décolletage, 1950s swimwear,
-    contemporary bodycon.
-    The argument: the body is public.
-
-AXIS 4 — Cultural Register
-(The social and cultural argument — class, nature, ceremony, transgression)
-
-  - Pastoral Naturalism    — invokes nature, rural life, or pre-industrial simplicity,
-    genuine or constructed. 18th century pastoral costume,
-    Arts and Crafts dress, 1970s folk revival, cottagecore.
-    The argument: nature is preferable to culture.
-
-  - Ceremonial Formalism   — primary function is to mark ritual occasion, separate it
-    from the everyday. Court dress, ecclesiastical vestment,
-    wedding dress across cultures.
-    The argument: some moments require dedicated clothing.
-
-  - Dark Romanticism       — aestheticizes melancholy, mortality, or the uncanny.
-    Victorian mourning dress, Gothic subculture, certain
-    Alexander McQueen, dark academia.
-    The argument: darkness is beautiful.
-
-  - Transgressive Subversion — deliberately violates the sartorial norms of its
-    moment; uses dress as protest or provocation. Bloomers,
-    punk, early queer fashion, certain streetwear.
-    The argument: clothing can refuse.
-
-- Nostalgic Revival      — consciously quotes a previous era; the historical
-    reference is the primary aesthetic content. Victorian
-    revival in Edwardian dress, 1930s Hollywood glamour
-    revivals, contemporary vintage aesthetics.
-    The argument: the past was better, or at least richer.
-
-  - Elite Distinction      — communicates social position through understatement, quality, and codes legible only to insiders.   Savile Row tailoring, old money aesthetics, quiet luxury.
-  The argument: true status needs no announcement.
-
-Assign:
-  core_vibes:   1–3 terms (from any axis) that define this piece's primary arguments
-  bridge_vibes: 1–2 terms most likely to find echoes across other eras — the argument
-                this piece shares with garments centuries before or after it
-  vibe_scores:  confidence for each assigned term (0.0–1.0)
-
-Note on bridge_vibes: A term makes a good bridge_vibe when its argument is not
-era-specific — when the same claim (e.g. "the body should move freely") has been
-made in radically different historical moments. Axis 3 (Body Relationship) and
-Axis 1 (Volume/Silhouette) terms tend to bridge well. Axis 4 (Cultural Register)
-terms are often more era-specific and bridge less reliably.
+Rules:
+- Only score axes where the garment makes a clear argument for one pole
+- Skip (null) axes that don't apply — a plain work shirt may have no occasion argument
+- Confidence = how strongly the garment argues for that pole (0.5 = mild, 1.0 = definitive)
+- Most garments score on 2-4 axes, not all 6
 """
 
 
@@ -226,7 +147,7 @@ class ClaudeEnricher:
             model=self.model,
             max_tokens=1200,
             temperature=0.4,
-            system="You are enriching a historical fashion record for Vintage Vestige, a knowledge graph that connects museum archival pieces to modern fashion. You are a fashion historian and vintage style expert. Return only valid JSON, no markdown.",
+            system=self._build_enrichment_system_prompt(),
             messages=[{
                 "role": "user",
                 "content": content
@@ -253,6 +174,76 @@ class ClaudeEnricher:
             print(f"  Response: {response_text[:200]}")
             return self._get_fallback_enrichment(title, category)
 
+    def _build_enrichment_system_prompt(self) -> list:
+        """Build the static system prompt for enrichment (cacheable)."""
+        era_prompt = build_era_prompt_section()
+
+        static_instructions = f"""You are enriching a historical fashion record for Vintage Vestige, a knowledge graph that connects museum archival pieces to modern fashion. You are a fashion historian and vintage style expert. Return only valid JSON, no markdown.
+
+If an image is provided, it is your primary source. Describe what you actually see — not what the metadata claims. If the image contradicts the title, material, or category, trust the image.
+
+For accessories, fashion plates, textiles, or non-garment objects: skip all structural fields (silhouette through decorations) — use null. Focus on material, construction, and cultural context.
+
+For non-Western garments (sari, kimono, hanbok, kaftan, dashiki, cheongsam, huipil, etc.), use the garment's own name in "garment_type" and "nickname". Use null for structural fields (neckline, waistline, etc.) that don't apply to the garment's construction. Pick the closest fp_category or use "dress" / "coat" as rough approximation.
+
+Return a JSON object with ALL fields below. Pick from the given options or null if not applicable.
+
+=== STRUCTURAL FIELDS ===
+
+"fp_category": shirt/blouse | top/t-shirt/sweatshirt | sweater | cardigan | jacket | vest | pants | shorts | skirt | coat | dress | jumpsuit | cape | glasses | hat | headband/head covering/hair accessory | tie | glove | watch | belt | leg warmer | tights/stockings | sock | shoe | bag/wallet | scarf | umbrella
+"nickname": Sub-type or garment name (e.g. blazer, trench, slip dress, pencil skirt, sari, kimono, dashiki, kaftan, cheongsam, hanbok) or null
+"silhouette": a-line | pencil | straight | fit and flare | flare | trumpet | mermaid | balloon | bell | wide leg | peg | tent | tight fit | regular fit | loose fit | oversized | null
+"neckline": v-neck | crew neck | round neck | boat neck | scoop neck | square neckline | sweetheart | plunging | halter neck | off-the-shoulder | one shoulder | turtle neck | cowl neck | high neck | collarless | surplice | null
+"waistline": empire waistline | high waist | normal waist | low waist | dropped waistline | no waistline | null
+"length": above-the-hip | hip length | mini | above-the-knee | knee length | below the knee | midi | maxi | floor length | null
+"sleeve_length": sleeveless | short | elbow-length | three quarter | wrist-length | null
+"opening_type": single breasted | double breasted | zip-up | wrapping | lace up | no opening | null
+"textile_pattern": plain | floral | stripe | check | dot | geometric | paisley | abstract | houndstooth | herringbone | leopard | toile de jouy
+"textile_finishing": Array of 1-3: distressed | quilted | pleated | ruched | cutout | slit | tiered | smocking | gathering | beaded | sequined | applique
+"garment_parts": Array: hood | collar | lapel | epaulette | sleeve | pocket | buckle | zipper
+"decorations": Array: applique | bead | bow | flower | fringe | ribbon | rivet | ruffle | sequin | tassel
+
+=== CREATIVE FIELDS ===
+
+"era": EXACT name from this list. IMPORTANT: era means WHEN THE ITEM WAS MADE, not what style it evokes. A 2020 dress inspired by Victorian aesthetics is NOT Victorian — it belongs to the era of its manufacture (e.g. Quiet Luxury, Normcore). Use the Date from museum records if provided. Only use visual/stylistic cues for era if no date is available.
+{era_prompt}
+"decade": The decade the item was made (e.g. "1780s", "1920s", "2010s"). Must match the era — if the Date says 2018, decade is "2010s". Null only if truly unknown.
+"style_tags": 3-5 tags mixing historical and modern aesthetics (e.g. "flapper", "Rococo", "cottagecore", "formal", "everyday", "ceremonial", "workwear", "sportswear", "eveningwear")
+"colors": 2-4 specific colors visible | inferred from description (e.g. "navy blue", "cream", "burgundy") | "multi-colored"
+"material": Primary fabric — refine if provided in input (e.g. "silk" → "silk taffeta"), or determine from image. (e.g. "silk taffeta", "wool broadcloth")
+"season": spring/summer | fall/winter | all-season | evening
+"garment_type": Natural language (e.g. "bustle evening gown", "tailored riding jacket")
+{VIBE_AXES}
+
+"fit_style": Fit description (e.g. "corseted fitted", "flowing draped")
+"occasion": e.g. "formal evening", "everyday wear", "garden party"
+"ai_description": 80-120 words. Describe what you see: silhouette, construction, materials, surface treatment, and how the garment relates to its era and culture. Be specific about physical details — the width of a lapel, the weight of a fabric, the geometry of a cut. Do NOT use the axis pole names (e.g. do not write "Exaggerated Volume" or "Bare Surface"). Do NOT use generic praise ("stunning", "elegant", "beautiful"). Write for someone who cannot see the garment.
+
+=== CROSS-CULTURAL BRIDGE FIELDS ===
+
+"construction_technique": Array of 1-3 techniques: hand-embroidery | machine-embroidery | hand-weaving | machine-weaving | knitting | crocheting | felting | draping | tailoring | resist-dyeing | block-printing | screen-printing | digital-printing | batik | tie-dye | quilting | smocking | pleating | lacework | beadwork | applique | tapestry | brocade-weaving | jacquard-weaving | hand-sewing | couture-construction | leather-working | metalwork | null
+"social_function": Array of 1-2 social roles this garment serves. Prefer terms from this list: wedding | mourning | religious-ceremonial | court-formal | military-uniform | status-signaling | everyday-practical | workwear | sportswear | performance-costume | coming-of-age | festival-celebration | diplomatic-gift | academic-formal | protest-subculture | leisure-resort — but if the garment's function isn't captured by these terms, use your own concise label (e.g. "dance", "hunting", "nursing", "pilgrimage"). Use ["none"] only if truly no social function applies.
+"motif_family": Array of 1-3 motif families: geometric | floral | paisley | chevron-zigzag | spiral-scroll | animal-figurative | bird-figurative | mythological | calligraphic | lattice-trellis | medallion | stripe-band | dot-spot | tree-of-life | cloud-wave | star-celestial | heraldic | abstract-organic | none
+
+=== KNOWLEDGE GRAPH FIELDS ===
+
+"designer": Name of the designer, maker, or design house if known or inferable from the title/description. String or null. (e.g. "Vivienne Westwood", "Worth", "Issey Miyake")
+"influence_references": Array of 1-3 specific historical or cultural references this garment draws from. Be precise — name the era, movement, culture, or garment type being referenced. (e.g. ["1890s leg-of-mutton sleeve", "Japanese obi wrapping", "Edwardian mourning dress"]). Use null if the garment is purely of its own moment with no visible backward reference.
+"production_mode": haute couture | ready-to-wear | handmade | mass-produced | one-of-a-kind | artisan-craft | null
+"material_origin": Geographic origin of the primary textile if known or strongly inferable. Distinct from the garment's culture — a French dress made with Indian chintz = culture "French", material_origin "India". String or null.
+"garment_system": Array of other garments this piece requires, implies, or belongs to as an ensemble. (e.g. ["corset", "chemise", "petticoat"] for a Victorian evening gown, ["choli blouse"] for a sari, ["waistcoat", "cravat"] for a Regency coat). Use null if the garment is self-contained.
+"named_movements": Array of 1-2 specific design or cultural movements beyond the era label. (e.g. ["Japonisme", "Aesthetic Movement"], ["Memphis Group"], ["Arts and Crafts"], ["Orientalism"], ["Bloomsbury Group"]). Use null if no specific movement applies.
+
+"display_title": A concise, descriptive title (5-10 words) that a person could use to identify this item. Include the most distinctive attributes: material, color, garment type, and one defining feature. If the original title is already specific and descriptive, keep it unchanged. Do NOT include dates or era names. (e.g. "Burgundy Silk Velvet Fragment with Brocade Palmettes", "Sage Green Cotton Crew Neck T-Shirt", "Black Leather Double-Breasted Biker Jacket")
+
+"low_confidence_fields": Array of field names where you are uncertain or inferring rather than observing. (e.g. ["designer", "material_origin", "decade"]). Use an empty array [] if you are confident in all fields.
+
+If a field genuinely cannot be determined, leave it null. Do not guess. Return ONLY valid JSON, no markdown."""
+
+        return [
+            {"type": "text", "text": static_instructions, "cache_control": {"type": "ephemeral"}}
+        ]
+
     def _build_enrichment_prompt(
         self,
         title: str,
@@ -268,11 +259,11 @@ class ClaudeEnricher:
         object_date: Optional[str] = None
     ) -> str:
 
-        prompt = f"""Analyze this item and provide rich metadata that bridges museum catalog language with how modern people search for fashion inspiration.
+        prompt = f"""Analyze this item and return the JSON object specified in your instructions.
 
-**Item Details:**
+**Item Details (from museum/source records — may be incomplete or inaccurate):**
 - Title: {title}
-- Category: {category}"""
+- Source category: {category}"""
 
         if object_date:
             prompt += f"\n- Date (from museum records): {object_date}"
@@ -292,55 +283,6 @@ class ClaudeEnricher:
             prompt += f"\n- Season: {season}"
         if year:
             prompt += f"\n- Year: {int(year)}"
-
-        era_prompt = build_era_prompt_section()
-
-        prompt += f"""
-
-Return a JSON object with ALL fields below. Pick from the given options or null if not applicable.
-
-NOTE: For non-Western garments (sari, kimono, hanbok, kaftan, dashiki, cheongsam, huipil, etc.), use the garment's own name in "garment_type" and "nickname". Use null for structural fields (neckline, waistline, etc.) that don't apply to the garment's construction. Pick the closest fp_category or use "dress" / "coat" as rough approximation.
-
-=== STRUCTURAL FIELDS ===
-
-"fp_category": shirt/blouse | top/t-shirt/sweatshirt | sweater | cardigan | jacket | vest | pants | shorts | skirt | coat | dress | jumpsuit | cape | glasses | hat | headband/head covering/hair accessory | tie | glove | watch | belt | leg warmer | tights/stockings | sock | shoe | bag/wallet | scarf | umbrella
-"nickname": Sub-type or garment name (e.g. blazer, trench, slip dress, pencil skirt, sari, kimono, dashiki, kaftan, cheongsam, hanbok) or null
-"silhouette": a-line | pencil | straight | fit and flare | flare | trumpet | mermaid | balloon | bell | wide leg | peg | tent | tight fit | regular fit | loose fit | oversized | null
-"neckline": v-neck | crew neck | round neck | boat neck | scoop neck | square neckline | sweetheart | plunging | halter neck | off-the-shoulder | one shoulder | turtle neck | cowl neck | high neck | collarless | surplice | null
-"waistline": empire waistline | high waist | normal waist | low waist | dropped waistline | no waistline | null
-"length": above-the-hip | hip length | mini | above-the-knee | knee length | below the knee | midi | maxi | floor length | null
-"sleeve_length": sleeveless | short | elbow-length | three quarter | wrist-length | null
-"opening_type": single breasted | double breasted | zip-up | wrapping | lace up | no opening | null
-"textile_pattern": plain | floral | stripe | check | dot | geometric | paisley | abstract | houndstooth | herringbone | leopard | toile de jouy
-"textile_finishing": Array of 1-3: distressed | quilted | pleated | ruched | cutout | slit | tiered | smocking | gathering | beaded | sequined | applique
-"garment_parts": Array: hood | collar | lapel | epaulette | sleeve | pocket | buckle | zipper
-"decorations": Array: applique | bead | bow | flower | fringe | ribbon | rivet | ruffle | sequin | tassel
-
-=== CREATIVE FIELDS ===
-
-"era": EXACT name from this list:
-{era_prompt}
-"decade": "e.g. "1780s", "1920s", "2010s" or null if not clear"
-"style_tags": 3-5 tags mixing historical and modern aesthetics (e.g. "flapper", "Rococo", "cottagecore", "formal", "everyday", "ceremonial", "workwear", "sportswear", "eveningwear")
-"colors": 2-4 specific colors visible | inferred from description (e.g. "navy blue", "cream", "burgundy") | "multi-colored"
-"material": Primary fabric (e.g. "silk taffeta", "wool broadcloth")
-"season": spring/summer | fall/winter | all-season | evening
-"garment_type": Natural language (e.g. "bustle evening gown", "tailored riding jacket")
-{VIBE_VOCABULARY}
-"core_vibes": ["1-3 terms from controlled vocabulary above"],
-"bridge_vibes": ["1-2 terms most likely to connect across eras"],
-"vibe_scores": {{"term": confidence_float}},
-"fit_style": Fit description (e.g. "corseted fitted", "flowing draped")
-"occasion": e.g. "formal evening", "everyday wear", "garden party"
-"ai_description": 100-150 words placing this piece in context, using assigned vibe terms. Specificity matters more than prose quality.
-
-=== CROSS-CULTURAL BRIDGE FIELDS ===
-
-"construction_technique": Array of 1-3 techniques: hand-embroidery | machine-embroidery | hand-weaving | machine-weaving | knitting | crocheting | felting | draping | tailoring | resist-dyeing | block-printing | screen-printing | digital-printing | batik | tie-dye | quilting | smocking | pleating | lacework | beadwork | applique | tapestry | brocade-weaving | jacquard-weaving | hand-sewing | couture-construction | leather-working | metalwork | null
-"social_function": Array of 1-2 social roles this garment serves. Prefer terms from this list: wedding | mourning | religious-ceremonial | court-formal | military-uniform | status-signaling | everyday-practical | workwear | sportswear | performance-costume | coming-of-age | festival-celebration | diplomatic-gift | academic-formal | protest-subculture | leisure-resort — but if the garment's function isn't captured by these terms, use your own concise label (e.g. "dance", "hunting", "nursing", "pilgrimage"). Use ["none"] only if truly no social function applies.
-"motif_family": Array of 1-3 motif families: geometric | floral | paisley | chevron-zigzag | spiral-scroll | animal-figurative | bird-figurative | mythological | calligraphic | lattice-trellis | medallion | stripe-band | dot-spot | tree-of-life | cloud-wave | star-celestial | heraldic | abstract-organic | none
-
-If a field genuinely cannot be determined, leave it null. Do not guess. Return ONLY valid JSON, no markdown."""
 
         return prompt
 
@@ -369,56 +311,16 @@ If a field genuinely cannot be determined, leave it null. Do not guess. Return O
             if val and isinstance(val, list) and val:
                 struct_context.append(f"- {key}: {', '.join(val)}")
 
-        prompt = f"""Analyze this fashion item and provide CREATIVE metadata for search discovery.
+        prompt = f"""Analyze this item and return the JSON object specified in your instructions.
 
-**Item:** {title}
-**Category:** {category}
+**Item Details (from expert-annotated dataset — structural fields are pre-filled, do NOT change them):**
+- Title: {title}
+- Source category: {category}
 
-**Already-annotated structural attributes (expert-labeled, do NOT change these):**
+**Expert-annotated structural attributes (already correct):**
 {chr(10).join(struct_context) if struct_context else '(none)'}
 
-Based on the image and attributes above, provide the creative/search-bridge fields AND any missing structural fields.
-Think about: What modern aesthetic does this evoke? What would someone searching for this style type?
-
-Return ONLY valid JSON with these fields:
-
-=== MISSING STRUCTURAL FIELDS (infer from image, or null if not visible/applicable) ===
-
-"silhouette": Pick ONE or null: a-line | pencil | straight | fit and flare | flare | trumpet | mermaid | balloon | bell | wide leg | peg | tent | tight fit | regular fit | loose fit | oversized
-"neckline": Pick ONE or null: v-neck | crew neck | round neck | boat neck | scoop neck | square neckline | sweetheart | plunging | keyhole | halter neck | off-the-shoulder | one shoulder | turtle neck | cowl neck | high neck | collarless | surplice | u-neck | straight across
-"waistline": Pick ONE or null: empire waistline | high waist | normal waist | low waist | dropped waistline | no waistline
-"length": Pick ONE or null: above-the-hip | hip length | mini | above-the-knee | knee length | below the knee | midi | maxi | floor length
-"sleeve_length": Pick ONE or null: sleeveless | short | elbow-length | three quarter | wrist-length
-"opening_type": Pick ONE or null: single breasted | double breasted | zip-up | wrapping | lace up | no opening
-"textile_pattern": Pick ONE: plain | floral | stripe | check | dot | geometric | paisley | abstract | houndstooth | herringbone | leopard | toile de jouy
-"textile_finishing": Array of 0-3: distressed | quilted | pleated | ruched | cutout | slit | tiered | smocking | gathering | beaded | sequined | applique
-"garment_parts": Array: hood | collar | lapel | epaulette | sleeve | pocket | buckle | zipper
-"decorations": Array: applique | bead | bow | flower | fringe | ribbon | rivet | ruffle | sequin | tassel
-
-=== CREATIVE / SEARCH-BRIDGE FIELDS ===
-
-  "era": "EXACT name from taxonomy:\n""" + build_era_prompt_section() + """",
-  "decade": "e.g. 2010s, 2020s, or null",
-  "culture": "cultural/geographic influence (e.g. Western, Japanese, South Asian, African, Korean) or null",
-  "style_tags": ["3-5 modern aesthetic tags"],
-  "colors": ["2-4 specific colors"],
-  "material": "primary fabric",
-  "season": "spring/summer | fall/winter | all-season",
-  "garment_type": "natural language (e.g. fitted blazer, flowy sundress)",
-  {VIBE_VOCABULARY}
-  "core_vibes": ["1-3 terms from controlled vocabulary above"],
-  "bridge_vibes": ["1-2 terms most likely to connect across eras"],
-  "vibe_scores": {{"term": confidence_float}},
-  "fit_style": "fit description (e.g. relaxed oversized, structured tailored)",
-  "occasion": "e.g. everyday casual, date night, office",
-  "ai_description": 100-150 words placing this piece in context, using assigned vibe terms. Specificity matters more than prose quality.
-
-=== CROSS-CULTURAL BRIDGE FIELDS ===
-
-  "construction_technique": Array of 1-3 techniques: hand-embroidery | machine-embroidery | hand-weaving | machine-weaving | knitting | crocheting | felting | draping | tailoring | resist-dyeing | block-printing | screen-printing | digital-printing | batik | tie-dye | quilting | smocking | pleating | lacework | beadwork | applique | tapestry | brocade-weaving | jacquard-weaving | hand-sewing | couture-construction | leather-working | metalwork | null
-  "social_function": Array of 1-2 social roles this garment serves. Prefer terms from this list: wedding | mourning | religious-ceremonial | court-formal | military-uniform | status-signaling | everyday-practical | workwear | sportswear | performance-costume | coming-of-age | festival-celebration | diplomatic-gift | academic-formal | protest-subculture | leisure-resort — but if the garment's function isn't captured by these terms, use your own concise label (e.g. "dance", "hunting", "nursing", "pilgrimage"). Use ["none"] only if truly no social function applies.
-  "motif_family": Array of 1-3 motif families: geometric | floral | paisley | chevron-zigzag | spiral-scroll | animal-figurative | bird-figurative | mythological | calligraphic | lattice-trellis | medallion | stripe-band | dot-spot | tree-of-life | cloud-wave | star-celestial | heraldic | abstract-organic | none
-"""
+Fill in all fields from your instructions. Keep expert-annotated structural fields as provided above."""
 
         content = self._build_image_content(image_data_url)
 
@@ -431,7 +333,7 @@ Return ONLY valid JSON with these fields:
             model=self.model,
             max_tokens=1200,
             temperature=0.5,
-            system="You are a fashion stylist and trend expert. Return only valid JSON, no markdown.",
+            system=self._build_enrichment_system_prompt(),
             messages=[{"role": "user", "content": content}]
         )
 
@@ -451,19 +353,19 @@ Return ONLY valid JSON with these fields:
         except json.JSONDecodeError as e:
             print(f"  JSON parse error: {e}")
             creative = {
-                "era": "Quiet Luxury", "decade": "2010s",
+                "era": None, "decade": None,
                 "style_tags": ["casual", "everyday"],
                 "colors": ["unknown"], "material": "unknown",
                 "season": "all-season", "garment_type": category,
                 "vibe": "casual", "fit_style": "standard",
-                "core_vibes": [], "bridge_vibes": [], "vibe_scores": {},
+                "vibe_axes": {},
                 "occasion": "everyday",
                 "ai_description": f"{title} - modern {category} for everyday wear"
             }
 
         # Merge: keep existing structured fields, add creative fields
         merged = dict(existing_fields)
-        for key in ('era', 'decade', 'culture', 'style_tags', 'colors', 'material', 'season', 'garment_type', 'vibe', 'fit_style', 'occasion', 'ai_description', 'core_vibes', 'bridge_vibes', 'vibe_scores', 'construction_technique', 'social_function', 'motif_family'):
+        for key in ('era', 'decade', 'culture', 'style_tags', 'colors', 'material', 'season', 'garment_type', 'vibe', 'fit_style', 'occasion', 'ai_description', 'vibe_axes', 'construction_technique', 'social_function', 'motif_family'):
             merged[key] = creative.get(key)
 
         # Fill in structural fields only if not already expert-annotated
@@ -492,35 +394,39 @@ Return ONLY valid JSON with these fields:
             "textile_finishing": [],
             "garment_parts": [],
             "decorations": [],
-            "era": "Quiet Luxury",
+            "era": None,
             "decade": None,
-            "style_tags": ["casual", "everyday"],
-            "colors": ["unknown"],
-            "material": "unknown",
-            "season": "all-season",
-            "garment_type": category.lower(),
-            "vibe": "casual comfortable",
-            "core_vibes": [],
-            "bridge_vibes": [],
+            "style_tags": [],
+            "colors": [],
+            "material": None,
+            "season": None,
+            "garment_type": category.lower() if category else None,
             "vibe_scores": {},
-            "fit_style": "standard",
-            "occasion": "everyday",
-            "ai_description": f"{title} - {category} for everyday wear",
+            "fit_style": None,
+            "occasion": None,
+            "ai_description": f"{title} - {category}",
             "construction_technique": [],
             "social_function": [],
             "motif_family": ["none"],
+            "low_confidence_fields": ["all"],
         }
 
-    def build_rich_text(self, product_data: Dict, enrichment: Dict) -> str:
+    @staticmethod
+    def build_rich_text(product_data: Dict, enrichment: Dict) -> str:
         """
         Build natural-language text for embedding.
         Combines Fashionpedia taxonomy terms with creative descriptions.
-        Stays under ~256 tokens for all-MiniLM-L6-v2.
+        Max ~384 tokens for all-mpnet-base-v2.
         """
 
         parts = []
 
-        # ai_description first — richest, most search-friendly content
+        # Display title first if available — more descriptive than raw title
+        display_title = enrichment.get('display_title')
+        if display_title:
+            parts.append(display_title + ".")
+
+        # ai_description — richest, most search-friendly content
         if enrichment.get('ai_description'):
             parts.append(enrichment['ai_description'])
 
@@ -563,23 +469,22 @@ Return ONLY valid JSON with these fields:
         if struct_bits:
             parts.append(", ".join(struct_bits) + ".")
 
-        # Style and vibe — the modern search bridge
+        # Style tags
         style_tags = enrichment.get('style_tags', [])
-        vibe = enrichment.get('vibe', '')
-        if style_tags and vibe:
-            parts.append(f"{', '.join(style_tags)}, {vibe}.")
-        elif style_tags:
+        if style_tags:
             parts.append(f"{', '.join(style_tags)}.")
-        elif vibe:
-            parts.append(f"{vibe}.")
 
-        # Controlled vibe terms (when available, more consistent than free-form vibe)
-        core = enrichment.get('core_vibes', [])
-        bridge = enrichment.get('bridge_vibes', [])
-        if core:
-            parts.append(", ".join(core) + ".")
-        if bridge:
-            parts.append(", ".join(bridge) + ".")
+        # Axis-based vibe poles
+        vibe_scores = enrichment.get('vibe_scores', {})
+        if isinstance(vibe_scores, str):
+            try:
+                vibe_scores = json.loads(vibe_scores)
+            except (json.JSONDecodeError, TypeError):
+                vibe_scores = {}
+        if vibe_scores and isinstance(vibe_scores, dict):
+            poles = [v[0] for v in vibe_scores.values() if isinstance(v, list) and len(v) >= 1]
+            if poles:
+                parts.append(", ".join(poles) + ".")
 
         # Textile details and occasion
         extras = []
@@ -631,105 +536,177 @@ Return ONLY valid JSON with these fields:
         if mf and mf != ['none']:
             parts.append(f"Motifs: {', '.join(mf)}.")
 
+        # Knowledge graph fields
+        designer = enrichment.get('designer')
+        if designer:
+            parts.append(f"Designer: {designer}.")
+
+        influences = enrichment.get('influence_references', [])
+        if isinstance(influences, str):
+            try:
+                influences = json.loads(influences)
+            except (json.JSONDecodeError, TypeError):
+                influences = [influences] if influences else []
+        if influences:
+            parts.append(f"Influences: {', '.join(influences)}.")
+
+        movements = enrichment.get('named_movements', [])
+        if isinstance(movements, str):
+            try:
+                movements = json.loads(movements)
+            except (json.JSONDecodeError, TypeError):
+                movements = [movements] if movements else []
+        if movements:
+            parts.append(f"Movements: {', '.join(movements)}.")
+
         return " ".join(parts)
 
+    # Internal metadata keys to exclude from narrative prompts
+    # Keys in shared_entities that are metadata, not displayable entity data
+    _SHARED_ENTITIES_EXCLUDE = {
+        'lineage_reference', 'lineage_match_score', 'match_method', 'image_similarity',
+    }
+
+    # Human-readable labels for entity types
+    _ENTITY_LABELS = {
+        'designer': 'Designer',
+        'named_movements': 'Movement',
+        'influence_references': 'Shared influences',
+        'construction_technique': 'Construction',
+        'social_function': 'Function',
+        'garment_system': 'Worn with',
+        'motif_family': 'Motif',
+    }
+
     @staticmethod
-    def _format_shared_attributes(shared: dict) -> str:
-        """Format shared_attributes dict as readable text for the prompt."""
+    def _format_shared_entities(shared: dict) -> str:
+        """Format shared_entities dict as readable text for the narrative prompt.
+        Groups by entity type with human-readable labels."""
         if not shared:
             return "none identified"
         parts = []
         for key, val in shared.items():
-            label = key.replace('_', ' ')
+            if key in ClaudeEnricher._SHARED_ENTITIES_EXCLUDE:
+                continue
+            label = ClaudeEnricher._ENTITY_LABELS.get(key, key.replace('_', ' '))
             if isinstance(val, list):
                 parts.append(f"{label}: {', '.join(str(v) for v in val)}")
+            elif isinstance(val, (int, float, bool)):
+                continue  # skip numeric/boolean metadata
             else:
                 parts.append(f"{label}: {val}")
-        return "; ".join(parts)
-
-    @staticmethod
-    def _narrative_closing(temporal_type: str | None, crossing_type: str | None,
-                           connection_mode: str | None) -> str:
-        """Return a varied closing instruction based on classification."""
-        if connection_mode == 'contrast':
-            return "Explain the tension between these opposing approaches."
-        if connection_mode == 'resonance':
-            return "Explain what echoes between them despite the distance."
-        if temporal_type == 'echo':
-            return "Explain how this design idea resurfaced across such a wide time gap."
-        if temporal_type == 'transmission':
-            return "Explain how this design language traveled across eras."
-        if temporal_type == 'continuation':
-            return "Explain how this design thread persisted within its era."
-        if crossing_type and 'culture' in crossing_type:
-            return "Explain how different cultures arrived at this shared design idea."
-        if crossing_type == 'cross_category':
-            return "Explain what connects these different garment types."
-        return "Explain the design DNA they share."
+        return "; ".join(parts) if parts else "none identified"
 
     async def generate_bridge_narrative_async(
-        self, item_a: dict, item_b: dict, shared_attributes: dict,
-        connection_mode: str | None = None, contrast_pair: str | None = None,
-        temporal_type: str | None = None, crossing_type: str | None = None,
-        primary_axis: str | None = None,
+        self, item_a: dict, item_b: dict, shared_entities: dict,
+        connection_mode: str = 'shared_entity',
+        crossing_type: str | None = None,
+        year_gap: int | None = None,
+        directed: bool = False,
     ) -> str:
-        """Generate a 1-sentence narrative for a style bridge."""
-        shared_text = self._format_shared_attributes(shared_attributes)
+        """Generate a 2-3 sentence editorial narrative for a style bridge.
 
-        # Mode-specific context line
-        mode_hint = ""
-        if connection_mode == 'contrast' and contrast_pair:
-            mode_hint = f"Connection: CONTRAST on {contrast_pair}."
-        elif connection_mode == 'resonance':
-            mode_hint = "Connection: RESONANCE — same aesthetic language across time."
-        elif connection_mode == 'affinity':
-            mode_hint = "Connection: AFFINITY — shared structural DNA."
+        One adaptive prompt for all bridge types. The shared_entities dict
+        provides the substance — Claude narrates the path between two garments.
+        Uses product images when available for visual specificity.
+        """
 
-        # Vibes (core_vibes if available)
-        vibes_a = item_a.get('core_vibes') or []
-        vibes_b = item_b.get('core_vibes') or []
-        vibe_line = ""
-        if vibes_a or vibes_b:
-            vibe_line = (
-                f"Vibes A: {', '.join(vibes_a) if vibes_a else 'none'} | "
-                f"Vibes B: {', '.join(vibes_b) if vibes_b else 'none'}"
-            )
+        # One-liner per product
+        def _one_liner(item):
+            title = item.get('display_title') or item.get('title') or 'untitled'
+            parts = []
+            if item.get('era'):
+                parts.append(item['era'])
+            if item.get('culture'):
+                parts.append(item['culture'])
+            if item.get('material'):
+                parts.append(item['material'])
+            context = ", ".join(parts)
+            return f"{title} ({context})" if context else title
 
-        closing = self._narrative_closing(temporal_type, crossing_type, connection_mode)
+        item_a_line = _one_liner(item_a)
+        item_b_line = _one_liner(item_b)
 
-        lines = [
-            f"ITEM A: {item_a['title']}",
-            f"Era: {item_a.get('era', 'unknown')} | Culture: {item_a.get('culture', 'unknown')}",
-            f"Material: {item_a.get('material', 'unknown')} | Silhouette: {item_a.get('silhouette', 'unknown')}",
-            f"Function: {item_a.get('social_function', 'unknown')}",
-            "",
-            f"ITEM B: {item_b['title']}",
-            f"Era: {item_b.get('era', 'unknown')} | Culture: {item_b.get('culture', 'unknown')}",
-            f"Material: {item_b.get('material', 'unknown')} | Silhouette: {item_b.get('silhouette', 'unknown')}",
-            f"Function: {item_b.get('social_function', 'unknown')}",
-            "",
-            f"Shared attributes: {shared_text}",
-        ]
-        if vibe_line:
-            lines.append(vibe_line)
-        if mode_hint:
-            lines.append(mode_hint)
-        lines.append("")
-        lines.append(closing)
-        prompt = "\n".join(lines)
+        # Format what they share
+        shared_text = self._format_shared_entities(shared_entities)
+        if shared_text == "none identified" and connection_mode == 'visual_echo':
+            shared_text = "visual form — see the images"
 
-        if connection_mode == 'contrast':
-            system_msg = "You are a fashion historian. Write exactly two sentences, max 60 words total. First sentence: what they share. Second sentence: how they diverge. No quotes, no preamble."
+        # Distance context
+        distance_parts = []
+        if year_gap is not None and year_gap > 0:
+            distance_parts.append(f"{year_gap} years apart")
+        elif year_gap == 0:
+            distance_parts.append("same era")
+        if crossing_type and 'culture' in crossing_type and 'category' in crossing_type:
+            distance_parts.append("different cultures and garment types")
+        elif crossing_type and 'culture' in crossing_type:
+            distance_parts.append("different cultures")
+        elif crossing_type == 'cross_category':
+            distance_parts.append("different garment types")
         else:
-            system_msg = "You are a fashion historian. Write exactly one sentence, max 40 words. No quotes, no preamble."
+            if not distance_parts:
+                distance_parts.append("same context")
+        distance_line = " · ".join(distance_parts)
+
+        # Lineage-specific context
+        lineage_note = ""
+        if connection_mode == 'lineage' and directed:
+            ref = shared_entities.get('lineage_reference', '')
+            if ref:
+                lineage_note = f'\nItem B references "{ref}" — Item A is that tradition.'
+
+        # Visual echo context
+        visual_note = ""
+        if connection_mode == 'visual_echo':
+            visual_note = "\nThese garments look strikingly alike despite different origins. What visual quality connects them?"
+
+        # Image context — accurate about what Claude can see
+        img_a = item_a.get('primary_image')
+        img_b = item_b.get('primary_image')
+        if img_a and img_b:
+            image_note = "You can see both garments above. Use what you see — specific visual details, not just the metadata."
+        elif img_a:
+            image_note = "You can see garment A above. Use visual details from the image for A; rely on metadata for B."
+        elif img_b:
+            image_note = "You can see garment B above. Use visual details from the image for B; rely on metadata for A."
+        else:
+            image_note = ""
+
+        # One system prompt for all bridge types (cacheable)
+        system_msg = [{"type": "text", "cache_control": {"type": "ephemeral"}, "text": (
+            "You are a sharp fashion writer — think Cathy Horyn or Robin Givhan. "
+            "You notice what most people miss. You write with precision and wit. "
+            "No museum-label voice. No 'showcases' or 'exemplifies' or 'transcends'. "
+            "Write like you're pointing something out to a smart friend.\n\n"
+            "TASK: You will be shown two garments that are connected through shared design DNA — "
+            "a technique, a movement, a designer, a visual echo across time. Write 2-3 sentences. "
+            "Tell the story of the connection: what do they share, what's the distance between them, "
+            "and what does the connection reveal? Be specific about these garments. No filler."
+        )}]
+
+        prompt = f"""Item A: {item_a_line}
+Item B: {item_b_line}
+
+Distance: {distance_line}
+They share: {shared_text}{lineage_note}{visual_note}
+{image_note}"""
+
+        # Build content blocks: images first (if available), then text
+        content = []
+        if img_a:
+            content.extend(self._build_image_content(img_a))
+        if img_b:
+            content.extend(self._build_image_content(img_b))
+        content.append({"type": "text", "text": prompt})
 
         response = await self.async_client.messages.create(
             model=self.model,
-            max_tokens=200,
-            temperature=0.6,
+            max_tokens=250,
+            temperature=0.7,
             system=system_msg,
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": content}
             ]
         )
         return response.content[0].text.strip()

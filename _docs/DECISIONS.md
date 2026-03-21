@@ -1,10 +1,60 @@
 # Vintage Vestige — Key Decisions
 
-**Last updated: 2026-03-09**
+**Last updated: 2026-03-20**
 
 ---
 
 ## Decision Log
+
+### 2026-03-19/20: Entity-Based Bridges Replace Embedding-Similarity
+
+**Decision:** Rewrote bridge computation from scratch. Old system found bridges via embedding similarity + vibe axis opposition. New system finds bridges via shared entities (designer, movement, technique, influence citations) with IDF-weighted scoring.
+
+**Why:** After extensive testing, axis-based contrast ("these two garments disagree about volume") produced uninteresting results. Bridges are only interesting as *paths* — connections with a specific, nameable reason. Entity-based discovery provides that reason natively.
+
+**Reversals:**
+- 22 discrete vibes → 6 axes → axes kept for filtering but removed from bridge logic
+- Opposition/contrast as a connection mode → dropped entirely
+- `structural_score` as a component → replaced by `entity_score` (IDF-weighted)
+- 6 mode-specific narrative prompts → 1 adaptive prompt
+
+### 2026-03-19/20: Embedding Model Upgrades
+
+**Decision:** Text: MiniLM (384d) → mpnet (768d). Image: CLIP ViT-B-32 (512d) → ViT-L-14 (768d).
+
+**Why:** mpnet is significantly better at semantic similarity. ViT-L-14 catches fine-grained visual distinctions (silhouette subtleties, fabric texture). Both are drop-in replacements in sentence-transformers.
+
+### 2026-03-19/20: Lineage Bridges Are Directed
+
+**Decision:** Lineage bridges flow older → newer. Source = the original/tradition, target = the item referencing it.
+
+**Why:** "This 2020 dress references 1890s leg-of-mutton sleeves" has a direction. The original is the source. Thread Pull follows these arrows to trace design lineage through history.
+
+### 2026-03-19/20: IDF Scoring for Entity Importance
+
+**Decision:** Entity values scored by inverse document frequency: `log(N/count)`. Rare entities (Japonisme, Perry Ellis) score high. Common entities (hand-sewing, everyday-practical) score near zero.
+
+**Why:** Standard information retrieval approach. Two products sharing "Japonisme" (15 products) is a much stronger signal than sharing "hand-sewing" (1,279 products).
+
+### 2026-03-19/20: Knowledge Graph Deferred
+
+**Decision:** Full KG implementation deferred. Entity-based bridges are KG-ready but we're not building graph infrastructure now.
+
+**Why:** Outside Jen's expertise, and entity-based bridges + Thread Pull deliver 80% of the KG value without the complexity. Can add later.
+
+### 2026-03-19/20: Thread Pull as Signature Interaction
+
+**Decision:** The "Thread Pull" — follow the graph from any garment — is the primary new interaction for the v2 frontend. Axis slider and opposition theater dropped.
+
+**Why:** Axes don't produce interesting results. Thread Pull leverages entity-based bridges naturally — each step shows which shared entities connected the graph.
+
+### 2026-03-19/20: 3-Week Deployment Target
+
+**Decision:** Deploy by April 10. 6-phase frontend refactor plan.
+
+**Why:** The backend is ready. Frontend needs to catch up to the new bridge schema. Aggressive but achievable with the detailed plan.
+
+---
 
 ### 1. Dataset Approach: Museum APIs + HuggingFace vs. Scraping
 
@@ -631,3 +681,59 @@
 - Word limits prevent verbose AI output while giving contrast enough room
 **Alternatives considered:** Same length for all (contrasts feel cramped); no word limit (narratives balloon)
 **Outcome:** Mode-specific system prompts in `enrichment/claude.py`
+
+---
+
+### 43. Opposition Composite Sort Score (Pass 2)
+
+**Date:** 2026-03-13
+**Context:** Pass 2 (opposition bridges) was sorted by raw `structural_score`, which rewarded generic high-overlap pairs (blazer vs blazer) over genuinely interesting cross-era, cross-cultural contrasts.
+**Decision:** Sort opposition bridges by composite: `0.40 * cc_norm + 0.35 * temporal_norm + 0.25 * structural_score`, where `cc_norm` is normalized Jaccard over the 3 cross-cultural fields (construction_technique, social_function, motif_family) and `temporal_norm` is era midpoint gap / 200 years.
+**Rationale:**
+- Cross-cultural field overlap signals that items with opposing vibes share a deeper structural conversation
+- Temporal distance makes the opposition more historically interesting
+- Raw structural score still contributes but doesn't dominate
+**Alternatives considered:** Keep structural_score sort (rewards generic garments); weight equally (temporal distance gets too much weight when era data is sparse)
+**Outcome:** Implemented in `tools/analysis/compute_bridges.py` Pass 2. `_sort_score` key stripped before INSERT to avoid CompileError.
+
+---
+
+### 44. Near-Duplicate Detection Across All Passes
+
+**Date:** 2026-03-13
+**Context:** Bridge computation could produce near-identical pairs — different records for the same garment from different museum catalogues, or digitized + original pairs.
+**Decision:** Two-layer duplicate filter in every pass: (1) exact title match → always skip; (2) same era + text_sim ≥ 0.95 → skip. Extended to catch cross-platform duplicates (dropped the single-platform restriction from Pass 1).
+**Rationale:**
+- Same title is an obvious duplicate signal regardless of platform
+- text_sim ≥ 0.95 with same era means descriptions are nearly identical — the bridge adds no insight
+- Cross-platform duplicates (same garment photographed by two museums) are real and should be filtered
+**Alternatives considered:** Only filter exact title matches (misses near-duplicates with slightly different titles); filter all same-era high-similarity pairs regardless of threshold (too aggressive, removes valid bridges between similar but distinct garments)
+**Outcome:** Implemented in all 4 passes in `tools/analysis/compute_bridges.py`.
+
+---
+
+### 45. Same-Era Vibe Gate on Passes 3 and 4
+
+**Date:** 2026-03-13
+**Context:** Pass 3 (shared purpose) and Pass 4 (structural) were finding same-era pairs that shared a function or structure but had identical aesthetics — low insight "look at these two similar things from the same time."
+**Decision:** After boundary checks (cross-platform or cross-category), require `_vibes_diverge()` for same-era pairs. Two items from the same era only form a bridge if their core_vibes or bridge_vibes include at least one opposition pair or no overlapping vibes.
+**Rationale:**
+- Same-era + same-function + same-vibes = uninformative bridge
+- Divergent vibes mean the two items are asking different aesthetic questions with the same functional vocabulary — that's interesting
+**Alternatives considered:** No vibe gate (allows same-era duplicates through); require vibe gate on all pairs regardless of era (too aggressive, removes valid same-era cross-category bridges)
+**Outcome:** `_vibes_diverge()` helper added to `compute_bridges.py`; gate applied in passes 3 and 4.
+
+---
+
+### 46. Social Function Consolidation (101 → ~20 Canonical Clusters)
+
+**Date:** 2026-03-13
+**Context:** `social_function` had 101 distinct freeform values from Claude enrichment — too fragmented for meaningful grouping in Pass 3 (shared purpose discovery).
+**Decision:** Map 101 values to ~20 canonical clusters via `tools/analysis/consolidate_social_function.py`. Support multi-cluster mapping (e.g. garments serving both `wedding-ceremonial` and `status-display` purposes). Updated compute_bridges to treat `social_function` as an array and use set intersection for grouping.
+**Rationale:**
+- 101 values means most social_function groups in Pass 3 have 1-2 members — no meaningful cross-era discovery
+- ~20 clusters create groups large enough (20-150 products) to find cross-cultural bridges
+- Multi-cluster support handles genuinely mixed-purpose garments correctly
+**Alternatives considered:** Enumerate clusters manually without script (fragile, not reproducible); normalize to single value per garment (loses nuance for mixed-purpose items)
+**Outcome:** Applied to database. `compute_bridges.py` Pass 3 uses array containment for group matching.
+

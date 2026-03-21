@@ -17,7 +17,7 @@ def get_products_by_function(
     """Find products whose social_function JSON array contains the given value."""
     query = db.query(Product).filter(
         Product.social_function.isnot(None),
-        text("social_function::jsonb @> :fn_json").bindparams(
+        text("social_function ::jsonb @> :fn_json ::jsonb").bindparams(
             fn_json=json.dumps([function])
         ),
     )

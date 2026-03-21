@@ -1,6 +1,6 @@
 # Vintage Vestige — Deployment Plan
 
-**Created: 2026-03-06**
+**Created: 2026-03-06 | Updated: 2026-03-13**
 **Target: Production on Vercel (frontend) + Railway (API)**
 
 ---
@@ -9,82 +9,35 @@
 
 These must be done before any deployment work begins.
 
-### D-0.1 Enrich All Products
+### D-0.1 Enrich All Products ✅ DONE
 
-**Status:** 4,234/4,234 enriched ✓
-**Remaining:** 3,368 products (va_museum 1,856 + smithsonian 612 + fashionpedia 500 + met_museum 400)
-**Estimated cost:** ~$85 | **Time:** ~5.5 hours
+**Status:** 4,234/4,234 enriched ✓ (all products enriched with core_vibes + bridge_vibes)
 
-```bash
-# Run in 100-item batches, review ERA summary after each
-venv/bin/python tools/enrichment/enrich_remaining.py 100 --yes
-# Review unrecognized_eras.csv, add aliases to era_taxonomy.py
-# Repeat until all 3,368 done
-```
+### D-0.2 Generate All Embeddings ✅ DONE
 
-**Deliverable:** All 4,234 products have `enriched_at IS NOT NULL`
+**Status:** 4,234/4,234 text + image embeddings in pgvector ✓
 
-**Verification:**
-```sql
-SELECT COUNT(*) FROM products WHERE enriched_at IS NULL;
--- Expected: 0
-```
+### D-0.3 Recompute Bridges ✅ DONE
 
-### D-0.2 Generate All Embeddings
+**Status:** 14,223 bridges computed (4-pass discovery: similarity, opposition, shared-purpose, structural). Opposition composite sort, near-dup detection, same-era vibe gate all implemented.
 
-**Status:** 866/4,234 have embeddings
-**Remaining:** 3,368 products need text + image embeddings
+### D-0.4 Generate Bridge Narratives ✅ DONE
+
+**Status:** 14,223/14,223 narratives generated ✓. Mode-specific prompts, classification context, varied closings.
+
+### D-0.5 Run Full Test Suite ✅ DONE
+
+**Status:** 309 passed, 5 skipped, 0 failures ✓
 
 ```bash
-venv/bin/python tools/embeddings/generate_all_embeddings.py
+venv/bin/python -m pytest tests/ --ignore=tests/search_quality/old_tests -v
 ```
-
-**Deliverable:** All enriched products have `text_embedding IS NOT NULL`
-
-**Verification:**
-```sql
-SELECT
-  COUNT(*) FILTER (WHERE text_embedding IS NOT NULL) as has_text,
-  COUNT(*) FILTER (WHERE image_embedding IS NOT NULL) as has_image,
-  COUNT(*) as total
-FROM products;
--- Expected: ~4234, ~4234, 4234
-```
-
-### D-0.3 Recompute Bridges
-
-With 4,234 enriched+embedded products (vs 866 before), bridge quality and quantity will improve dramatically.
-
-```bash
-venv/bin/python tools/analysis/compute_bridges.py
-```
-
-**Deliverable:** `style_bridges` table repopulated with new bridge set
-
-### D-0.4 Generate Bridge Narratives
-
-**Status:** 22/7,324 have narratives
-**Remaining:** All bridges after recomputation
-
-```bash
-venv/bin/python tools/analysis/generate_narratives.py --batch-size=50
-```
-
-**Deliverable:** All (or most) bridges have `bridge_narrative IS NOT NULL`
-
-### D-0.5 Run Full Test Suite
-
-```bash
-venv/bin/python -m pytest tests/ -v
-```
-
-**Deliverable:** All tests pass (unit, integration, data integrity)
 
 ---
 
 ## Phase 1: Environment & Secrets
 
-### D-1.1 Create `.env.example`
+### D-1.1 Create `.env.example` ✅ DONE
 
 Strip secrets from `.env`, leave placeholders:
 
@@ -211,7 +164,7 @@ These will need API mocking (mock `fetch` or use MSW).
 
 **Deliverable:** 3 page tests, all passing
 
-### D-2.4 Build Verification
+### D-2.4 Build Verification ✅ DONE (lint clean + 59 tests passing; build requires API running)
 
 ```bash
 cd vv-web
@@ -224,7 +177,7 @@ npm run lint && npm run build && npm test
 
 ## Phase 3: API Hardening
 
-### D-3.1 Add Request Validation & Error Handling
+### D-3.1 Add Request Validation & Error Handling ✅ DONE
 
 Verify all endpoints return proper HTTP status codes:
 
@@ -247,7 +200,7 @@ pip install slowapi
 
 **Deliverable:** API won't fall over under moderate traffic
 
-### D-3.3 API Integration Tests
+### D-3.3 API Integration Tests ✅ DONE (17/17 passing)
 
 ```bash
 venv/bin/python -m pytest tests/integration/test_api_smoke.py -v
@@ -261,7 +214,7 @@ Verify all 13 endpoints return 200 with valid data.
 
 ## Phase 4: Containerization
 
-### D-4.1 Create Dockerfile for API
+### D-4.1 Create Dockerfile for API ✅ DONE
 
 ```dockerfile
 FROM python:3.13-slim
@@ -301,7 +254,7 @@ curl http://localhost:8000/health
 
 **Deliverable:** API runs in Docker, `/health` returns `{"status": "ok"}`
 
-### D-4.3 Create `.dockerignore`
+### D-4.3 Create `.dockerignore` ✅ DONE
 
 ```
 venv/
@@ -463,24 +416,24 @@ pip install sentry-sdk[fastapi]
 
 | # | Step | Category | Depends On | Est. Time |
 |---|------|----------|------------|-----------|
-| D-0.1 | Enrich all products | Data | — | 5.5 hrs |
-| D-0.2 | Generate all embeddings | Data | D-0.1 | 1 hr |
-| D-0.3 | Recompute bridges | Data | D-0.2 | 30 min |
-| D-0.4 | Generate bridge narratives | Data | D-0.3 | 2-3 hrs |
-| D-0.5 | Run full test suite | Data | D-0.4 | 5 min |
-| D-1.1 | Create `.env.example` | Environment | — | 10 min |
-| D-1.2 | Tighten CORS | Environment | — | 10 min |
-| D-1.3 | Frontend API URL env var | Environment | — | 10 min |
-| D-2.1 | Install Vitest + Testing Library | Frontend Tests | — | 15 min |
-| D-2.2 | Component smoke tests (7 files) | Frontend Tests | D-2.1 | 1 hr |
-| D-2.3 | Page integration tests (3 files) | Frontend Tests | D-2.1 | 1 hr |
-| D-2.4 | Build verification | Frontend Tests | D-2.2, D-2.3 | 5 min |
-| D-3.1 | API error handling audit | API | — | 30 min |
-| D-3.2 | Rate limiting (optional) | API | — | 15 min |
-| D-3.3 | API integration tests | API | — | 10 min |
-| D-4.1 | Create Dockerfile | Container | — | 20 min |
-| D-4.2 | Test Docker locally | Container | D-4.1 | 15 min |
-| D-4.3 | Create `.dockerignore` | Container | — | 5 min |
+| D-0.1 | Enrich all products | Data | — | ✅ Done |
+| D-0.2 | Generate all embeddings | Data | D-0.1 | ✅ Done |
+| D-0.3 | Recompute bridges | Data | D-0.2 | ✅ Done |
+| D-0.4 | Generate bridge narratives | Data | D-0.3 | ✅ Done |
+| D-0.5 | Run full test suite | Data | D-0.4 | ✅ Done (309/0) |
+| D-1.1 | Create `.env.example` | Environment | — | ✅ Done |
+| D-1.2 | Tighten CORS | Environment | — | ✅ Done |
+| D-1.3 | Frontend API URL env var | Environment | — | ✅ Done |
+| D-2.1 | Install Vitest + Testing Library | Frontend Tests | — | ✅ Done |
+| D-2.2 | Component smoke tests (7 files) | Frontend Tests | D-2.1 | ✅ Done (41 tests) |
+| D-2.3 | Page integration tests (3 files) | Frontend Tests | D-2.1 | ✅ Done (59 tests total) |
+| D-2.4 | Build verification | Frontend Tests | D-2.2, D-2.3 | ✅ Done (lint clean; build w/ API) |
+| D-3.1 | API error handling audit | API | — | ✅ Done |
+| D-3.2 | Rate limiting (optional) | API | — | — |
+| D-3.3 | API integration tests | API | — | ✅ Done (17/17) |
+| D-4.1 | Create Dockerfile | Container | — | ✅ Done |
+| D-4.2 | Test Docker locally | Container | D-4.1 | — |
+| D-4.3 | Create `.dockerignore` | Container | — | ✅ Done |
 | D-5.1 | Deploy API to Railway | Deploy | D-4.2 | 30 min |
 | D-5.2 | Deploy frontend to Vercel | Deploy | D-1.3, D-5.1 | 15 min |
 | D-5.3 | End-to-end smoke test | Deploy | D-5.1, D-5.2 | 30 min |

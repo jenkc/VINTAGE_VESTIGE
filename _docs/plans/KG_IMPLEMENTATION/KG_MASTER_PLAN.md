@@ -1,11 +1,11 @@
 # KG_MASTER_PLAN.md
 # Vintage Vestige — Knowledge Graph: Master Plan
 
-**Status:** Waiting on prerequisites  
-**Owner:** Jen / linuxgrrrl LLC  
-**Target Start:** After Supabase migration + MMFashion pipeline + deploy complete  
-**Target Complete:** 6 weeks from start  
-**Last Updated:** March 2026 (v2.0 — revised for current project state)
+**Status:** Phase 0 nearly complete — deploy is the last prerequisite
+**Owner:** Jen / linuxgrrrl LLC
+**Target Start:** After deployment (Railway + Vercel)
+**Target Complete:** 6 weeks from start
+**Last Updated:** 2026-03-13 (v2.1 — data pipeline complete, deploy next)
 
 ---
 
@@ -98,7 +98,7 @@ PARALLEL ── Academic paper
 
 | Phase | Name | Duration | Status | Doc |
 |---|---|---|---|---|
-| 0 | Prerequisites | Until done | ⏳ In progress | `KG_PHASE0_PREREQUISITES.md` |
+| 0 | Prerequisites | Until done | ⏳ Deploy remaining | `KG_PHASE0_PREREQUISITES.md` |
 | 1 | Schema Design | 1 week | 🔲 Not started | `KG_PHASE1_SCHEMA_DESIGN.md` |
 | 2 | AWS Setup | 2–3 days | 🔲 Not started | `KG_PHASE2_AWS_SETUP.md` |
 | 3 | Design Element Extraction | 2–3 days | 🔲 Not started | `KG_PHASE3_DESIGN_ELEMENTS.md` |
@@ -112,19 +112,14 @@ PARALLEL ── Academic paper
 
 ## Master Checklist
 
-### Phase 0 — Prerequisites (current focus)
-- [ ] Step 12: `compute_bridges.py` updated for pgvector (no Qdrant references)
-- [ ] Step 13: `embeddings/generator.py` handles Supabase Storage URLs
-- [ ] Step 14: `enrichment/claude.py` updated
-- [ ] Step 15: enrichment scripts updated
-- [ ] Step 16: `storage/vector_db.py` deleted; other obsolete files removed
-- [ ] Step 17: `vv-web/next.config.ts` image domains updated to Supabase Storage
-- [ ] Step 18: all tests updated (no Qdrant references)
-- [ ] Steps 19–20: verify + cleanup complete
-- [ ] Data growth to ~1,500 enriched products executed
-- [ ] Deployed to Railway (backend) + Vercel (frontend)
-- [ ] `semantic_type` column added to `style_bridges`
-- [ ] 7,302 bridge narratives generated (~$13)
+### Phase 0 — Prerequisites (nearly complete)
+- [x] Steps 12–20: Supabase migration complete (pgvector, no Qdrant references)
+- [x] Data growth to 4,234 products (all enriched + embedded)
+- [x] 14,223 bridges computed (4-pass discovery pipeline)
+- [x] Bridge classification (6 dimensions) — 14,194/14,223 classified
+- [x] ALL 14,223 bridge narratives generated
+- [x] Full test suite: 309 passed, 5 skipped, 0 failures
+- [ ] **Deployed to Railway (backend) + Vercel (frontend)** — last remaining item
 
 ### Phase 1 — Schema Design
 - [ ] All node labels defined with full property lists

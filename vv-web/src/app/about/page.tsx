@@ -2,75 +2,75 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
     title: "About",
-    description: "Vintage Vestige connects 500 years of fashion history through AI-computed style bridges between museum collections and contemporary design.",
+    description: "Vintage Vestige connects 500 years of fashion history through entity-based connections between museum collections.",
 };
 
 export default function AboutPage() {
     return (
-        <div className="bg-cream-dark px-6 py-20 md:px-12">
-            <div className="mx-auto max-w-[680px]">
-                <p className="font-serif text-[10px] font-semibold uppercase tracking-[6px] text-gold">
-                    About
-                </p>
-                <h1 className="mt-4 font-serif text-4xl font-bold text-charcoal md:text-5xl">
-                    Vintage Vestige
+        <div className="bg-white px-6 py-20 md:px-12">
+            <div className="mx-auto max-w-[640px]">
+                <h1 className="font-display text-[clamp(36px,6vw,48px)] font-bold text-black">
+                    Start from a question,<br />not a timeline.
                 </h1>
 
-                <div className="mt-10 space-y-6 leading-[1.8] text-charcoal-soft">
+                <div className="mt-10 space-y-6 text-[15px] leading-[1.8] text-dark">
                     <p>
-                        Vintage Vestige is a fashion knowledge graph that connects
-                        500&nbsp;years of design history through AI-computed style
-                        bridges. It reveals how historical garments from museum
-                        collections inspire — and are echoed by — contemporary fashion.
+                        Vintage Vestige connects garments across 500 years of fashion
+                        history — not through similarity, but through shared DNA.
+                        A shared designer, a shared construction technique, a named
+                        movement that traveled across continents, an explicit influence
+                        citation linking a 2020 dress to an 1890s sleeve.
                     </p>
                     <p>
-                        The system ingests garments from The Metropolitan Museum of Art,
-                        the Smithsonian, and Fashionpedia. Each item is enriched by
-                        Claude&nbsp;AI, which extracts era, silhouette, material, vibe,
-                        and dozens of other style attributes from raw museum metadata.
+                        The collection draws from The Metropolitan Museum of Art,
+                        the Smithsonian, and the V&amp;A Museum. Each garment is
+                        enriched by Claude AI, which extracts construction techniques,
+                        social functions, named movements, designer attributions,
+                        influence references, and material origins from images and
+                        museum metadata.
                     </p>
                     <p>
-                        Dual embeddings — semantic (all-MiniLM-L6-v2) and visual
-                        (CLIP ViT-B/32) — power a multi-modal search that finds
-                        matches across both meaning and appearance. Style bridges are
-                        then computed in three passes: cross-temporal, cross-category,
-                        and cross-vibe, scoring each connection on text similarity,
-                        image similarity, and structural overlap.
+                        Connections are discovered through entity-based matching —
+                        an inverted index of shared attributes scored by rarity.
+                        Sharing &ldquo;Japonisme&rdquo; is worth more than sharing
+                        &ldquo;hand-sewing.&rdquo; Lineage bridges trace explicit
+                        influence citations forward through time. Visual echoes catch
+                        the surprises that metadata misses.
                     </p>
                     <p>
-                        The result is a browsable web of design DNA that lets you trace
-                        a Victorian bustle through Art Deco streamlining to a modern
-                        runway silhouette — or upload a photo of a thrift-store find and
-                        discover its historical ancestors.
+                        The result is a browsable graph of design history. Pull the
+                        thread from any garment and follow where it leads — through
+                        shared techniques, movements, and makers across centuries
+                        and continents.
                     </p>
                 </div>
 
                 <div className="mt-16 grid gap-8 md:grid-cols-2">
                     <div>
-                        <h2 className="font-serif text-[9px] font-semibold uppercase tracking-[2px] text-muted">
+                        <h2 className="font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
                             Built With
                         </h2>
-                        <ul className="mt-3 space-y-2 text-sm text-charcoal-soft">
-                            <li>Claude API — enrichment &amp; narratives</li>
-                            <li>CLIP — image embeddings</li>
-                            <li>Qdrant — vector search</li>
+                        <ul className="mt-3 space-y-2 text-sm text-dark">
+                            <li>Claude Sonnet 4 — enrichment &amp; narratives</li>
+                            <li>all-mpnet-base-v2 — text embeddings</li>
+                            <li>CLIP ViT-L/14 — image embeddings</li>
+                            <li>pgvector — vector search</li>
                             <li>Next.js &amp; FastAPI</li>
-                            <li>PostgreSQL</li>
+                            <li>Supabase PostgreSQL</li>
                         </ul>
                     </div>
                     <div>
-                        <h2 className="font-serif text-[9px] font-semibold uppercase tracking-[2px] text-muted">
+                        <h2 className="font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
                             Data Sources
                         </h2>
-                        <ul className="mt-3 space-y-2 text-sm text-charcoal-soft">
+                        <ul className="mt-3 space-y-2 text-sm text-dark">
                             <li>The Metropolitan Museum of Art</li>
-                            <li>Smithsonian</li>
-                            <li>Fashionpedia</li>
+                            <li>Smithsonian Institution</li>
+                            <li>Victoria &amp; Albert Museum</li>
                         </ul>
                     </div>
                 </div>
-
             </div>
         </div>
-    )
+    );
 }

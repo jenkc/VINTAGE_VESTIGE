@@ -2,10 +2,9 @@ import Link from "next/link";
 import ImageWithFallback from "@/components/ui/ImageWithFallback";
 import { cn } from "@/lib/utils";
 import { BridgeResult } from "@/types";
+import { ENTITY_TYPE_LABELS } from "@/styles/theme";
 import PlatformBadge from "./PlatformBadge";
 import EraBadge from "./EraBadge";
-import ScoreCircle from "./ScoreCircle";
-import BridgeConnector from "./BridgeConnector";
 import ConnectionBadge from "./ConnectionBadge";
 import AttributePill from "./AttributePill";
 import NarrativeBlock from "./NarrativeBlock";
@@ -16,39 +15,61 @@ interface BridgeCardFullProps {
   className?: string;
 }
 
-// Helper function to parse shared attributes into label-value pairs
-function parseSharedAttributes(attrs: Record<string, unknown>): { label: string, value: string }[] {
-    return Object.entries(attrs)
-        .filter(([, v]) => v != null && v !== "")
-        .map(([key, value]) => ({
-            label: key.replace(/_/g, " "),
-            value: String(value),
-        }));
+/** Format shared entities into displayable entity tags */
+function entityTags(shared: Record<string, unknown>): { label: string; value: string }[] {
+    const tags: { label: string; value: string }[] = [];
+    for (const [key, val] of Object.entries(shared)) {
+        if (!Array.isArray(val)) continue;
+        const label = ENTITY_TYPE_LABELS[key] || key.replace(/_/g, " ");
+        for (const v of val) {
+            tags.push({ label, value: String(v) });
+        }
+    }
+    return tags;
+}
+
+/** Format distance between two items */
+function distanceLabel(bridge: BridgeResult): string {
+    const parts: string[] = [];
+    if (bridge.year_gap != null && bridge.year_gap > 0) {
+        parts.push(`${bridge.year_gap} years`);
+    } else if (bridge.year_gap === 0) {
+        parts.push("same era");
+    }
+    if (bridge.crossing_type?.includes("culture") && bridge.crossing_type?.includes("category")) {
+        parts.push("cross-culture · cross-category");
+    } else if (bridge.crossing_type?.includes("culture")) {
+        parts.push("cross-culture");
+    } else if (bridge.crossing_type === "cross_category") {
+        parts.push("cross-category");
+    }
+    return parts.join(" · ") || "";
 }
 
 export default function BridgeCardFull({ bridge, className }: BridgeCardFullProps) {
     const { source, target } = bridge;
-    const attributes = parseSharedAttributes(bridge.shared_attributes);
+    const tags = entityTags((bridge.shared_entities ?? {}) as Record<string, unknown>);
+    const distance = distanceLabel(bridge);
+    const lineageRef = bridge.shared_entities?.lineage_reference as string | undefined;
 
     return (
         <div className={cn(
-            "overflow-hidden rounded-2xl border border-border bg-warm-white shadow-card",
+            "max-w-[600px] overflow-hidden border-b border-grey-200",
             className
         )}>
             {/* Image Pair */}
-            <div className="relative flex h-[300px]">
-                {/* Source Image */}
-                <div className="relative flex-1 overflow-hidden">
+            <div className="relative flex aspect-[2/1]">
+                <Link href={`/product/${source.id}`} className="relative flex-1 overflow-hidden bg-off-white transition-opacity hover:opacity-90">
                     {source.primary_image ? (
                         <ImageWithFallback
-                            src={source.primary_image ?? ""}
-                            alt={source.title}
+                            src={source.primary_image}
+                            alt={source.display_title || source.title}
                             fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 340px"
+                            className="object-contain"
+                            sizes="(max-width: 768px) 50vw, 300px"
                         />
                     ) : (
-                        <div className="size-full bg-gradient-to-br from-border to-border-light" />
+                        <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
                     <div className="absolute left-2 top-2">
                         <PlatformBadge platform={source.platform} />
@@ -56,20 +77,19 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     <div className="absolute bottom-2 left-2">
                         <EraBadge era={source.era ?? "Unknown"} date={source.decade} />
                     </div>
-                </div>
+                </Link>
 
-                {/* Target Image */}
-                <div className="relative flex-1 overflow-hidden">
+                <Link href={`/product/${target.id}`} className="relative flex-1 overflow-hidden bg-off-white transition-opacity hover:opacity-90">
                     {target.primary_image ? (
                         <ImageWithFallback
-                            src={target.primary_image ?? ""}
-                            alt={target.title}
+                            src={target.primary_image}
+                            alt={target.display_title || target.title}
                             fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 340px"
+                            className="object-contain"
+                            sizes="(max-width: 768px) 50vw, 300px"
                         />
                     ) : (
-                        <div className="size-full bg-gradient-to-br from-border to-border-light" />
+                        <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
                     <div className="absolute right-2 top-2">
                         <PlatformBadge platform={target.platform} />
@@ -77,51 +97,57 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     <div className="absolute bottom-2 right-2">
                         <EraBadge era={target.era ?? "Unknown"} date={target.decade} />
                     </div>
-                </div>
-
-                {/* Connector */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                    <BridgeConnector variant="full" />
-                </div>
+                </Link>
             </div>
 
             {/* Content */}
-            <div className="flex flex-col gap-3.5 px-5 pt-[18px] pb-5">    
+            <div className="flex flex-col gap-3.5 px-5 pt-[18px] pb-5">
                 {/* Title row */}
                 <div className="flex items-center gap-3">
                     <div className="flex-1">
-                        <p className="font-serif text-[10px] font-semibold uppercase tracking-[2.5px] text-gold">
-                            Historical
-                        </p>
-                        <Link href={`/product/${source.id}`} className="font-serif text-sm font-bold text-charcoal hover:underline">
-                            {source.title}
+                        <Link href={`/product/${source.id}`} className="font-display text-sm font-bold text-black hover:underline">
+                            {source.display_title || source.title}
                         </Link>
                     </div>
-                    <ScoreCircle score={bridge.bridge_score} />
+                    {bridge.bridge_score != null && (
+                        <span className="font-mono text-sm text-grey-600">
+                            {Math.round(bridge.bridge_score * 100)}%
+                        </span>
+                    )}
                     <div className="flex-1 text-right">
-                        <p className="font-serif text-[10px] font-semibold uppercase tracking-[2.5px] text-gold">
-                            Modern
-                        </p>
-                        <Link href={`/product/${target.id}`} className="font-serif text-sm font-bold text-charcoal hover:underline">
-                            {target.title}
+                        <Link href={`/product/${target.id}`} className="font-display text-sm font-bold text-black hover:underline">
+                            {target.display_title || target.title}
                         </Link>
                     </div>
                 </div>
 
-                {/* Badge row with contrast pair callout */}
-                {(bridge.connection_mode || bridge.temporal_type) && (
-                    <div className="flex flex-col gap-1.5">
-                        <ConnectionBadge
-                            connectionMode={bridge.connection_mode}
-                            primaryAxis={bridge.primary_axis}
-                            temporalType={bridge.temporal_type}
-                        />
-                        {bridge.connection_mode === "contrast" && bridge.contrast_pair && (
-                            <p className="font-serif text-[11px] italic text-charcoal-soft">
-                                {bridge.contrast_pair}
-                            </p>
-                        )}
+                {/* Entity tags — the "why" */}
+                {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {tags.map((tag, i) => (
+                            <AttributePill key={`${tag.label}-${tag.value}-${i}`} label={tag.label} value={tag.value} />
+                        ))}
                     </div>
+                )}
+
+                {/* Distance + connection mode */}
+                <div className="flex items-center gap-3">
+                    <ConnectionBadge connectionMode={bridge.connection_mode} />
+                    {distance && (
+                        <span className="font-mono text-[10px] text-grey-400">
+                            {distance}
+                        </span>
+                    )}
+                    {bridge.directed && (
+                        <span className="font-mono text-[10px] text-accent">→ directed</span>
+                    )}
+                </div>
+
+                {/* Lineage reference */}
+                {lineageRef && (
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-accent">
+                        Lineage: &ldquo;{lineageRef}&rdquo;
+                    </p>
                 )}
 
                 {/* Narrative */}
@@ -129,32 +155,16 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     <NarrativeBlock narrative={bridge.bridge_narrative} />
                 )}
 
-                {/* Shared Design DNA */}
-                {attributes.length > 0 && (
-                    <div className="flex flex-col gap-2">
-                        <p className="font-serif text-[9px] font-semibold uppercase tracking-[2.5px] text-muted">
-                            Shared Design DNA
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {attributes.map(attr => (
-                                <AttributePill key={attr.label} label={attr.label} value={attr.value} />
-                            ))}
-                        </div>
-                    </div>        
-                )}
-
                 {/* Score Breakdown */}
-                <div className="border-t border-border pt-[13px]">
+                <div className="border-t border-grey-200 pt-[13px]">
                     <ScoreBreakdown
                         text={bridge.text_similarity}
                         image={bridge.image_similarity}
-                        structural={bridge.structural_score}
+                        entity={bridge.entity_score}
                         variant="horizontal"
                     />
                 </div>
-
             </div>
-
         </div>
-    )
+    );
 }

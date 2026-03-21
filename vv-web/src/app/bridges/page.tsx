@@ -1,154 +1,215 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getTopBridges, getExploreFunctions } from "@/lib/api";
+import { getTopBridges } from "@/lib/api";
 import { BridgeCardFull } from "@/components/bridge";
-import type { BridgeResult, FunctionSummary } from "@/types";
+import type { BridgeResult } from "@/types";
 
-const CONNECTION_MODES = ["contrast", "resonance", "affinity"] as const;
-const TEMPORAL_TYPES = ["echo", "transmission", "continuation", "contemporary"] as const;
-const AXES = ["volume", "ornament", "body", "register"] as const;
+const CONNECTION_MODES = [
+    { value: "lineage", label: "Lineage" },
+    { value: "shared_entity", label: "Shared" },
+    { value: "visual_echo", label: "Visual Echo" },
+] as const;
 
-export default function BridgePage() {
+const CROSSING_TYPES = [
+    { value: "cross_culture", label: "Cross-culture" },
+    { value: "cross_category", label: "Cross-category" },
+    { value: "cross_category_culture", label: "Both" },
+] as const;
+
+const TIME_FILTERS = [
+    { value: 30, label: "30+ years" },
+    { value: 80, label: "80+ years" },
+] as const;
+
+// Presets — each sets filters to a specific combination
+const PRESETS = [
+    { label: "Same Maker", filters: { connection_mode: "shared_entity" as const } },
+    { label: "Longest Echoes", filters: { min_year_gap: 80 } },
+    { label: "Lineage", filters: { connection_mode: "lineage" as const } },
+    { label: "Visual Surprises", filters: { connection_mode: "visual_echo" as const } },
+] as const;
+
+export default function ConnectionsPage() {
     const [bridges, setBridges] = useState<BridgeResult[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [functions, setFunctions] = useState<FunctionSummary[]>([]);
 
     // Filters
     const [connectionMode, setConnectionMode] = useState<string | null>(null);
-    const [temporalType, setTemporalType] = useState<string | null>(null);
-    const [primaryAxis, setPrimaryAxis] = useState<string | null>(null);
-    const [sharedFunction, setSharedFunction] = useState<string | null>(null);
-
-    // Load function list for dropdown
-    useEffect(() => {
-        getExploreFunctions().then((data) => setFunctions(data.functions));
-    }, []);
+    const [crossingType, setCrossingType] = useState<string | null>(null);
+    const [minYearGap, setMinYearGap] = useState<number | null>(null);
 
     // Fetch bridges when filters change
     useEffect(() => {
         setLoading(true);
+        let cancelled = false;
         getTopBridges({
             connection_mode: connectionMode ?? undefined,
-            temporal_type: temporalType ?? undefined,
-            primary_axis: primaryAxis ?? undefined,
-            shared_function: sharedFunction ?? undefined,
+            crossing_type: crossingType ?? undefined,
+            min_year_gap: minYearGap ?? undefined,
             limit: 20,
         }).then((data) => {
+            if (cancelled) return;
             setBridges(data.bridges);
             setTotal(data.total);
             setLoading(false);
-        })
-    }, [connectionMode, temporalType, primaryAxis, sharedFunction]);
+        });
+        return () => { cancelled = true; };
+    }, [connectionMode, crossingType, minYearGap]);
 
-    // Toggle helper: click same value = clear filter
     const toggle = (
         current: string | null,
         value: string,
         setter: (v: string | null) => void
     ) => setter(current === value ? null : value);
 
+    const toggleNum = (
+        current: number | null,
+        value: number,
+        setter: (v: number | null) => void
+    ) => setter(current === value ? null : value);
+
+    const applyPreset = (preset: typeof PRESETS[number]) => {
+        const f = preset.filters as Record<string, unknown>;
+        setConnectionMode((f.connection_mode as string) ?? null);
+        setCrossingType(null);
+        setMinYearGap((f.min_year_gap as number) ?? null);
+    };
+
+    const clearFilters = () => {
+        setConnectionMode(null);
+        setCrossingType(null);
+        setMinYearGap(null);
+    };
+
+    const hasFilters = connectionMode || crossingType || minYearGap;
+
     return (
-        <div className="mx-auto max-w-6xl px-4 py-10">
-            <h1 className="font-serif text-3xl font-bold text-charcoal">
-                Style Bridges
+        <div className="mx-auto max-w-[1200px] px-6 py-12 md:px-12">
+            {/* Header */}
+            <h1 className="font-display text-[clamp(36px,6vw,56px)] font-bold uppercase tracking-tight text-black">
+                Connections
             </h1>
-            <p className="mt-2 text-sm text-charcoal-soft">
-                {total} connections across eras, cultures, and categories.
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.1em] text-grey-400">
+                {total.toLocaleString()} paths between garments across 500 years
             </p>
 
-            {/* Filters */}
-            <div className="mt-6 flex flex-col gap-4">
-                {/* Connection Mode */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                        Mode
-                    </span>
-                    {CONNECTION_MODES.map((mode) => (
-                        <button
-                            key={mode}
-                            onClick={() => toggle(connectionMode, mode, setConnectionMode)}
-                            className={`rounded-full border px-3 py-1 font-serif text-xs capitalize transition-colors ${
-                                connectionMode === mode
-                                    ? "border-terracotta bg-terracotta text-warm-white"
-                                    : "border-border text-charcoal-soft hover:border-charcoal"
-                            }`}
-                        >
-                            {mode}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Temporal Type */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                        Temporal
-                    </span>
-                    {TEMPORAL_TYPES.map((type) => (
-                        <button
-                            key={type}
-                            onClick={() => toggle(temporalType, type, setTemporalType)}
-                            className={`rounded-full border px-3 py-1 font-serif text-xs capitalize transition-colors ${
-                                    temporalType === type
-                                        ? "border-terracotta bg-terracotta text-warm-white"
-                                        : "border-border text-charcoal-soft hover:border-charcoal"
-                            }`}
-                        >
-                            {type}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Axis */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                        Axis
-                    </span>
-                    {AXES.map((axis) => (
-                        <button
-                            key={axis}
-                            onClick={() => toggle(primaryAxis, axis, setPrimaryAxis)}
-                            className={`rounded-full border px-3 py-1 font-serif text-xs capitalize transition-colors ${
-                                primaryAxis === axis
-                                    ? "border-terracotta bg-terracotta text-warm-white"
-                                    : "border-border text-charcoal-soft hover:border-charcoal"
-                            }`}
-                        >
-                            {axis}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Social function dropdown */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                        Function
-                    </span>
-                    <select
-                        value={sharedFunction ?? ""}
-                        onChange={(e) => setSharedFunction(e.target.value || null)}
-                        className="rounded-lg border border-border bg-warm-white px-3 py-1.5 font-serif text-xs text-charcoal"
-                    >
-                        <option value="">All</option>
-                        {functions.map((fn) => (
-                            <option key={fn.function} value={fn.function}>
-                                {fn.function} ({fn.count})
-                            </option>
+            {/* Filter bar */}
+            <div className="mt-8 flex flex-wrap gap-8 border-b border-grey-200 pb-6">
+                {/* Type */}
+                <div>
+                    <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
+                        Type
+                    </p>
+                    <div className="flex gap-4">
+                        {CONNECTION_MODES.map((m) => (
+                            <button
+                                key={m.value}
+                                onClick={() => toggle(connectionMode, m.value, setConnectionMode)}
+                                className={`border-b pb-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-all ${
+                                    connectionMode === m.value
+                                        ? "border-black text-black"
+                                        : "border-transparent text-grey-400 hover:text-black"
+                                }`}
+                            >
+                                {m.label}
+                            </button>
                         ))}
-                    </select>
+                    </div>
+                </div>
+
+                {/* Time */}
+                <div>
+                    <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
+                        Time
+                    </p>
+                    <div className="flex gap-4">
+                        {TIME_FILTERS.map((t) => (
+                            <button
+                                key={t.value}
+                                onClick={() => toggleNum(minYearGap, t.value, setMinYearGap)}
+                                className={`border-b pb-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-all ${
+                                    minYearGap === t.value
+                                        ? "border-black text-black"
+                                        : "border-transparent text-grey-400 hover:text-black"
+                                }`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Crossing */}
+                <div>
+                    <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
+                        Crossing
+                    </p>
+                    <div className="flex gap-4">
+                        {CROSSING_TYPES.map((c) => (
+                            <button
+                                key={c.value}
+                                onClick={() => toggle(crossingType, c.value, setCrossingType)}
+                                className={`border-b pb-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-all ${
+                                    crossingType === c.value
+                                        ? "border-black text-black"
+                                        : "border-transparent text-grey-400 hover:text-black"
+                                }`}
+                            >
+                                {c.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
+            {/* Presets */}
+            <div className="mt-5 flex flex-wrap gap-3">
+                {PRESETS.map((p) => (
+                    <button
+                        key={p.label}
+                        onClick={() => applyPreset(p)}
+                        className="border border-grey-200 px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-grey-600 transition-all hover:border-black hover:text-black"
+                        style={{ borderRadius: '2px' }}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+                <button
+                    onClick={() => {
+                        clearFilters();
+                        // Surprise me — random offset
+                        const randomOffset = Math.floor(Math.random() * 100);
+                        getTopBridges({ limit: 20, offset: randomOffset }).then((data) => {
+                            setBridges(data.bridges);
+                            setTotal(data.total);
+                        });
+                    }}
+                    className="border border-accent px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-accent transition-all hover:bg-accent hover:text-white"
+                    style={{ borderRadius: '2px' }}
+                >
+                    Surprise Me ↗
+                </button>
+                {hasFilters && (
+                    <button
+                        onClick={clearFilters}
+                        className="px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-grey-400 hover:text-black"
+                    >
+                        Clear ×
+                    </button>
+                )}
+            </div>
+
             {/* Results */}
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="mt-10 grid gap-8 md:grid-cols-2">
                 {loading ? (
-                    <p className="col-span-2 text-sm text-muted">
-                        Loading...
+                    <p className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-grey-400">
+                        Loading connections...
                     </p>
                 ) : bridges.length === 0 ? (
-                    <p className="col-span-2 text-sm text-muted">
-                        No bridges match these filters.
+                    <p className="py-20 text-center font-mono text-[11px] uppercase tracking-wider text-grey-400">
+                        No connections match these filters.
                     </p>
                 ) : (
                     bridges.map((b) => (
@@ -157,5 +218,5 @@ export default function BridgePage() {
                 )}
             </div>
         </div>
-    )
+    );
 }

@@ -68,15 +68,15 @@ export default function ImageUpload({
                 <img
                     src={preview}
                     alt="Upload preview"
-                    className="w-full rounded-lg border border-border object-cover"
+                    className="w-full border border-grey-200 object-cover"
                 />
                 <button
                     onClick={handleClear}
-                    className="absolute right-2 top-2 rounded-full bg-charcoal/70 p-1.5 text-white hover:bg-charcoal"
+                    className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white hover:bg-black"
                     aria-label="Remove image"
                 >
                     <X size={16} />
-                </button>  
+                </button>
             </div>
         );
     }
@@ -91,21 +91,21 @@ export default function ImageUpload({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 className={cn(
-                    "flex w-full flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8",
+                    "flex w-full flex-col items-center gap-3 border-2 border-dashed p-8",
                     "transition-colors duration-200 cursor-pointer",
                     isDragging
-                        ? "border-gold bg-gold/5"
-                        : "border-border hover:border-gold"
+                        ? "border-accent bg-accent/5"
+                        : "border-grey-200 hover:border-grey-400"
                 )}
             >
                 {/* Mobile: camera icon, Desktop: upload icon */}
-                <Camera size={28} className="text-muted md:hidden" />
-                <Upload size={28} className="text-muted hidden md:block" />
+                <Camera size={28} className="text-grey-400 md:hidden" />
+                <Upload size={28} className="text-grey-400 hidden md:block" />
 
-                <span className="text-sm text-muted md:hidden">
+                <span className="text-sm text-grey-400 md:hidden">
                     Take photo or upload
                 </span>
-                <span className="text-sm text-muted hidden md:block">
+                <span className="text-sm text-grey-400 hidden md:block">
                     Drop an image here or click to upload
                 </span>
             </button>

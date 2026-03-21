@@ -22,14 +22,14 @@ class EmbeddingModels:
     print("🔄 Loading embedding models...")
     print("   (First time takes 5-10 minutes to download)")
     
-    # CLIP model for images (512-dim embeddings)
+    # CLIP model for images (768-dim embeddings)
     print("\n📦 Loading CLIP model...")
-    self.clip = SentenceTransformer('clip-ViT-B-32')
+    self.clip = SentenceTransformer('clip-ViT-L-14')
     print("✅ CLIP loaded")
     
-    # Text embedding model (384-dim embeddings)
+    # Text embedding model (768-dim embeddings)
     print("\n📦 Loading text model...")
-    self.text = SentenceTransformer('all-MiniLM-L6-v2')
+    self.text = SentenceTransformer('all-mpnet-base-v2')
     print("✅ Text model loaded")
     
     self._initialized = True
@@ -41,7 +41,7 @@ class EmbeddingModels:
     Args:
       image_input: A PIL Image or a URL string of the image.
     Returns:
-      numpy array of shape (512, )
+      numpy array of shape (768, )
     """
     # Handle different input types
     if isinstance(image_input, str):
@@ -70,7 +70,7 @@ class EmbeddingModels:
     Args:
       text: A string of text.
     Returns:
-      numpy array of shape (384, )
+      numpy array of shape (768, )
     """
     embedding = self.text.encode(text)
     return embedding

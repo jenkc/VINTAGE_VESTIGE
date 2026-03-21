@@ -1,13 +1,13 @@
 # Vintage Vestige — Project State
 
-**As of: 2026-03-09**
+**As of: 2026-03-20**
 **Audited by: Claude Code (codebase + live DB queries)**
 
 ---
 
 ## Executive Summary
 
-Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and style bridges. The **data layer, intelligence layer, API layer, and frontend are all built and working**. All 4,234 products are enriched and embedded. **Bridge recomputation is in progress** — once complete, a new 6-dimensional bridge classifier will populate temporal_type, crossing_type, connection_mode, primary_axis, secondary_axis, and contrast_pair on every bridge. A new Social Function Explorer API enables browsing products by social function across eras and cultures. **Project reorganization** moved all scripts to `tools/` with only library code in package dirs, preparing for Docker deployment. Narrative generation overhauled with mode-specific prompts and classification context.
+Vintage Vestige is a fashion intelligence platform that connects vintage/historical garments with modern fashion through AI-enriched metadata and entity-based style bridges. **Backend pipeline completely reworked (March 19-20).** All 4,234 products re-enriched with KG fields (designer, influences, movements, garment_system, material_origin, production_mode) and re-embedded with upgraded models (768d text + 768d image). **~24,000 entity-based bridges** computed via new 3-pass system (shared entities, lineage, visual echo). Frontend refactor in progress — 6-phase plan targeting deployment by April 10. See `_docs/FRONTEND_REFACTOR_PLAN.md`.
 
 ---
 
@@ -24,17 +24,17 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 | Fashionpedia taxonomy | Working | [enrichment/fashionpedia_taxonomy.py](enrichment/fashionpedia_taxonomy.py) | 678 |
 | Data loaders (Fashionpedia, Met, Smithsonian) | Working | [load_data/](load_data/) | ~4 scripts |
 
-**Database state (Supabase, 2026-03-07):**
+**Database state (Supabase, 2026-03-20):**
 - `products` table: **4,234 rows** (va_museum: 1,856, fashionpedia: 1,000, smithsonian: 778, met_museum: 600)
-- `style_bridges` table: **being recomputed** (`compute_bridges.py --rebuild` running)
-- All products have HTTP URLs for images (Supabase Storage)
-- **ALL 4,234 products enriched** with core_vibes and bridge_vibes
-- **ALL 4,234 text embeddings** + **ALL 4,234 image embeddings** in pgvector columns
-- StyleBridge has 6 new classification columns (pending classifier run)
+- `style_bridges` table: **~24,000 bridges** (3 passes: shared_entity ~20,000, lineage ~1,020, visual_echo ~2,800)
+- All products re-enriched with KG fields: designer, influence_references, named_movements, production_mode, material_origin, garment_system, display_title, low_confidence_fields
+- 6-axis vibe_scores (Volume, Ornament, Exposure, Gender, Register, Occasion) on all products
+- 61 V&A products have broken image URLs (no image embeddings)
+- ~20 bridges have narratives (test batch — full generation pending API update)
 
 **Vector storage:**
-- `text_embedding vector(384)` column on products table (HNSW index, cosine)
-- `image_embedding vector(512)` column on products table (HNSW index, cosine)
+- `text_embedding vector(768)` — all-mpnet-base-v2 (HNSW index, cosine)
+- `image_embedding vector(768)` — clip-ViT-L-14 (HNSW index, cosine)
 - No separate vector database — everything in Supabase PostgreSQL
 
 ### 2. Intelligence Layer — WORKING
@@ -49,15 +49,19 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 | Bridge HTML report | Working | [tests/data_integrity/bridge_report.py](tests/data_integrity/bridge_report.py) | 383 |
 
 **Key facts:**
-- Enrichment model: `claude-sonnet-4-20250514`
-- Text embeddings: `all-MiniLM-L6-v2` (384-dim)
-- Image embeddings: `clip-ViT-B-32` (512-dim)
-- Bridge score: mode-dependent weights — contrast: `0.20*text + 0.20*image + 0.60*structural`, resonance: `0.60*text + 0.20*image + 0.20*structural`, affinity: `0.40*text + 0.30*image + 0.30*structural` (proportionally redistributed when image is NULL)
-- **6-dimensional bridge classification**: temporal_type, crossing_type, connection_mode (contrast/resonance/affinity), primary_axis, secondary_axis, contrast_pair
+- Enrichment model: `claude-sonnet-4-20250514` (cached system prompts)
+- Text embeddings: `all-mpnet-base-v2` (768-dim)
+- Image embeddings: `clip-ViT-L-14` (768-dim)
+- **Entity-based bridge discovery** (`better_bridges.py`):
+  - Pass 1: Shared Entities (inverted index, IDF scoring, entity multipliers, blocklist, rarity gate)
+  - Pass 2: Lineage (directed, era parsing, embedding fallback, +5.0 lineage bonus)
+  - Pass 3: Visual Echo (pgvector image similarity, batch commits, only unconnected pairs)
+- Bridge score: `sigmoid(entity_score + context_score + embedding_bonus)` — entity-heavy
+- Entity multipliers: designer(3.0), influence(2.5), movement(2.0), garment_system(1.5), construction(1.0), social_function(1.0), motif(0.75)
+- Gates: MIN_ENTITY_SCORE=5.0 (8.0 same-era), MIN_ENTITY_IDF=2.0, BOUNDARY_YEAR_GAP=30, SAME_ERA_MAX_BRIDGES=300
+- Narrative: one adaptive prompt, shared entities as substance, lineage direction noted
 - **9 opposition pairs** for contrast detection across 4 aesthetic axes (volume, ornament, body, register)
-- Bridges being recomputed — narratives will be regenerated with full classification context (mode, temporal type, crossing type, axes, vibes)
-- Narrative prompt overhauled: mode-specific system prompts, varied closings, formatted shared attributes, vibe data included
-- Contrast bridges get 2 sentences / 60 words; others get 1 sentence / 40 words
+- **Bridge narratives**: ALL 14,223 generated. Mode-specific system prompts, varied closings, vibe + classification context. Contrast: 2 sentences / 60 words; others: 1 sentence / 40 words
 
 ### 3. API Layer — IMPLEMENTED
 
@@ -104,10 +108,10 @@ Vintage Vestige is a fashion intelligence platform that connects vintage/histori
 | Test configuration | Complete | [pyproject.toml](pyproject.toml), [tests/conftest.py](tests/conftest.py) |
 | Unit tests | Complete | [tests/unit/](tests/unit/) (6 test files) |
 | Integration tests | Complete | [tests/integration/](tests/integration/) (4 test files) |
-| Data integrity tests | Complete | [tests/data_integrity/](tests/data_integrity/) (2 test files) |
+| Data integrity tests | Complete | [tests/data_integrity/](tests/data_integrity/) (3 test files — incl. new test_db_integrity.py with 35 tests) |
 | Search quality tests | Complete | [tests/search_quality/](tests/search_quality/) (1 test file) |
 
-Unit tests need no external services; integration/data_integrity need Supabase PostgreSQL (pgvector).
+**Full suite: 309 passed, 5 skipped, 0 failures** (run with `--ignore=tests/search_quality/old_tests`). Unit tests need no external services; integration/data_integrity need Supabase PostgreSQL (pgvector). The 5 skips are `test_database_model.py` in_memory_db tests (SQLite doesn't support pgvector ARRAY type).
 
 ### 6. Scrapers — PARTIAL
 
@@ -142,16 +146,17 @@ The Etsy scraper does real HTTP scraping with BeautifulSoup. Depop returns hardc
 | 4,234 products across 4 platforms | functional-hopping-barto.md | **Done** |
 | Claude enrichment for all products | PHASE_1_IMPLEMENTATION.md | **Done** (4,234/4,234) |
 | Embeddings for all products | PHASE_1_IMPLEMENTATION.md (Priority 1) | **Done** (4,234 text + 4,234 image) |
-| StyleBridge model + compute pipeline | PHASE_1_IMPLEMENTATION.md (Priority 2-3) | **Recomputing** (`--rebuild` running) |
-| 6-dimensional bridge classification | .claude/plans/zazzy-seeking-falcon.md | **Code done, pending run** (classifier + tests written) |
+| StyleBridge model + compute pipeline | PHASE_1_IMPLEMENTATION.md (Priority 2-3) | **Done** (14,223 bridges, 4-pass discovery, opposition sort, near-dup detection, same-era vibe gate) |
+| 6-dimensional bridge classification | .claude/plans/zazzy-seeking-falcon.md | **Done** (14,194/14,223 classified; affinity 10,886 / contrast 3,314 / resonance 23) |
 | Social Function Explorer API | docs/plans/FRONTEND_UPDATES.md | **Backend done** (2 new endpoints + shared_function filter) |
-| Narrative generation for bridges | PHASE_1_IMPLEMENTATION.md (Priority 4) | **Overhauled** (prompt rewritten with classification context, pending bridge recomputation) |
-| Bridge query utilities | PHASE_1_IMPLEMENTATION.md (Priority 5) | **Done** (bridge_queries.py, now with 6 dimension filters) |
+| Narrative generation for bridges | PHASE_1_IMPLEMENTATION.md (Priority 4) | **Done** (ALL 14,223 narratives generated; mode-specific prompts, classification context) |
+| Bridge query utilities | PHASE_1_IMPLEMENTATION.md (Priority 5) | **Done** (bridge_queries.py, 6 dimension filters) |
 | FastAPI endpoints | PHASE_1_IMPLEMENTATION.md (Priority 6) | **Done** (16 endpoints, 16 schemas) |
 | Next.js frontend | PHASE_1_IMPLEMENTATION.md (Priority 7) | **Complete** (all 5 phases done, build passes, 4 routes compile) |
 | Frontend updates (explorer, bridge badges) | docs/plans/FRONTEND_UPDATES.md | **Planned** |
 | Supabase migration | .claude/plans/zazzy-seeking-falcon.md | **Complete** (all 20 steps done 2026-03-05) |
-| Knowledge Graph | docs/plans/KG_IMPLEMENTATION/ | **Planned** (6 phase docs, prerequisites partly done) |
+| Full test suite | — | **Done** (309 passed, 5 skipped, 0 failures as of 2026-03-13) |
+| Knowledge Graph | docs/plans/KG_IMPLEMENTATION/ | **Planned** (all Phase 0 prerequisites now complete) |
 | Project reorganization (scripts → tools/) | .claude/plans/playful-crunching-stardust.md | **Phase 2 done** (scripts moved, tests passing; Phases 3-5 remaining) |
 | Deployment (Railway + Vercel) | implement_full_plan.md (Week 3) | **Not started** |
 | IIT 4.0 integration | IIT_4.0_INTEGRATION_PLAN.md | **Planned only** |

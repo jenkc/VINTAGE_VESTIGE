@@ -7,10 +7,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-terracotta text-white hover:bg-terracotta/90",
-        outline: "border-2 border-border text-terracotta hover:bg-terracotta hover:text-white",
-        ghost: "hover:bg-cream",
-        link: "text-terracotta underline-offset-4 hover:underline",
+        default: "bg-accent text-white hover:bg-accent-hover",
+        outline: "border-2 border-grey-200 text-accent hover:bg-accent hover:text-white",
+        ghost: "hover:bg-grey-100",
+        link: "text-accent underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",

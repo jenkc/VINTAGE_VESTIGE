@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<title>Vintage Vestige</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white: #FFFFFF;
+    --off-white: #F5F5F0;
+    --black: #0A0A0A;
+    --dark: #1A1A1A;
+    --grey-600: #6B6B6B;
+    --grey-400: #9B9B9B;
+    --grey-200: #E0E0E0;
+    --grey-100: #F0F0F0;
+    --accent: #C4553A;
+    --accent-hover: #A8432E;
+    --signal-blue: #2E5A88;
+    --signal-brown: #8B5E3C;
+    --signal-sage: #7A8B6F;
+    --met: #8B2332;
+    --smithsonian: #2E5A88;
+    --fashionpedia: #6B6B6B;
+  }
+
+  html { font-size: 16px; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--white);
+    color: var(--black);
+    line-height: 1.5;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .serif { font-family: 'Cormorant Garamond', serif; }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px;
+    background: rgba(255,255,255,0.96);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .nav-wordmark {
+    font-size: 15px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; text-decoration: none; color: var(--black);
+  }
+  .nav-links {
+    display: flex; gap: 32px; list-style: none;
+  }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    text-decoration: none; color: var(--grey-600);
+    transition: color 0.2s;
+  }
+  .nav-links a:hover, .nav-links a.active { color: var(--black); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 48px 80px;
+    position: relative;
+    overflow: hidden;
+    background: var(--white);
+  }
+  .hero-garment-grid {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .hero-garment-col {
+    display: flex; flex-direction: column; gap: 0;
+    border-right: 1px solid var(--grey-200);
+  }
+  .hero-garment-col:last-child { border-right: none; }
+  .garment-placeholder {
+    flex: 1;
+    background: var(--grey-100);
+    margin: 8px;
+    border-radius: 0;
+  }
+
+  .hero-content { position: relative; z-index: 2; }
+  .hero-title {
+    font-size: clamp(64px, 10vw, 120px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+  .hero-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--dark);
+    margin-bottom: 48px;
+    max-width: 520px;
+  }
+  .hero-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--grey-400);
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+  .hero-cta {
+    display: inline-block;
+    background: var(--black);
+    color: var(--white);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 14px 32px;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .hero-cta:hover { background: var(--dark); }
+
+  /* ── SECTIONS ── */
+  section { padding: 96px 48px; }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--grey-400);
+    margin-bottom: 48px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--grey-200);
+  }
+
+  /* ── BRIDGE OF THE DAY ── */
+  .bridge-section {
+    background: var(--off-white);
+    padding: 96px 48px;
+  }
+  .bridge-layout {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 48px;
+    align-items: start;
+    margin-top: 64px;
+  }
+  .bridge-garment { text-align: center; }
+  .bridge-image-frame {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bridge-image-frame .garment-silhouette {
+    width: 65%;
+    height: 85%;
+    background: var(--grey-200);
+    clip-path: polygon(30% 0%, 70% 0%, 85% 15%, 90% 50%, 80% 100%, 20% 100%, 10% 50%, 15% 15%);
+    transition: transform 0.3s ease;
+  }
+  .bridge-image-frame:hover .garment-silhouette { transform: scale(1.03); }
+
+  .garment-silhouette.v2 {
+    clip-path: polygon(20% 0%, 80% 0%, 95% 20%, 100% 60%, 85% 100%, 15% 100%, 0% 60%, 5% 20%);
+  }
+
+  .bridge-garment-platform {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--met); margin-bottom: 6px;
+  }
+  .bridge-garment-platform.smithsonian { color: var(--smithsonian); }
+  .bridge-garment-platform.fashionpedia { color: var(--fashionpedia); }
+  .bridge-garment-name {
+    font-size: 18px; font-weight: 600; margin-bottom: 4px;
+  }
+  .bridge-garment-era {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-600);
+  }
+
+  .bridge-center {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 48px 0;
+    min-width: 280px;
+  }
+  .bridge-connector {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: var(--grey-400); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 32px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .bridge-connector::before,
+  .bridge-connector::after {
+    content: ''; display: block; width: 40px; height: 1px;
+    background: var(--grey-300);
+  }
+  .bridge-narrative {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; font-style: italic; font-weight: 400;
+    line-height: 1.5; text-align: center;
+    color: var(--dark); margin-bottom: 32px;
+  }
+  .bridge-attrs {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em;
+    color: var(--grey-600); text-align: center; margin-bottom: 24px;
+    line-height: 1.8;
+  }
+  .bridge-scores {
+    display: flex; gap: 24px; justify-content: center;
+  }
+  .score-item {
+    text-align: center;
+  }
+  .score-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; font-weight: 400;
+    color: var(--black); display: block;
+  }
+  .score-value.accent { color: var(--accent); }
+  .score-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey-400); display: block; margin-top: 2px;
+  }
+
+  /* ── ENTRY POINTS ── */
+  .entry-section { background: var(--white); }
+  .entry-links {
+    display: flex; flex-direction: column; gap: 0;
+    margin-top: 0;
+  }
+  .entry-link {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--grey-200);
+    text-decoration: none; color: var(--black);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .entry-link:hover .entry-link-title { letter-spacing: 0.08em; }
+  .entry-link:hover .entry-arrow { transform: translateX(8px); color: var(--accent); }
+  .entry-link-title {
+    font-size: 40px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.02em;
+    transition: letter-spacing 0.3s ease;
+  }
+  .entry-link-desc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-600);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    max-width: 300px; text-align: right; line-height: 1.6;
+  }
+  .entry-arrow {
+    font-size: 24px; margin-left: 16px;
+    transition: transform 0.2s, color 0.2s;
+  }
+
+  /* ── SEARCH ── */
+  .search-section {
+    background: var(--off-white);
+    padding: 64px 48px;
+  }
+  .search-input-wrap {
+    border-bottom: 2px solid var(--black);
+    display: flex; align-items: center;
+    padding-bottom: 12px; margin-bottom: 48px;
+  }
+  .search-input {
+    flex: 1; font-size: 20px;
+    border: none; background: transparent; outline: none;
+    color: var(--black); font-family: inherit;
+  }
+  .search-input::placeholder { color: var(--grey-400); }
+  .search-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    background: none; border: none; cursor: pointer;
+    color: var(--grey-600); padding: 8px 0 8px 24px;
+    transition: color 0.2s;
+  }
+  .search-btn:hover { color: var(--black); }
+
+  .browse-tabs {
+    display: flex; gap: 0; margin-bottom: 48px;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .browse-tab {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 12px 24px 12px 0; cursor: pointer;
+    color: var(--grey-400); border: none; background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: all 0.2s;
+  }
+  .browse-tab.active, .browse-tab:hover {
+    color: var(--black); border-bottom-color: var(--black);
+  }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .result-card {
+    cursor: pointer;
+  }
+  .result-image {
+    width: 100%; aspect-ratio: 3/4;
+    background: var(--grey-100);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px; overflow: hidden;
+    transition: background 0.2s;
+  }
+  .result-card:hover .result-image { background: var(--grey-200); }
+  .result-image .garment-silhouette {
+    width: 60%; height: 80%;
+    background: var(--grey-300);
+    transition: transform 0.3s ease;
+  }
+  .result-card:hover .garment-silhouette { transform: scale(1.04); }
+  .result-platform {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .result-name {
+    font-size: 15px; font-weight: 600; margin-bottom: 4px;
+  }
+  .result-era {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--grey-600);
+  }
+
+  /* ── PRODUCT DETAIL ── */
+  .product-section { background: var(--white); }
+  .product-layout {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 80px; align-items: start;
+  }
+  .product-image-large {
+    width: 100%; aspect-ratio: 3/4;
+    background: var(--off-white);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .product-image-large .garment-silhouette {
+    width: 55%; height: 80%;
+    background: var(--grey-300);
+  }
+  .product-platform {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--met); margin-bottom: 12px;
+  }
+  .product-title {
+    font-size: 48px; font-weight: 700; line-height: 1;
+    letter-spacing: -0.01em; margin-bottom: 8px;
+  }
+  .product-meta-row {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-600);
+    margin-bottom: 32px;
+  }
+  .product-desc {
+    font-size: 17px; line-height: 1.7;
+    color: var(--dark); margin-bottom: 32px;
+  }
+  .product-attrs {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 48px;
+  }
+  .attr-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em;
+    color: var(--grey-600);
+    border: 1px solid var(--grey-200);
+    border-radius: 999px; padding: 4px 12px;
+  }
+  .argues-heading {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 24px;
+  }
+
+  /* ── AXIS SLIDER ── */
+  .axis-section { background: var(--off-white); }
+  .axis-label-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 16px;
+  }
+  .axis-pole {
+    font-size: 18px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .axis-name-center {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--grey-400);
+  }
+  .axis-track {
+    width: 100%; height: 2px; background: var(--grey-200);
+    position: relative; margin-bottom: 48px; cursor: pointer;
+  }
+  .axis-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--black);
+    width: 30%; transition: width 0.1s;
+  }
+  .axis-handle {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 18px; height: 18px; background: var(--black);
+    border-radius: 50%; cursor: grab; left: 30%;
+    transition: left 0.1s;
+  }
+  .axis-handle:active { cursor: grabbing; }
+  .axis-garments {
+    display: flex; gap: 24px; align-items: flex-end;
+    min-height: 200px;
+  }
+  .axis-garment {
+    display: flex; flex-direction: column; align-items: center;
+    cursor: pointer; opacity: 1; transition: opacity 0.3s;
+  }
+  .axis-garment.faded { opacity: 0.2; }
+  .axis-garment-img {
+    width: 80px; background: var(--grey-100);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s;
+  }
+  .axis-garment:hover .axis-garment-img { transform: scale(1.05); }
+  .axis-garment .garment-silhouette {
+    width: 55%; margin: 8px auto;
+    background: var(--grey-300);
+  }
+  .axis-garment-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--grey-600); margin-top: 8px;
+    text-align: center; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--black); color: var(--white);
+    padding: 64px 48px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 48px;
+  }
+  .footer-brand {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .footer-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 18px;
+    color: rgba(255,255,255,0.6); line-height: 1.5;
+  }
+  .footer-col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(255,255,255,0.4); margin-bottom: 20px;
+  }
+  .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .footer-links a {
+    text-decoration: none; color: rgba(255,255,255,0.7);
+    font-size: 14px; transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--white); }
+  .footer-stats {
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .footer-stat-value {
+    font-size: 32px; font-weight: 700; display: block;
+  }
+  .footer-stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--grey-200); }
+
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-wordmark" href="#">Vintage Vestige</a>
+  <ul class="nav-links">
+    <li><a href="#search" class="active">Search</a></li>
+    <li><a href="#explore">Explore</a></li>
+    <li><a href="#bridges">Bridges</a></li>
+    <li><a href="#about">About</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" style="padding-top: 80px;">
+  <div class="hero-garment-grid">
+    <div class="hero-garment-col"><div class="garment-placeholder"></div><div class="garment-placeholder"></div></div>
+    <div class="hero-garment-col"><div class="garment-placeholder"></div><div class="garment-placeholder"></div></div>
+    <div class="hero-garment-col"><div class="garment-placeholder"></div><div class="garment-placeholder"></div></div>
+    <div class="hero-garment-col"><div class="garment-placeholder"></div><div class="garment-placeholder"></div></div>
+    <div class="hero-garment-col"><div class="garment-placeholder"></div><div class="garment-placeholder"></div></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-title">Vintage<br>Vestige</div>
+    <div class="hero-tagline">Start from a question,<br>not a timeline.</div>
+    <div class="hero-meta">4,234 garments · 14,223 bridges · 500 years</div>
+    <a class="hero-cta" href="#search">Explore</a>
+  </div>
+</section>
+
+<!-- BRIDGE OF THE DAY -->
+<section class="bridge-section" id="bridges">
+  <div class="section-label">Bridge of the Day · Contrast · Body Axis</div>
+
+  <div class="bridge-layout">
+    <!-- Garment A -->
+    <div class="bridge-garment">
+      <div class="bridge-image-frame">
+        <div class="garment-silhouette"></div>
+      </div>
+      <div class="bridge-garment-platform">The Met</div>
+      <div class="bridge-garment-name">Evening Dress</div>
+      <div class="bridge-garment-era">Victorian · ca. 1895</div>
+    </div>
+
+    <!-- Center -->
+    <div class="bridge-center">
+      <div class="bridge-connector">vs</div>
+      <div class="bridge-narrative">
+        "Both share the dramatic off-shoulder decolletage and structured boned bodice of formal evening wear, spanning a century of romantic design."
+      </div>
+      <div class="bridge-attrs">
+        Fitted bodice · Off-shoulder · Floor-length · Lace overlay
+      </div>
+      <div class="bridge-scores">
+        <div class="score-item">
+          <span class="score-value accent">87%</span>
+          <span class="score-label">Overall</span>
+        </div>
+        <div class="score-item">
+          <span class="score-value">81%</span>
+          <span class="score-label">Semantic</span>
+        </div>
+        <div class="score-item">
+          <span class="score-value">79%</span>
+          <span class="score-label">Visual</span>
+        </div>
+        <div class="score-item">
+          <span class="score-value">72%</span>
+          <span class="score-label">Structural</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Garment B -->
+    <div class="bridge-garment">
+      <div class="bridge-image-frame">
+        <div class="garment-silhouette v2"></div>
+      </div>
+      <div class="bridge-garment-platform fashionpedia">Fashionpedia</div>
+      <div class="bridge-garment-name">Off-Shoulder Lace Gown</div>
+      <div class="bridge-garment-era">Contemporary · 2024</div>
+    </div>
+  </div>
+</section>
+
+<!-- ENTRY POINTS -->
+<section class="entry-section" id="explore">
+  <div class="section-label">Explore</div>
+  <div class="entry-links">
+    <a class="entry-link" href="#">
+      <span class="entry-link-title">Browse by Vibe<span class="entry-arrow">→</span></span>
+      <span class="entry-link-desc">24 design terms across 5 families · body, volume, ornament, register, gender</span>
+    </a>
+    <a class="entry-link" href="#">
+      <span class="entry-link-title">Browse by Era<span class="entry-arrow">→</span></span>
+      <span class="entry-link-desc">Where design arguments traveled · Victorian → Modernist → Contemporary</span>
+    </a>
+    <a class="entry-link" href="#">
+      <span class="entry-link-title">Browse by Function<span class="entry-arrow">→</span></span>
+      <span class="entry-link-desc">Ceremonial · Mourning · Labor · Courtship · Military · Performance</span>
+    </a>
+    <a class="entry-link" href="#">
+      <span class="entry-link-title">Explore Bridges<span class="entry-arrow">→</span></span>
+      <span class="entry-link-desc">14,223 conversations between garments</span>
+    </a>
+  </div>
+</section>
+
+<!-- SEARCH + RESULTS -->
+<section class="search-section" id="search">
+  <div class="section-label">Search &amp; Discover</div>
+  <div class="search-input-wrap">
+    <input class="search-input" type="text" placeholder="Search garments, eras, vibes, or paste a question...">
+    <button class="search-btn">Search →</button>
+  </div>
+  <div class="browse-tabs">
+    <button class="browse-tab active">All</button>
+    <button class="browse-tab">By Vibe</button>
+    <button class="browse-tab">By Axis</button>
+    <button class="browse-tab">By Function</button>
+    <button class="browse-tab">By Era</button>
+  </div>
+  <div class="results-grid">
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette"></div></div>
+      <div class="result-platform" style="color: var(--met);">The Met</div>
+      <div class="result-name">Evening Dress</div>
+      <div class="result-era">Victorian · ca. 1895</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette v2"></div></div>
+      <div class="result-platform" style="color: var(--smithsonian);">Smithsonian</div>
+      <div class="result-name">Promenade Dress</div>
+      <div class="result-era">Regency · ca. 1815</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette"></div></div>
+      <div class="result-platform" style="color: var(--met);">The Met</div>
+      <div class="result-name">Beaded Evening Dress</div>
+      <div class="result-era">Art Deco · ca. 1925</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette v2"></div></div>
+      <div class="result-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+      <div class="result-name">Beaded Cocktail Dress</div>
+      <div class="result-era">Contemporary · 2025</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette"></div></div>
+      <div class="result-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+      <div class="result-name">Empire Waist Maxi Dress</div>
+      <div class="result-era">Contemporary · 2024</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette v2"></div></div>
+      <div class="result-platform" style="color: var(--smithsonian);">Smithsonian</div>
+      <div class="result-name">Mourning Dress</div>
+      <div class="result-era">Victorian · ca. 1880</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette"></div></div>
+      <div class="result-platform" style="color: var(--met);">The Met</div>
+      <div class="result-name">Court Mantua</div>
+      <div class="result-era">Baroque · ca. 1740</div>
+    </div>
+    <div class="result-card">
+      <div class="result-image"><div class="garment-silhouette v2"></div></div>
+      <div class="result-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+      <div class="result-name">Off-Shoulder Lace Gown</div>
+      <div class="result-era">Contemporary · 2024</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCT DETAIL -->
+<section class="product-section" id="product">
+  <div class="section-label">Product Detail</div>
+  <div class="product-layout">
+    <div class="product-image-large">
+      <div class="garment-silhouette"></div>
+    </div>
+    <div class="product-info">
+      <div class="product-platform">The Met</div>
+      <div class="product-title">Evening<br>Dress</div>
+      <div class="product-meta-row mono">Victorian · ca. 1895 · Accession 1978.288.2</div>
+      <div class="product-desc">
+        A formal evening gown with off-shoulder neckline and structured boned bodice, demonstrating the Victorian ideal of the corseted silhouette. The lace overlay and floor-length skirt were markers of wealth and occasion.
+      </div>
+      <div class="product-attrs">
+        <span class="attr-tag">Fitted bodice</span>
+        <span class="attr-tag">Off-shoulder</span>
+        <span class="attr-tag">Floor-length</span>
+        <span class="attr-tag">Lace overlay</span>
+        <span class="attr-tag">Boning</span>
+        <span class="attr-tag">Ceremonial</span>
+      </div>
+      <div class="argues-heading">What Argues With This?</div>
+
+      <!-- Compact bridge -->
+      <div style="border-top: 1px solid var(--grey-200); padding: 24px 0;">
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 20px; align-items: center; margin-bottom: 20px;">
+          <div style="aspect-ratio: 3/4; background: var(--off-white); display:flex; align-items:center; justify-content:center;">
+            <div class="garment-silhouette v2" style="width:55%; height:75%; background: var(--grey-300);"></div>
+          </div>
+          <div>
+            <div class="mono" style="font-size:10px; color: var(--fashionpedia); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:4px;">Fashionpedia</div>
+            <div style="font-size:15px; font-weight:600; margin-bottom:4px;">Off-Shoulder Lace Gown</div>
+            <div class="mono" style="font-size:10px; color:var(--grey-600);">Contemporary · 2024</div>
+            <div class="serif" style="font-style:italic; font-size:14px; color:var(--dark); margin-top:10px; line-height:1.5;">"Spanning a century of romantic design..."</div>
+            <div class="mono" style="font-size:10px; color:var(--accent); margin-top:6px;">87% · Contrast · Body</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AXIS SLIDER -->
+<section class="axis-section" id="axis">
+  <div class="section-label">Axis Slider · Volume</div>
+  <div class="axis-label-row">
+    <div class="axis-pole">Column<br>Minimalism</div>
+    <div class="axis-name-center">Volume</div>
+    <div class="axis-pole" style="text-align:right;">Exaggerated<br>Volume</div>
+  </div>
+  <div class="axis-track" id="axisTrack">
+    <div class="axis-fill" id="axisFill"></div>
+    <div class="axis-handle" id="axisHandle"></div>
+  </div>
+  <div class="axis-garments" id="axisGarments">
+    <!-- Garments rendered by JS -->
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="about">
+  <div>
+    <div class="footer-brand">Vintage Vestige</div>
+    <div class="footer-desc">"Start from a question,<br>not a timeline."</div>
+  </div>
+  <div>
+    <div class="footer-col-label">Navigate</div>
+    <ul class="footer-links">
+      <li><a href="#">Search</a></li>
+      <li><a href="#">Explore</a></li>
+      <li><a href="#">Bridges</a></li>
+      <li><a href="#">About</a></li>
+    </ul>
+  </div>
+  <div>
+    <div class="footer-col-label">Collection</div>
+    <div class="footer-stats">
+      <div>
+        <span class="footer-stat-value">4,234</span>
+        <span class="footer-stat-label">Garments</span>
+      </div>
+      <div>
+        <span class="footer-stat-value">14,223</span>
+        <span class="footer-stat-label">Bridges</span>
+      </div>
+      <div>
+        <span class="footer-stat-value">500+</span>
+        <span class="footer-stat-label">Years</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Axis slider
+  const garmentData = [
+    { name: 'Hobble Skirt', era: '1910s', pos: 0.05, h: 120 },
+    { name: 'Column Dress', era: '1930s', pos: 0.15, h: 140 },
+    { name: 'Shift Dress', era: '1960s', pos: 0.28, h: 130 },
+    { name: 'Empire Waist', era: '1815', pos: 0.42, h: 155 },
+    { name: 'Evening Gown', era: '1895', pos: 0.55, h: 160 },
+    { name: 'Ball Gown', era: '1860s', pos: 0.68, h: 175 },
+    { name: 'Crinoline', era: '1855', pos: 0.78, h: 185 },
+    { name: 'Court Mantua', era: '1740s', pos: 0.88, h: 200 },
+    { name: 'Robe Pannier', era: '1760s', pos: 0.96, h: 210 },
+  ];
+
+  function renderGarments(sliderPos) {
+    const container = document.getElementById('axisGarments');
+    container.innerHTML = '';
+    garmentData.forEach(g => {
+      const dist = Math.abs(g.pos - sliderPos);
+      const opacity = dist < 0.35 ? 1 : 0.15;
+      const div = document.createElement('div');
+      div.className = 'axis-garment';
+      div.style.opacity = opacity;
+      div.innerHTML = `
+        <div class="axis-garment-img" style="height:${g.h}px;">
+          <div class="garment-silhouette" style="height:${Math.round(g.h*0.75)}px;"></div>
+        </div>
+        <div class="axis-garment-label">${g.name}<br>${g.era}</div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  const track = document.getElementById('axisTrack');
+  const handle = document.getElementById('axisHandle');
+  const fill = document.getElementById('axisFill');
+  let dragging = false;
+  let sliderPos = 0.3;
+
+  function updateSlider(x) {
+    const rect = track.getBoundingClientRect();
+    sliderPos = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
+    handle.style.left = (sliderPos * 100) + '%';
+    fill.style.width = (sliderPos * 100) + '%';
+    renderGarments(sliderPos);
+  }
+
+  handle.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if (dragging) updateSlider(e.clientX); });
+  document.addEventListener('mouseup', () => { dragging = false; });
+  track.addEventListener('click', e => updateSlider(e.clientX));
+
+  renderGarments(sliderPos);
+
+  // Tab switching
+  document.querySelectorAll('.browse-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.browse-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

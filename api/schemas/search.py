@@ -14,11 +14,12 @@ class SearchFilters(BaseModel):
     era: str | None = None
     decade: str | None = None
     garment_type: str | None = None
-    vibe: str | None = None
     occasion: str | None = None
     fit_style: str | None = None
     culture: str | None = None
     material: str | None = None
+    designer: str | None = None
+    production_mode: str | None = None
 
 
 class TextSearchRequest(BaseModel):
@@ -28,7 +29,7 @@ class TextSearchRequest(BaseModel):
         { query, limit, filters }
     """
 
-    query: str
+    query: str = Field(min_length=1)
     limit: int = Field(default=12, ge=1, le=100)
     filters: SearchFilters | None = None
 
@@ -54,6 +55,7 @@ class SearchResult(BaseModel):
     id: int
     score: float
     title: str
+    display_title: str | None = None
     category: str | None = None
     primary_image: str | None = None
 
@@ -64,13 +66,14 @@ class SearchResult(BaseModel):
     colors: list[str] = []
     material: str | None = None
     garment_type: str | None = None
-    vibe: str | None = None
     fit_style: str | None = None
     occasion: str | None = None
     ai_description: str | None = None
     culture: str | None = None
     object_date: str | None = None
     price: float | None = None
+    designer: str | None = None
+    production_mode: str | None = None
     
     @field_validator("style_tags", "colors", mode="before")
     @classmethod

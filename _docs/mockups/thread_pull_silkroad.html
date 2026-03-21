@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<title>Thread Pull — The Silk Road Thread</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --white: #FFFFFF; --off-white: #F5F5F0; --black: #0A0A0A; --dark: #1A1A1A;
+    --grey-600: #6B6B6B; --grey-400: #9B9B9B; --grey-200: #E0E0E0; --grey-100: #F0F0F0;
+    --accent: #C4553A; --met: #8B2332; --smithsonian: #2E5A88; --va: #4A4A4A;
+  }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--white); color: var(--black); line-height: 1.5; }
+
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 20px 48px; background: rgba(255,255,255,0.96); border-bottom: 1px solid var(--grey-200); }
+  .nav-wordmark { font-size: 15px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; text-decoration: none; color: var(--black); }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; color: var(--grey-600); }
+
+  .thread-header { padding: 120px 48px 56px; max-width: 800px; margin: 0 auto; }
+  .thread-back { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey-400); text-decoration: none; display: inline-block; margin-bottom: 32px; }
+  .thread-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  .thread-title { font-size: 48px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.05; margin-bottom: 16px; }
+  .thread-subtitle { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-style: italic; color: var(--dark); max-width: 580px; line-height: 1.45; margin-bottom: 12px; }
+  .thread-stats { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--grey-400); letter-spacing: 0.08em; }
+
+  .thread { max-width: 800px; margin: 0 auto; padding: 0 48px 120px; }
+
+  .node { padding: 48px 0 0; }
+  .node-number { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--grey-400); margin-bottom: 16px; }
+  .node-inner { display: grid; grid-template-columns: 220px 1fr; gap: 36px; align-items: start; }
+  .node-image { width: 220px; aspect-ratio: 3/4; background: var(--off-white); overflow: hidden; cursor: pointer; }
+  .node-image img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.4s ease; }
+  .node-image:hover img { transform: scale(1.04); }
+  .node-platform { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .node-title { font-size: 22px; font-weight: 600; line-height: 1.2; margin-bottom: 8px; }
+  .node-era { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--grey-600); margin-bottom: 16px; }
+  .node-year { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--black); border-bottom: 2px solid var(--grey-200); padding-bottom: 2px; margin-bottom: 16px; }
+  .node-desc { font-size: 14px; color: var(--dark); line-height: 1.65; }
+
+  .edge { position: relative; padding: 36px 0 36px 32px; margin-left: 110px; border-left: 1px solid var(--grey-200); }
+  .edge::after { content: ''; position: absolute; bottom: 0; left: -4px; width: 7px; height: 7px; background: var(--grey-200); border-radius: 50%; }
+  .edge-ref { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  .edge-entities { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .entity-tag { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--grey-200); border-radius: 999px; padding: 4px 12px; color: var(--grey-600); }
+  .edge-distance { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--grey-400); display: flex; align-items: center; gap: 12px; }
+
+  .thread-end { text-align: center; padding: 80px 0 0; border-top: 1px solid var(--grey-200); margin-top: 48px; }
+  .thread-end-text { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-style: italic; color: var(--grey-400); margin-bottom: 8px; }
+  .thread-end-summary { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--grey-400); letter-spacing: 0.08em; margin-bottom: 32px; }
+  .thread-cta { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--black); background: none; border: 1px solid var(--black); padding: 14px 32px; cursor: pointer; border-radius: 2px; transition: all 0.2s; margin: 0 8px; }
+  .thread-cta:hover { background: var(--black); color: var(--white); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-wordmark" href="#">Vintage Vestige</a>
+  <ul class="nav-links">
+    <li><a href="#">Search</a></li>
+    <li><a href="#">Explore</a></li>
+    <li><a href="#">Connections</a></li>
+    <li><a href="#">About</a></li>
+  </ul>
+</nav>
+
+<div class="thread-header">
+  <a class="thread-back" href="#">← Back</a>
+  <div class="thread-label">Pull the Thread</div>
+  <div class="thread-title">The Silk Road Thread</div>
+  <div class="thread-subtitle">From Elizabethan Italian velvet through Indian silk, Chinese embroidery, Rococo chinoiserie, and the New Look — 1,000 years of silk weaving across five cultures.</div>
+  <div class="thread-stats">8 garments · 7 connections · Italy → India → China → France → America</div>
+</div>
+
+<div class="thread">
+
+  <!-- NODE 1: Elizabethan Italian Silk Velvet -->
+  <div class="node">
+    <div class="node-number">01</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3578.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--smithsonian);">Smithsonian</div>
+        <div class="node-year">ca. 1580</div>
+        <div class="node-title">Deep Red Silk Velvet Fragment with Thistle Motifs</div>
+        <div class="node-era">Elizabethan · Italian</div>
+        <div class="node-desc">A polychrome silk velvet displaying stylized thistle motifs arranged in a repeating pattern on a deep red ground. Italian Renaissance weavers produced these luxury textiles for export across Europe, using techniques inherited from Byzantine and Islamic workshops.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 1→2 -->
+  <div class="edge">
+    <div class="edge-ref">Connected through: brocade-weaving + hand-weaving</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Brocade-weaving</span>
+      <span class="entity-tag">Technique · Hand-weaving</span>
+    </div>
+    <div class="edge-distance">410 years · cross-culture</div>
+  </div>
+
+  <!-- NODE 2: Indian Tasar Silk Sari -->
+  <div class="node">
+    <div class="node-number">02</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/4553.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-year">ca. 2014</div>
+        <div class="node-title">Deep Green Burgundy Tasar Silk Sari</div>
+        <div class="node-era">Dark Academia · Indian</div>
+        <div class="node-desc">Handwoven tasar silk with traditional Indian brocade techniques — the same hand-weaving methods that traveled westward to Italian workshops centuries ago, here preserved in their original South Asian context.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 2→3 -->
+  <div class="edge">
+    <div class="edge-ref">Connected through: garment system (sari construction)</div>
+    <div class="edge-entities">
+      <span class="entity-tag">System · Blouse</span>
+      <span class="entity-tag">System · Petticoat</span>
+    </div>
+    <div class="edge-distance">90 years · cross-culture</div>
+  </div>
+
+  <!-- NODE 3: Chinese Embroidered Silk Sari -->
+  <div class="node">
+    <div class="node-number">03</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/4556.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-year">ca. 1925</div>
+        <div class="node-title">Navy Blue Silk Sari with Gold Embroidered Florals</div>
+        <div class="node-era">Roaring Twenties / Art Deco · Chinese</div>
+        <div class="node-desc">Dense gold silk embroidery on a navy ground — a sari woven with Chinese silk techniques for the Indian market. A textile that embodies the trade routes connecting East and South Asia, where Chinese silk met Indian garment construction.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 3→4 -->
+  <div class="edge">
+    <div class="edge-ref">Lineage: "Chinese export textile tradition"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Influence · Chinese export textile</span>
+    </div>
+    <div class="edge-distance">180 years · cross-category</div>
+  </div>
+
+  <!-- NODE 4: Chinese Quilted Silk Shawl -->
+  <div class="node">
+    <div class="node-number">04</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/104.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--met);">The Met</div>
+        <div class="node-year">ca. 1740</div>
+        <div class="node-title">Cream Quilted Silk Diamond Pattern Shawl</div>
+        <div class="node-era">Rococo · Chinese</div>
+        <div class="node-desc">Chinese export silk, quilted in a diamond pattern for the European market. By the 18th century, Chinese silk workshops were producing specifically for Western tastes — a reversal of the medieval Silk Road, where the technique traveled but the market direction flipped.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 4→5 -->
+  <div class="edge">
+    <div class="edge-ref">Connected through: Chinoiserie movement</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Movement · Chinoiserie</span>
+    </div>
+    <div class="edge-distance">210 years · cross-culture</div>
+  </div>
+
+  <!-- NODE 5: French Chinoiserie Coat Dress -->
+  <div class="node">
+    <div class="node-number">05</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/2439.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-year">ca. 1950</div>
+        <div class="node-title">Black White Silk Chinoiserie Coat Dress</div>
+        <div class="node-era">New Look / Post-War · French</div>
+        <div class="node-desc">A fashion illustration of a coat dress with Asian-inspired motifs — chinoiserie's final form. What began as European fascination with Chinese silk technique became a decorative vocabulary that French couture could deploy at will, divorced from its textile origins.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 5→6 -->
+  <div class="edge">
+    <div class="edge-ref">Lineage: "New Look silhouette"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Influence · New Look silhouette</span>
+      <span class="entity-tag">System · Petticoat</span>
+    </div>
+    <div class="edge-distance">Same era · cross-culture</div>
+  </div>
+
+  <!-- NODE 6: American Off-Shoulder Dress -->
+  <div class="node">
+    <div class="node-number">06</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/54.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--met);">The Met</div>
+        <div class="node-year">ca. 1955</div>
+        <div class="node-title">White Cotton Off-Shoulder Fit and Flare Dress</div>
+        <div class="node-era">Atomic Age · American</div>
+        <div class="node-desc">The New Look reaches American cotton. The same silhouette that Dior engineered in French silk — that nipped waist, that full skirt requiring petticoats underneath — translated into everyday American fabric. The construction DNA traveled, the luxury materials didn't.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 6→7 -->
+  <div class="edge">
+    <div class="edge-ref">Connected through: undergarment construction</div>
+    <div class="edge-entities">
+      <span class="entity-tag">System · Undergarments</span>
+      <span class="entity-tag">Technique · Block-printing</span>
+    </div>
+    <div class="edge-distance">30 years · cross-culture</div>
+  </div>
+
+  <!-- NODE 7: French Art Deco Drop Waist -->
+  <div class="node">
+    <div class="node-number">07</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/2476.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-year">ca. 1925</div>
+        <div class="node-title">Forest Green Printed Silk Drop Waist Dress</div>
+        <div class="node-era">Roaring Twenties / Art Deco · French</div>
+        <div class="node-desc">A sleeveless summer dress in block-printed silk with a drop waist — the 1920s silhouette that rejected everything the corset era stood for. The printed silk technique connects to Asian textile traditions, but the columnar form is pure Western modernism.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 7→8 -->
+  <div class="edge">
+    <div class="edge-ref">Lineage: "1920s drop-waist silhouette"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Influence · 1920s drop-waist</span>
+    </div>
+    <div class="edge-distance">80 years · cross-culture</div>
+  </div>
+
+  <!-- NODE 8: Y2K American Dress -->
+  <div class="node">
+    <div class="node-number">08</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3437.jpg" alt="">
+      </div>
+      <div>
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-year">ca. 2002</div>
+        <div class="node-title">Blue Cotton Sleeveless Zip-Front Dress with Ruched Skirt</div>
+        <div class="node-era">Y2K · American</div>
+        <div class="node-desc">The thread arrives in the 21st century. This cotton zip-front dress with its ruched skirt explicitly references the 1920s drop-waist — a silhouette that itself emerged from the rejection of Victorian structure. A thousand years of silk technique, garment construction, and cultural exchange compressed into a cotton day dress.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREAD END -->
+  <div class="thread-end">
+    <div class="thread-end-text">8 steps. Keep pulling?</div>
+    <div class="thread-end-summary">1,000 years · 5 cultures · 3 continents · silk weaving → chinoiserie → modernism</div>
+    <button class="thread-cta">Continue this thread</button>
+    <button class="thread-cta" onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to top</button>
+  </div>
+
+</div>
+
+</body>
+</html>

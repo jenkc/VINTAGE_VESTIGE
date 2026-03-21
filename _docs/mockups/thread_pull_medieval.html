@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<title>Thread Pull — The Brocade Thread</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white: #FFFFFF;
+    --off-white: #F5F5F0;
+    --black: #0A0A0A;
+    --dark: #1A1A1A;
+    --grey-600: #6B6B6B;
+    --grey-400: #9B9B9B;
+    --grey-200: #E0E0E0;
+    --grey-100: #F0F0F0;
+    --accent: #C4553A;
+    --met: #8B2332;
+    --smithsonian: #2E5A88;
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--white);
+    color: var(--black);
+    line-height: 1.5;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px;
+    background: rgba(255,255,255,0.96);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .nav-wordmark {
+    font-size: 15px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; text-decoration: none; color: var(--black);
+  }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    text-decoration: none; color: var(--grey-600); transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--black); }
+
+  /* ── THREAD HEADER ── */
+  .thread-header {
+    padding: 120px 48px 56px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .thread-back {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey-400); text-decoration: none;
+    display: inline-block; margin-bottom: 32px;
+    transition: color 0.2s;
+  }
+  .thread-back:hover { color: var(--black); }
+  .thread-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 16px;
+  }
+  .thread-title {
+    font-size: 48px; font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.05; margin-bottom: 16px;
+  }
+  .thread-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; font-style: italic; color: var(--dark);
+    max-width: 560px; line-height: 1.45;
+    margin-bottom: 12px;
+  }
+  .thread-stats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-400); letter-spacing: 0.08em;
+  }
+
+  /* ── THREAD CONTAINER ── */
+  .thread {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 48px 120px;
+  }
+
+  /* ── NODE ── */
+  .node {
+    padding: 48px 0 0;
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  .node-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--grey-400); margin-bottom: 16px;
+  }
+  .node-inner {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 36px;
+    align-items: start;
+  }
+  .node-image {
+    width: 220px; aspect-ratio: 3/4;
+    background: var(--off-white);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .node-image img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    transition: transform 0.4s ease;
+  }
+  .node-image:hover img { transform: scale(1.04); }
+
+  .node-meta { padding-top: 4px; }
+  .node-platform {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .node-title {
+    font-size: 24px; font-weight: 600; line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .node-era {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-600); margin-bottom: 16px;
+  }
+  .node-year-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; font-weight: 400;
+    color: var(--black);
+    border-bottom: 2px solid var(--grey-200);
+    padding-bottom: 2px;
+    margin-bottom: 16px;
+  }
+  .node-desc {
+    font-size: 15px; color: var(--dark); line-height: 1.65;
+  }
+
+  /* ── EDGE ── */
+  .edge {
+    position: relative;
+    padding: 36px 0 36px 32px;
+    margin-left: 110px;
+    border-left: 1px solid var(--grey-200);
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  .edge::after {
+    content: '';
+    position: absolute; bottom: 0; left: -4px;
+    width: 7px; height: 7px;
+    background: var(--grey-200);
+    border-radius: 50%;
+  }
+
+  .edge-ref {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 12px;
+  }
+  .edge-entities {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 14px;
+  }
+  .entity-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--grey-200); border-radius: 999px;
+    padding: 4px 12px; color: var(--grey-600);
+  }
+  .edge-distance {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--grey-400);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .edge-score {
+    color: var(--grey-300);
+  }
+
+  /* ── THREAD END ── */
+  .thread-end {
+    text-align: center; padding: 80px 0 0;
+    border-top: 1px solid var(--grey-200);
+    margin-top: 48px;
+  }
+  .thread-end-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px; font-style: italic; color: var(--grey-400);
+    margin-bottom: 8px;
+  }
+  .thread-end-summary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--grey-400); letter-spacing: 0.08em;
+    margin-bottom: 32px;
+  }
+  .thread-restart {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--black); background: none; border: 1px solid var(--black);
+    padding: 14px 32px; cursor: pointer; border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .thread-restart:hover { background: var(--black); color: var(--white); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-wordmark" href="#">Vintage Vestige</a>
+  <ul class="nav-links">
+    <li><a href="#">Search</a></li>
+    <li><a href="#">Explore</a></li>
+    <li><a href="#">Connections</a></li>
+    <li><a href="#">About</a></li>
+  </ul>
+</nav>
+
+<div class="thread-header">
+  <a class="thread-back" href="#">← Back to product</a>
+  <div class="thread-label">Pull the Thread</div>
+  <div class="thread-title">The Brocade Thread</div>
+  <div class="thread-subtitle">From Late Medieval silk velvet to a Gilded Age tea gown — 600 years of brocade weaving across four continents.</div>
+  <div class="thread-stats">6 garments · 5 connections · Western Europe → Italy → Japan → Europe → America</div>
+</div>
+
+<div class="thread">
+
+  <!-- NODE 1 -->
+  <div class="node">
+    <div class="node-number">01</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3546.jpg" alt="Late Medieval Silk Velvet">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--smithsonian);">Smithsonian</div>
+        <div class="node-year-badge">ca. 1400</div>
+        <div class="node-title">Deep Burgundy Silk Velvet Fragment with Gold</div>
+        <div class="node-era">Late Medieval · Western European</div>
+        <div class="node-desc">A fragment of luxury silk velvet with gold brocade patterning. This type of textile was produced for European courts and the Church, often woven by artisans trained in techniques that had traveled westward from Byzantine and Islamic workshops.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 1→2 -->
+  <div class="edge">
+    <div class="edge-ref">Connected through: Islamic textile patterns</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Hand-weaving</span>
+      <span class="entity-tag">Function · Court-formal</span>
+    </div>
+    <div class="edge-distance">
+      <span>100 years · cross-culture</span>
+      <span class="edge-score">72%</span>
+    </div>
+  </div>
+
+  <!-- NODE 2 -->
+  <div class="node" style="animation-delay: 0.1s;">
+    <div class="node-number">02</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3569.jpg" alt="Italian Renaissance Velvet">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--smithsonian);">Smithsonian</div>
+        <div class="node-year-badge">ca. 1500</div>
+        <div class="node-title">Deep Burgundy Silk Velvet Textile Fragment</div>
+        <div class="node-era">Italian Renaissance · Italian</div>
+        <div class="node-desc">Italian Renaissance weavers refined the silk velvet techniques they inherited from Islamic and Byzantine traditions. This fragment shows the characteristic large-scale pomegranate motif that dominated European luxury textiles for over a century.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 2→3 -->
+  <div class="edge" style="animation-delay: 0.15s;">
+    <div class="edge-ref">Connected through: Byzantine silk traditions</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Influence · Islamic textile patterns</span>
+      <span class="entity-tag">Technique · Hand-weaving</span>
+    </div>
+    <div class="edge-distance">
+      <span>100 years · cross-culture</span>
+      <span class="edge-score">80%</span>
+    </div>
+  </div>
+
+  <!-- NODE 3 -->
+  <div class="node" style="animation-delay: 0.2s;">
+    <div class="node-number">03</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3581.jpg" alt="Medieval Blue Velvet">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--smithsonian);">Smithsonian</div>
+        <div class="node-year-badge">ca. 1400</div>
+        <div class="node-title">Deep Blue Silk Velvet Fragment with Brocade</div>
+        <div class="node-era">Late Medieval · Western European</div>
+        <div class="node-desc">This blue velvet with gold brocade shows the same Byzantine-derived weaving techniques appearing across medieval Europe. The transition from flat patterning to cut velvet pile represented a major technical achievement that required specialized drawlooms.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 3→4 -->
+  <div class="edge" style="animation-delay: 0.25s;">
+    <div class="edge-ref">Connected through: brocade-weaving</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Brocade-weaving</span>
+      <span class="entity-tag">Function · Religious-ceremonial</span>
+    </div>
+    <div class="edge-distance">
+      <span>215 years · cross-culture</span>
+      <span class="edge-score">49%</span>
+    </div>
+  </div>
+
+  <!-- NODE 4 -->
+  <div class="node" style="animation-delay: 0.3s;">
+    <div class="node-number">04</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/3812.jpg" alt="Japanese Kesa">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--smithsonian);">Smithsonian</div>
+        <div class="node-year-badge">ca. 1615</div>
+        <div class="node-title">Silk Brocade Buddhist Monk's Patchwork Kesa</div>
+        <div class="node-era">Jacobean · Japanese</div>
+        <div class="node-desc">A Buddhist monk's robe constructed from pieces of luxury silk brocade — the same weaving technique, now traveling eastward along the Silk Road. The kesa's patchwork construction deliberately fragments expensive fabric as an act of renunciation, transforming court luxury into sacred humility.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 4→5 -->
+  <div class="edge" style="animation-delay: 0.35s;">
+    <div class="edge-ref">Connected through: brocade-weaving</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Brocade-weaving</span>
+      <span class="entity-tag">Function · Court-formal</span>
+    </div>
+    <div class="edge-distance">
+      <span>125 years · cross-culture</span>
+      <span class="edge-score">40%</span>
+    </div>
+  </div>
+
+  <!-- NODE 5 -->
+  <div class="node" style="animation-delay: 0.4s;">
+    <div class="node-number">05</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/114.jpg" alt="Rococo Brocade Bag">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--met);">The Met</div>
+        <div class="node-year-badge">ca. 1740</div>
+        <div class="node-title">Coral Red Silk Brocade Envelope Bag</div>
+        <div class="node-era">Rococo · European</div>
+        <div class="node-desc">By the 18th century, brocade weaving had been fully domesticated into European fashion. This small envelope bag uses the same silk brocade technique that once clothed emperors and monks — now miniaturized into a court accessory, the sacred made decorative.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 5→6 -->
+  <div class="edge" style="animation-delay: 0.45s;">
+    <div class="edge-ref">Connected through: brocade-weaving + court-formal</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Brocade-weaving</span>
+      <span class="entity-tag">Function · Court-formal</span>
+    </div>
+    <div class="edge-distance">
+      <span>160 years · cross-culture</span>
+      <span class="edge-score">48%</span>
+    </div>
+  </div>
+
+  <!-- NODE 6 -->
+  <div class="node" style="animation-delay: 0.5s;">
+    <div class="node-number">06</div>
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/2335.jpg" alt="Cream Tea Gown">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--met);">The Met</div>
+        <div class="node-year-badge">ca. 1895</div>
+        <div class="node-title">Cream Silk Brocade A-Line Tea Gown</div>
+        <div class="node-era">Fin de Siecle / Gibson Girl · American</div>
+        <div class="node-desc">The thread ends in a New York parlor. This tea gown uses machine-assisted brocade weaving — the industrial descendant of techniques that began in Byzantine workshops, traveled through Islamic courts, clothed Italian Renaissance nobility, wrapped Japanese monks, and adorned Rococo accessories before arriving here, 600 years later, as afternoon luxury.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREAD END -->
+  <div class="thread-end">
+    <div class="thread-end-text">The thread ends here.</div>
+    <div class="thread-end-summary">6 garments · 600 years · 4 continents · 1 technique</div>
+    <button class="thread-restart" onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to top</button>
+  </div>
+
+</div>
+
+</body>
+</html>

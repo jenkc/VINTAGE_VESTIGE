@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
-import { getProduct, getStyleAncestry, getStyleSiblings } from "@/lib/api";
+import { getProduct, getStyleAncestry, getProductBridges } from "@/lib/api";
 import { PLATFORM_NAMES, PLATFORM_COLORS } from "@/styles/theme";
 import { BridgeCardFull, BridgeCardCompact } from "@/components/bridge";
 import type { Metadata } from "next";
@@ -9,11 +10,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { id } = await params;
     try {
         const product = await getProduct(Number(id));
+        const title = product.display_title || product.title;
         return {
-            title: product.title,
-            description: product.ai_description ?? `${product.title} - explore style bridges and design connections.`,
+            title,
+            description: product.ai_description ?? `${title} — explore connections and design history.`,
             openGraph: {
-                title: product.title,
+                title,
                 description: product.ai_description ?? undefined,
                 images: product.primary_image ? [product.primary_image] : [],
             }
@@ -23,7 +25,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 }
 
-
 interface Props {
     params: Promise<{ id: string }>;
 }
@@ -32,7 +33,7 @@ export default async function ProductDetailPage({ params }: Props) {
     const { id } = await params;
     const numId = Number(id);
     if (Number.isNaN(numId)) notFound();
-    
+
     let product;
     try {
         product = await getProduct(numId);
@@ -40,32 +41,34 @@ export default async function ProductDetailPage({ params }: Props) {
         notFound();
     }
 
-    const [ancestryData, siblingsData] = await Promise.all([
-        getStyleAncestry(numId, { limit: 4 }),
-        getStyleSiblings(numId, { limit: 6 }),
+    const [connectedData, echoesData] = await Promise.all([
+        getProductBridges(numId, { limit: 4 }),
+        getStyleAncestry(numId, { limit: 6 }),
     ]);
 
     const platformName = PLATFORM_NAMES[product.platform as keyof typeof PLATFORM_NAMES] ?? product.platform;
+    const platformColor = PLATFORM_COLORS[product.platform as keyof typeof PLATFORM_COLORS] ?? "#6B6B6B";
 
-    const platformColor = PLATFORM_COLORS[product.platform as keyof typeof PLATFORM_COLORS] ?? "#8A7E74";
+    const displayTitle = product.display_title || product.title;
 
-    const tags = [product.era, product.garment_type, product.vibe, product.material]
-        .filter(Boolean) as string[];
+    // Parse named_movements and influence_references for display
+    const movements = product.named_movements ?? [];
+    const influences = product.influence_references ?? [];
 
     return (
-        <div className="bg-cream-dark">
+        <div className="bg-white">
             {/* Hero */}
             <section className="mx-auto grid max-w-[1200px] gap-12 px-6 pt-12 pb-16 md:grid-cols-2 md:px-12">
                 {/* Image */}
-                <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-gradient-to-br from-border to-border-light">
+                <div className="relative aspect-[3/4] overflow-hidden bg-off-white">
                     {product.primary_image && (
                         <Image
                             src={product.primary_image}
-                            alt={product.title}
+                            alt={displayTitle}
                             fill
                             priority
                             sizes="(max-width: 768px) 100vw, 50vw"
-                            className="object-cover"
+                            className="object-contain"
                         />
                     )}
                 </div>
@@ -73,98 +76,116 @@ export default async function ProductDetailPage({ params }: Props) {
                 {/* Info */}
                 <div className="flex flex-col justify-center">
                     <span
-                        className="w-fit rounded-full bg-warm-white/90 px-2.5 py-1 font-serif text-[10px] font-semibold uppercase tracking-[0.3px]"
+                        className="w-fit font-mono text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: platformColor }}
                     >
                         {platformName}
                     </span>
 
-                    <h1 className="mt-4 font-serif text-3xl font-bold leading-tight text-charcoal md:text-4xl">
-                        {product.title}
+                    <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-black md:text-[44px] md:leading-[1.05]">
+                        {displayTitle}
                     </h1>
 
-                    {tags.length > 0 && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            {tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="rounded-full bg-gold/8 px-3 py-1 font-serif text-xs text-gold"
-                                >
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                    )}
+                    <p className="mt-2 font-mono text-[11px] text-grey-600">
+                        {[product.era, product.decade, product.culture].filter(Boolean).join(" · ")}
+                    </p>
 
-                    {product.ai_description && (
-                        <p className="mt-6 leading-[1.6] text-charcoal-soft">
-                            {product.ai_description}
-                        </p>
-                    )}
-
-                    {/* Metadata grid */}
-                    <div className="mt-8 grid grid-cols-2 gap-4">
+                    {/* KG metadata grid */}
+                    <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3">
                         {[
-                            { label: "Era", value: product.era },
-                            { label: "Date", value: product.object_date },
+                            { label: "Designer", value: product.designer },
+                            { label: "Production", value: product.production_mode },
                             { label: "Material", value: product.material },
                             { label: "Culture", value: product.culture },
                         ].filter((m) => m.value)
                         .map((m) => (
                             <div key={m.label}>
-                                <p className="font-serif text-[9px] font-semibold uppercase tracking-[2px] text-muted">
+                                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-grey-400">
                                     {m.label}
                                 </p>
-                                <p className="mt-1 font-serif text-base font-bold text-charcoal">
+                                <p className="mt-0.5 text-[13px] text-dark">
                                     {m.value}
                                 </p>
-                            </div>    
+                            </div>
                         ))}
+                        {movements.length > 0 && (
+                            <div>
+                                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-grey-400">
+                                    Movement
+                                </p>
+                                <p className="mt-0.5 text-[13px] text-dark">
+                                    {movements.join(" · ")}
+                                </p>
+                            </div>
+                        )}
+                        {influences.length > 0 && (
+                            <div>
+                                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-grey-400">
+                                    Influences
+                                </p>
+                                <p className="mt-0.5 text-[13px] text-dark">
+                                    {influences.join(" · ")}
+                                </p>
+                            </div>
+                        )}
                     </div>
+
+                    {product.ai_description && (
+                        <p className="mt-6 text-[15px] leading-[1.7] text-dark">
+                            {product.ai_description}
+                        </p>
+                    )}
+
+                    {/* Attribute tags */}
+                    {product.fp_category && (
+                        <div className="mt-6 flex flex-wrap gap-2">
+                            {[product.fp_category, product.silhouette, product.neckline, product.length]
+                                .filter(Boolean)
+                                .map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="border border-grey-200 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-grey-600"
+                                        style={{ borderRadius: '999px' }}
+                                    >
+                                        {tag}
+                                    </span>
+                                ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
-            {/* Style Ancestry */}
-            {ancestryData.bridges.length > 0 && (
+            {/* Connected To */}
+            {connectedData.bridges.length > 0 && (
                 <section className="mx-auto max-w-[1200px] px-6 pt-12 pb-16 md:px-12">
-                    <p className="font-serif text-[10px] font-semibold uppercase tracking-[3px] text-muted">
-                        Style Ancestry
-                    </p>
-                    <h2 className="mt-2 font-serif text-[28px] font-bold text-charcoal">
-                        Historical Influences
-                    </h2>
-                    <p className="mt-1 text-sm text-muted">
-                        Garments that share design DNA across centuries
-                    </p>
+                    <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.15em] text-grey-400">
+                        <span>Connected To</span>
+                        <span className="h-px flex-1 bg-grey-200" />
+                    </div>
 
                     <div className="mt-8 grid gap-6 md:grid-cols-2">
-                        {ancestryData.bridges.map((bridge) => (
+                        {connectedData.bridges.map((bridge) => (
                             <BridgeCardFull key={bridge.id} bridge={bridge} />
                         ))}
                     </div>
                 </section>
             )}
 
-            {/* Style Siblings */}
-            {siblingsData.bridges.length > 0 && (
-                <section className="border-t border-border px-6 pt-12 pb-16 md:px-12">
+            {/* Echoes Across Time */}
+            {echoesData.bridges.length > 0 && (
+                <section className="border-t border-grey-200 px-6 pt-12 pb-16 md:px-12">
                     <div className="mx-auto max-w-[1200px]">
-                        <p className="font-serif text-[10px] font-semibold uppercase tracking-[3px] text-muted">
-                            Style Siblings
-                        </p>
-                        <h2 className="mt-2 font-serif text-[28px] font-bold text-charcoal">
-                            Related Garments
-                        </h2>
-                        <p className="mt-1 text-sm text-muted">
-                            Similar design DNA across the collection
-                        </p>
+                        <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.15em] text-grey-400">
+                            <span>Echoes Across Time</span>
+                            <span className="h-px flex-1 bg-grey-200" />
+                        </div>
 
-                        <div 
+                        <div
                             className="mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4"
                             role="region"
-                            aria-label="Related garments"
+                            aria-label="Cross-time connections"
                         >
-                            {siblingsData.bridges.map((bridge) => (
+                            {echoesData.bridges.map((bridge) => (
                                 <BridgeCardCompact key={bridge.id} bridge={bridge} />
                             ))}
                         </div>
@@ -172,9 +193,21 @@ export default async function ProductDetailPage({ params }: Props) {
                 </section>
             )}
 
+            {/* Pull the Thread CTA */}
+            <section className="border-t border-grey-200 px-6 py-12 md:px-12">
+                <div className="mx-auto max-w-[1200px]">
+                    <Link
+                        href={`/thread/${numId}`}
+                        className="group flex items-center gap-3 font-mono text-[13px] uppercase tracking-[0.12em] text-black no-underline"
+                    >
+                        Pull the Thread
+                        <span className="transition-transform duration-200 group-hover:translate-x-2">→</span>
+                    </Link>
+                    <p className="mt-2 font-mono text-[10px] text-grey-400 tracking-[0.06em]">
+                        Follow this garment wherever the graph leads
+                    </p>
+                </div>
+            </section>
         </div>
-    )
+    );
 }
-
-
-

@@ -107,20 +107,23 @@ museum LOD federation without any migration.
 
 ### KGD-005 — Bridge Classification Pre-Computed in Supabase, Not in Export Scripts
 
-**Date:** March 2026 (updated March 7 2026)
-**Status:** Active (revised)
+**Date:** March 2026 (updated 2026-03-13)
+**Status:** Active (revised — COMPLETE)
 **Decision:** Classify bridges across **6 orthogonal dimensions** in a standalone script
-(`scripts/classify_bridge_dimensions.py`) during Phase 0 — before KG work begins —
+(`tools/analysis/classify_bridge_dimensions.py`) during Phase 0 — before KG work begins —
 and store the results as columns on `style_bridges` in Supabase. Neptune export
 scripts read these columns directly; they do not re-classify.
 
 The 6 dimensions replace the old single `semantic_type` column:
-- `temporal_type` — transmission / continuation / contemporary
+- `temporal_type` — transmission / continuation / echo / cross_vibe / contemporary
 - `crossing_type` — same_context / cross_category / cross_culture / cross_category_culture
-- `connection_mode` — citation / echo / parallel / contrast / kinship
+- `connection_mode` — **contrast / resonance / affinity** (simplified from 5 modes to 3 sharp ones; see Decision #35)
 - `primary_axis` — volume / ornament / body / register
 - `secondary_axis` — volume / ornament / body / register
 - `contrast_pair` — e.g. "Exaggerated Volume <-> Column Minimalism" (contrast only)
+
+**Status as of 2026-03-13:** COMPLETE. 14,194/14,223 bridges classified.
+Distribution: affinity 10,886 / contrast 3,314 / resonance 23.
 
 **Rationale:**
 The original single `semantic_type` conflated temporal distance, categorical crossing,

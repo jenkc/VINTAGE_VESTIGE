@@ -117,9 +117,18 @@ class TestBridgeDataQuality:
 
     def test_bridge_type_values_valid(self, db):
         """bridge_type should be one of the known types."""
-        valid_types = {'transmission', 'continuation', 'revival',
-                       'cross_category', 'cross_vibe', 'cross_culture',
-                       'near_era'}
+        valid_types = {
+            # Pass 1 (temporal)
+            'transmission', 'continuation', 'echo', 'cross_vibe', 'contemporary',
+            # Pass 2 (opposition)
+            'opposition',
+            # Pass 3 (shared purpose)
+            'function',
+            # Pass 4 (structural)
+            'structural',
+            # Legacy types (may still exist in DB)
+            'revival', 'cross_category', 'cross_culture', 'near_era',
+        }
         types_in_db = set(
             r[0] for r in db.query(StyleBridge.bridge_type).distinct().all()
             if r[0] is not None
@@ -157,8 +166,8 @@ class TestBridgeCoverage:
         assert count >= 1000, f"Only {count} bridges — expected 1000+"
 
     def test_all_bridge_types_represented(self, db):
-        """Each bridge type should have at least some bridges."""
-        expected_types = {'transmission', 'cross_category'}
+        """Each pipeline pass should have produced some bridges."""
+        expected_types = {'transmission', 'function', 'structural'}
         types_in_db = set(
             r[0] for r in db.query(StyleBridge.bridge_type).distinct().all()
             if r[0] is not None

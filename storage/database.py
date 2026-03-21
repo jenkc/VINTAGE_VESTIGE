@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pgvector.sqlalchemy import Vector
 from datetime import datetime
+import time
 import os
 from dotenv import load_dotenv
 
@@ -22,21 +23,34 @@ engine = create_engine(
 class ResilientSession(Session):
     """Session that auto-retries on Supabase pooler connection drops."""
 
+    _MAX_RETRIES = 3
+    _RETRY_DELAYS = [1, 3, 5]  # seconds between retries
+
     def execute(self, statement, params=None, **kwargs):
-        try:
-            return super().execute(statement, params, **kwargs)
-        except OperationalError:
-            self.rollback()
-            print("  [resilient-session] Connection dropped, retrying...")
-            return super().execute(statement, params, **kwargs)
+        for attempt in range(self._MAX_RETRIES + 1):
+            try:
+                return super().execute(statement, params, **kwargs)
+            except OperationalError:
+                if attempt == self._MAX_RETRIES:
+                    raise
+                self.rollback()
+                delay = self._RETRY_DELAYS[attempt]
+                print(f"  [resilient-session] Connection dropped, retry {attempt+1}/{self._MAX_RETRIES} in {delay}s...")
+                engine.dispose()  # force fresh connections
+                time.sleep(delay)
 
     def commit(self):
-        try:
-            return super().commit()
-        except OperationalError:
-            self.rollback()
-            print("  [resilient-session] Connection dropped on commit, retrying...")
-            return super().commit()
+        for attempt in range(self._MAX_RETRIES + 1):
+            try:
+                return super().commit()
+            except OperationalError:
+                if attempt == self._MAX_RETRIES:
+                    raise
+                self.rollback()
+                delay = self._RETRY_DELAYS[attempt]
+                print(f"  [resilient-session] Connection dropped on commit, retry {attempt+1}/{self._MAX_RETRIES} in {delay}s...")
+                engine.dispose()
+                time.sleep(delay)
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=ResilientSession)
@@ -115,6 +129,16 @@ class Product(Base):
     social_function = Column(Text, nullable=True)          # JSON array: ["wedding", "status-signaling"] — controlled vocab + freeform
     motif_family = Column(Text, nullable=True)            # JSON array: ["geometric", "floral", "paisley", "chevron"]
 
+    # Knowledge graph fields (from enrichment)
+    designer = Column(String, nullable=True)               # "Vivienne Westwood", "Worth", etc.
+    influence_references = Column(Text, nullable=True)     # JSON array: ["1890s leg-of-mutton sleeve", "Japanese obi wrapping"]
+    production_mode = Column(String, nullable=True)        # haute couture | ready-to-wear | handmade | mass-produced | one-of-a-kind | artisan-craft
+    material_origin = Column(String, nullable=True)        # Geographic origin of primary textile (distinct from garment culture)
+    garment_system = Column(Text, nullable=True)           # JSON array: ["corset", "chemise", "petticoat"]
+    named_movements = Column(Text, nullable=True)          # JSON array: ["Japonisme", "Aesthetic Movement"]
+    low_confidence_fields = Column(Text, nullable=True)    # JSON array: fields Claude was uncertain about
+    display_title = Column(String, nullable=True)            # AI-generated descriptive title (5-10 words)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -122,8 +146,8 @@ class Product(Base):
     enriched_at = Column(DateTime, nullable=True)
 
     # Vector embeddings (pgvector)
-    text_embedding = Column(Vector(384), nullable=True)
-    image_embedding = Column(Vector(512), nullable=True)
+    text_embedding = Column(Vector(768), nullable=True)
+    image_embedding = Column(Vector(768), nullable=True)
 
 
 class StyleBridge(Base):
@@ -135,35 +159,30 @@ class StyleBridge(Base):
     target_id = Column(Integer, ForeignKey('products.id', ondelete='CASCADE'),
                        nullable=False, index=True)
 
-    text_similarity = Column(Float, nullable=False)
-    image_similarity = Column(Float, nullable=True)
-    structural_score = Column(Float, nullable=False)
+    # Scores
+    bridge_score = Column(Float, nullable=True)         # Final composite score (0-1)
+    entity_score = Column(Float, nullable=True)         # IDF-weighted entity overlap
+    text_similarity = Column(Float, nullable=True)      # Cosine similarity of text embeddings
+    image_similarity = Column(Float, nullable=True)     # Cosine similarity of image embeddings
 
-    shared_attributes = Column(Text, nullable=True)  # JSON string
-    bridge_type = Column(String, nullable=True)
+    # Classification
+    connection_mode = Column(String(20), nullable=True) # shared_entity | lineage | visual_echo
+    crossing_type = Column(String(30), nullable=True)   # same_context | cross_category | cross_culture | cross_category_culture
+    year_gap = Column(Integer, nullable=True)           # Actual year distance
+    directed = Column(Boolean, default=False)           # True for lineage (source=older, target=newer)
+
+    # Entity data
+    shared_entities = Column(Text, nullable=True)       # JSON — {entity_type: [values]} — the "why" of the connection
+
+    # Narrative
     bridge_narrative = Column(Text, nullable=True)
-
-    # Legacy single-label classification (deprecated — use dimensions below)
-    semantic_type = Column(String(50), nullable=True)
-    # Multi-dimensional bridge classification
-    temporal_type = Column(String(20), nullable=True)    # transmission | continuation | contemporary
-    crossing_type = Column(String(30), nullable=True)    # same_context | cross_category | cross_culture | cross_category_culture
-    connection_mode = Column(String(20), nullable=True)  # resonance | contrast | affinity
-    primary_axis = Column(String(20), nullable=True)     # volume | ornament | body | register
-    secondary_axis = Column(String(20), nullable=True)   # volume | ornament | body | register
-    contrast_pair = Column(String(100), nullable=True)   # e.g. "Exaggerated Volume <-> Column Minimalism"
-
-
-
-    # IIT 4.0 future-proofing (nullable — populated post-MVP)
-    phi_score = Column(Float, nullable=True)
-    cnn_structural_score = Column(Float, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         UniqueConstraint('source_id', 'target_id', name='uq_bridge_pair'),
     )
+
 
 def init_db():
     """Create all tables"""

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<title>Thread Pull — Vintage Vestige</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white: #FFFFFF;
+    --off-white: #F5F5F0;
+    --black: #0A0A0A;
+    --dark: #1A1A1A;
+    --grey-600: #6B6B6B;
+    --grey-400: #9B9B9B;
+    --grey-200: #E0E0E0;
+    --grey-100: #F0F0F0;
+    --accent: #C4553A;
+    --met: #8B2332;
+    --smithsonian: #2E5A88;
+    --fashionpedia: #6B6B6B;
+    --va: #4A4A4A;
+  }
+
+  html { font-size: 16px; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--white);
+    color: var(--black);
+    line-height: 1.5;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px;
+    background: rgba(255,255,255,0.96);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .nav-wordmark {
+    font-size: 15px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; text-decoration: none; color: var(--black);
+  }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    text-decoration: none; color: var(--grey-600); transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--black); }
+
+  /* ── THREAD HEADER ── */
+  .thread-header {
+    padding: 120px 48px 48px;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .thread-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--grey-400); margin-bottom: 16px;
+  }
+  .thread-title {
+    font-size: 48px; font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.1; margin-bottom: 12px;
+  }
+  .thread-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; font-style: italic; color: var(--dark);
+    max-width: 600px;
+  }
+
+  /* ── THREAD CONTAINER ── */
+  .thread {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 48px 96px;
+  }
+
+  /* ── NODE (garment) ── */
+  .node {
+    padding: 48px 0 0;
+    position: relative;
+  }
+  .node-inner {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .node-image {
+    width: 180px; aspect-ratio: 3/4;
+    background: var(--off-white);
+    overflow: hidden;
+    transition: transform 0.3s;
+    cursor: pointer;
+  }
+  .node-image:hover { transform: scale(1.02); }
+  .node-image img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+  }
+  .node-meta {
+    padding-top: 8px;
+  }
+  .node-platform {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .node-title {
+    font-size: 22px; font-weight: 600; line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .node-era {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--grey-600); margin-bottom: 16px;
+  }
+  .node-desc {
+    font-size: 14px; color: var(--dark); line-height: 1.6;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── EDGE (connection between nodes) ── */
+  .edge {
+    position: relative;
+    padding: 32px 0 32px 24px;
+    margin-left: 90px; /* center on the image column */
+    border-left: 1px solid var(--grey-200);
+  }
+  .edge::before {
+    content: '↓';
+    position: absolute;
+    bottom: -1px; left: -7px;
+    font-size: 14px; color: var(--grey-300);
+    background: var(--white);
+    padding: 2px 0;
+  }
+
+  .edge-lineage-ref {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .edge-shared-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--grey-600); margin-bottom: 10px;
+  }
+  .edge-entities {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 12px;
+  }
+  .entity-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--grey-200); border-radius: 999px;
+    padding: 3px 10px; color: var(--grey-600);
+    transition: border-color 0.2s;
+  }
+  .entity-tag:hover { border-color: var(--grey-400); }
+
+  .edge-distance {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--grey-400);
+    margin-bottom: 16px;
+  }
+  .edge-narrative {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px; font-style: italic; font-weight: 400;
+    line-height: 1.5; color: var(--dark);
+  }
+
+  /* ── BRANCH BUTTON ── */
+  .branch-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey-400); background: none; border: none;
+    cursor: pointer; padding: 8px 0; margin-top: 8px;
+    transition: color 0.2s;
+  }
+  .branch-btn:hover { color: var(--accent); }
+
+  /* ── LOADING INDICATOR ── */
+  .thread-loading {
+    text-align: center; padding: 48px 0;
+    margin-left: 90px;
+  }
+  .thread-loading-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey-400);
+  }
+  .thread-loading-dot {
+    display: inline-block;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* ── THREAD END ── */
+  .thread-end {
+    text-align: center; padding: 64px 0;
+    border-top: 1px solid var(--grey-200);
+    margin-top: 48px;
+  }
+  .thread-end-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px; font-style: italic; color: var(--grey-400);
+    margin-bottom: 24px;
+  }
+  .thread-restart {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--black); background: none; border: 1px solid var(--black);
+    padding: 12px 28px; cursor: pointer; border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .thread-restart:hover { background: var(--black); color: var(--white); }
+
+  /* Animation for nodes appearing */
+  .node, .edge {
+    animation: fadeSlideIn 0.4s ease-out forwards;
+  }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-wordmark" href="#">Vintage Vestige</a>
+  <ul class="nav-links">
+    <li><a href="#">Search</a></li>
+    <li><a href="#">Explore</a></li>
+    <li><a href="#">Connections</a></li>
+    <li><a href="#">About</a></li>
+  </ul>
+</nav>
+
+<!-- THREAD HEADER -->
+<div class="thread-header">
+  <div class="thread-label">Pull the Thread</div>
+  <div class="thread-title">The Preppy Polo</div>
+  <div class="thread-subtitle">From 1920s tennis courts to contemporary streetwear — follow the polo shirt through 100 years of sportswear evolution.</div>
+</div>
+
+<div class="thread">
+
+  <!-- NODE 1 -->
+  <div class="node">
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/1783.jpg" alt="Kelly Green Polo">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+        <div class="node-title">Kelly Green Cotton Pique Fitted Polo Shirt</div>
+        <div class="node-era">Athleisure · Contemporary · American</div>
+        <div class="node-desc">A fitted polo in saturated kelly green cotton pique with embroidered crest on the left chest. The clean construction and classic collar represent the contemporary endpoint of a century-long preppy sportswear tradition.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 1→2 -->
+  <div class="edge">
+    <div class="edge-lineage-ref">Lineage: "preppy sportswear tradition"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Movement · Preppy Revival</span>
+      <span class="entity-tag">Influences · 1920s tennis polo</span>
+    </div>
+    <div class="edge-distance">Same era · American → American</div>
+    <div class="edge-narrative">The solid kelly green polo is preppy orthodoxy in its purest form — that saturated country club color, the clean pique texture, the small embroidered crest sitting exactly where it should on the left chest. The striped version takes that same DNA but adds a nautical twist with its navy-and-white bars.</div>
+    <button class="branch-btn">3 other connections ↗</button>
+  </div>
+
+  <!-- NODE 2 -->
+  <div class="node" style="animation-delay: 0.1s;">
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/1649.jpg" alt="Navy Striped Polo">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+        <div class="node-title">Navy White Striped Cotton Polo Shirt</div>
+        <div class="node-era">Athleisure · Contemporary · American</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 2→3 -->
+  <div class="edge" style="animation-delay: 0.2s;">
+    <div class="edge-lineage-ref">Lineage: "1920s tennis polo"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Knitting</span>
+      <span class="entity-tag">Function · Leisure</span>
+      <span class="entity-tag">Motif · Stripe</span>
+    </div>
+    <div class="edge-distance">90 years apart · cross-culture</div>
+    <div class="edge-narrative">The red and black striped sweater captures that interwar moment when sportswear first became leisurewear — those bold, graphic stripes speak the same visual language as Art Deco's geometric confidence. The contemporary polo inherited this vocabulary but translated it into cotton pique for a different kind of club entirely.</div>
+    <button class="branch-btn">5 other connections ↗</button>
+  </div>
+
+  <!-- NODE 3 -->
+  <div class="node" style="animation-delay: 0.3s;">
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/2919.jpg" alt="1920s Striped Sweater">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--va);">V&A Museum</div>
+        <div class="node-title">Red Black Striped Wool Knit Sweater</div>
+        <div class="node-era">Roaring Twenties / Art Deco · 1920s · British</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDGE 3→4 -->
+  <div class="edge" style="animation-delay: 0.4s;">
+    <div class="edge-lineage-ref">Lineage: "1920s nautical sportswear"</div>
+    <div class="edge-entities">
+      <span class="entity-tag">Technique · Knitting</span>
+      <span class="entity-tag">Motif · Stripe</span>
+    </div>
+    <div class="edge-distance">90 years apart · cross-culture</div>
+    <div class="edge-narrative">These two pieces trace the evolution of the maritime stripe from its Jazz Age origins to its contemporary casual incarnation. The red-and-black wool sweater carries the bold, graphic sensibility of 1920s leisure — a garment that announced you had time for sport and the wardrobe to prove it.</div>
+    <button class="branch-btn">2 other connections ↗</button>
+  </div>
+
+  <!-- NODE 4 -->
+  <div class="node" style="animation-delay: 0.5s;">
+    <div class="node-inner">
+      <div class="node-image">
+        <img src="https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/1525.jpg" alt="Mint Striped Tank">
+      </div>
+      <div class="node-meta">
+        <div class="node-platform" style="color: var(--fashionpedia);">Fashionpedia</div>
+        <div class="node-title">Mint Green White Striped Cotton Tank Top</div>
+        <div class="node-era">Roaring Twenties / Art Deco · Contemporary · American</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREAD END -->
+  <div class="thread-end">
+    <div class="thread-end-text">The thread ends here — for now.</div>
+    <button class="thread-restart">Start a new thread</button>
+  </div>
+
+</div>
+
+</body>
+</html>

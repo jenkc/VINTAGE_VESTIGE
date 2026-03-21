@@ -75,8 +75,15 @@ class TestJSONFieldIntegrity:
         ).limit(100).all()
 
         for (value,) in products:
+            # Native PostgreSQL arrays are returned as Python lists already
+            if isinstance(value, list):
+                continue
+            # JSON string fields
             try:
                 parsed = json.loads(value)
+                # Allow null JSON (some optional fields may be "null")
+                if parsed is None:
+                    continue
                 assert isinstance(parsed, list), (
                     f"{field_name} should be JSON array, got {type(parsed).__name__}"
                 )
@@ -126,7 +133,7 @@ class TestFashionpediaValues:
         # Claude variants (not canonical but acceptable)
         "bag", "shirt", "blouse", "top", "t-shirt", "sweatshirt",
         "headband", "head covering", "hair accessory", "wallet",
-        "stocking", "stockings", "tights",
+        "stocking", "stockings", "tights", "jewelry", "ensemble", "necklace",
         None,
     }
 

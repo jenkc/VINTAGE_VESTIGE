@@ -11,7 +11,7 @@ export default function ImageWithFallback({ className, alt, ...props }: ImagePro
         return (
             <div
                 className={cn(
-                    "bg-gradient-to-br from-border to-border-light",
+                    "bg-gradient-to-br from-grey-100 to-grey-200",
                     className
                 )}
                 role="img"

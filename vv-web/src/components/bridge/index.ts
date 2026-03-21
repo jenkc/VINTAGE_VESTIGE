@@ -1,7 +1,6 @@
 export { default as PlatformBadge } from "./PlatformBadge";
 export { default as EraBadge } from "./EraBadge";
 export { default as ScoreCircle } from "./ScoreCircle";
-export { default as BridgeConnector } from "./BridgeConnector";
 export { default as AttributePill } from "./AttributePill";
 export { default as NarrativeBlock } from "./NarrativeBlock";
 export { default as ScoreBreakdown } from "./ScoreBreakdown";

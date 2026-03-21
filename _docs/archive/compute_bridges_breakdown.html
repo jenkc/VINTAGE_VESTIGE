@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compute Bridges — Technical Breakdown</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #333;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --accent: #c9a55a;
+    --accent2: #7a9ec7;
+    --red: #c75a5a;
+    --green: #5ac77a;
+    --purple: #a07acc;
+    --orange: #d4915a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 3rem 0 1rem 0;
+  }
+
+  h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent2);
+    margin: 1.5rem 0 0.5rem 0;
+  }
+
+  p, li { font-size: 0.9rem; color: var(--text); }
+  p { margin-bottom: 0.8rem; }
+  ul { padding-left: 1.2rem; margin-bottom: 1rem; }
+  li { margin-bottom: 0.3rem; }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-top: -1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  /* Pipeline diagram */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .pass-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    position: relative;
+  }
+
+  .pass-card::before {
+    content: attr(data-pass);
+    position: absolute;
+    top: -0.6rem;
+    left: 1rem;
+    background: var(--bg);
+    padding: 0 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .pass-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .pass-card.similarity h4 { color: var(--accent2); }
+  .pass-card.opposition h4 { color: var(--red); }
+  .pass-card.structural h4 { color: var(--green); }
+  .pass-card.visual h4 { color: var(--purple); }
+
+  .pass-card .method {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-bottom: 0.8rem;
+    font-style: italic;
+  }
+
+  .pass-card .stats {
+    font-size: 0.78rem;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0.2rem 0.8rem;
+  }
+
+  .pass-card .stats .label { color: var(--text-dim); }
+  .pass-card .stats .value { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 2rem 0;
+    font-size: 0.82rem;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+  }
+
+  tbody td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--surface2);
+  }
+
+  tbody tr:hover { background: var(--surface); }
+
+  td code {
+    background: var(--surface2);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+  }
+
+  td .tag {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .tag.exact { background: #1a2a1a; color: var(--green); }
+  .tag.jaccard { background: #2a1a2a; color: var(--purple); }
+
+  /* Axis diagram */
+  .axis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .axis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .axis-card .axis-name {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+  }
+
+  .axis-card .poles {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .axis-card .pole {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    flex: 1;
+  }
+
+  .axis-card .pole.a { background: #2a1a1a; color: var(--red); }
+  .axis-card .pole.b { background: #1a1a2a; color: var(--accent2); }
+  .axis-card .vs { color: var(--text-dim); font-size: 0.7rem; }
+
+  /* Flow diagram */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .flow .highlight { color: var(--accent); }
+  .flow .dim { color: #555; }
+  .flow .green { color: var(--green); }
+  .flow .red { color: var(--red); }
+  .flow .blue { color: var(--accent2); }
+  .flow .purple { color: var(--purple); }
+
+  /* Constants box */
+  .constants {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .const-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+
+  .const-group h4 {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+  }
+
+  .const-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--surface2);
+  }
+
+  .const-item:last-child { border-bottom: none; }
+  .const-item .name { font-family: 'JetBrains Mono', monospace; color: var(--accent2); }
+  .const-item .val { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+
+  /* Filter chain */
+  .filter-chain {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+    font-size: 0.82rem;
+  }
+
+  .filter-step {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.3rem 0;
+  }
+
+  .filter-step .num {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    min-width: 1.5rem;
+  }
+
+  .filter-step .action { color: var(--text); }
+  .filter-step .result { color: var(--red); font-size: 0.78rem; }
+
+  /* Classification diagram */
+  .class-flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .class-row {
+    display: grid;
+    grid-template-columns: 180px auto;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--surface2);
+    font-size: 0.82rem;
+  }
+
+  .class-row:last-child { border-bottom: none; }
+
+  .class-row .dim-name {
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .class-row .dim-values {
+    color: var(--text-dim);
+  }
+
+  .class-row .dim-values code {
+    background: var(--surface2);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: var(--text);
+    margin-right: 0.3rem;
+  }
+
+  /* Section divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .axis-grid { grid-template-columns: 1fr; }
+    .constants { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Compute Bridges</h1>
+<p class="subtitle">tools/analysis/compute_bridges.py &mdash; Style bridge discovery and inline classification</p>
+
+<!-- ============================================================ -->
+<h2>Pipeline Overview</h2>
+
+<div class="flow"><span class="dim">Load 4,234 products &rarr; eager-load fields &rarr; pre-parse JSON sets</span>
+
+<span class="highlight">PASS 1</span>  <span class="blue">Similarity</span>      pgvector kNN (text + image)    cross-context only
+<span class="highlight">PASS 2</span>  <span class="red">Opposition</span>      axis pole cross-join           no boundary req
+<span class="highlight">PASS 3</span>  <span class="green">Structural</span>      category + silhouette groups   cross-context only
+<span class="highlight">PASS 4</span>  <span class="purple">Visual Echo</span>     image-only pgvector            40+ yr gap or cross-culture
+
+<span class="dim">Each bridge &rarr;</span> <span class="highlight">classify_bridge()</span> <span class="dim">&rarr; INSERT with dedup &rarr; style_bridges table</span></div>
+
+<!-- ============================================================ -->
+<h2>The Four Passes</h2>
+
+<div class="pipeline">
+  <div class="pass-card similarity" data-pass="Pass 1">
+    <h4>Similarity</h4>
+    <p class="method">Vector proximity finds semantically similar items across contexts</p>
+    <div class="stats">
+      <span class="label">Source</span><span class="value">pgvector kNN</span>
+      <span class="label">top_k</span><span class="value">20</span>
+      <span class="label">top_n</span><span class="value">5 / product</span>
+      <span class="label">Boundary</span><span class="value">20+ yr OR culture</span>
+      <span class="label">Struct gate</span><span class="value">&ge; 0.30</span>
+      <span class="label">Composite gate</span><span class="value">&ge; 0.40</span>
+      <span class="label">Max per product</span><span class="value">8</span>
+      <span class="label">bridge_type</span><span class="value">similarity</span>
+    </div>
+  </div>
+
+  <div class="pass-card opposition" data-pass="Pass 2">
+    <h4>Opposition</h4>
+    <p class="method">Cross-join products on opposite vibe axis poles</p>
+    <div class="stats">
+      <span class="label">Source</span><span class="value">axis cross-join</span>
+      <span class="label">Axes</span><span class="value">6</span>
+      <span class="label">Boundary</span><span class="value">none</span>
+      <span class="label">Struct gate</span><span class="value">&ge; 0.35</span>
+      <span class="label">Top per pair</span><span class="value">150</span>
+      <span class="label">Max per side</span><span class="value">200</span>
+      <span class="label">Max per product</span><span class="value">8</span>
+      <span class="label">bridge_type</span><span class="value">opposition</span>
+    </div>
+  </div>
+
+  <div class="pass-card structural" data-pass="Pass 3">
+    <h4>Structural</h4>
+    <p class="method">Same shape, different context &mdash; independent invention</p>
+    <div class="stats">
+      <span class="label">Source</span><span class="value">category + silhouette</span>
+      <span class="label">Min group</span><span class="value">3 products</span>
+      <span class="label">Boundary</span><span class="value">20+ yr OR culture</span>
+      <span class="label">Struct gate</span><span class="value">&ge; 0.40</span>
+      <span class="label">Discovery bonus</span><span class="value">+0.10</span>
+      <span class="label">Top per group</span><span class="value">30</span>
+      <span class="label">Max per product</span><span class="value">8</span>
+      <span class="label">bridge_type</span><span class="value">structural</span>
+    </div>
+  </div>
+
+  <div class="pass-card visual" data-pass="Pass 4">
+    <h4>Visual Echo</h4>
+    <p class="method">Looks alike across time or culture &mdash; image only</p>
+    <div class="stats">
+      <span class="label">Source</span><span class="value">image pgvector</span>
+      <span class="label">top_k</span><span class="value">15</span>
+      <span class="label">top_n</span><span class="value">3 / product</span>
+      <span class="label">Boundary</span><span class="value">40+ yr OR culture</span>
+      <span class="label">Struct gate</span><span class="value">none</span>
+      <span class="label">Max per product</span><span class="value">6</span>
+      <span class="label">bridge_type</span><span class="value">visual_echo</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>6-Axis Vibe System</h2>
+<p>Each product is scored on 6 aesthetic axes. Opposition bridges are found by cross-joining products on opposite poles of the same axis.</p>
+
+<div class="axis-grid">
+  <div class="axis-card">
+    <div class="axis-name">Volume</div>
+    <div class="poles">
+      <div class="pole a">Exaggerated Volume</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Column Minimalism</div>
+    </div>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name">Ornament</div>
+    <div class="poles">
+      <div class="pole a">Maximalist Ornament</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Bare Surface</div>
+    </div>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name">Exposure</div>
+    <div class="poles">
+      <div class="pole a">Body Display</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Body Concealment</div>
+    </div>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name">Gender</div>
+    <div class="poles">
+      <div class="pole a">Gender Conforming</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Gender Defiant</div>
+    </div>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name">Register</div>
+    <div class="poles">
+      <div class="pole a">Transgressive Subversion</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Elite Distinction</div>
+    </div>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name">Occasion</div>
+    <div class="poles">
+      <div class="pole a">Pastoral Naturalism</div>
+      <span class="vs">&harr;</span>
+      <div class="pole b">Ceremonial Formalism</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Filter Chain (All Passes)</h2>
+
+<h3>Near-Duplicate Rejection</h3>
+<div class="filter-chain">
+  <div class="filter-step"><span class="num">1</span><span class="action">Same title (case-insensitive)</span><span class="result">&rarr; skip</span></div>
+  <div class="filter-step"><span class="num">2</span><span class="action">Same era + text_sim &ge; 0.95</span><span class="result">&rarr; skip</span></div>
+  <div class="filter-step"><span class="num">3</span><span class="action">image_sim &ge; 0.95 AND text_sim &ge; 0.70</span><span class="result">&rarr; too similar</span></div>
+  <div class="filter-step"><span class="num">4</span><span class="action">image_sim &ge; 0.90 AND text_sim &ge; 0.85</span><span class="result">&rarr; too similar</span></div>
+</div>
+
+<h3>Boundary Crossing (Passes 1 &amp; 3)</h3>
+<div class="filter-chain">
+  <div class="filter-step"><span class="num">&check;</span><span class="action">Different culture (case-insensitive)</span></div>
+  <div class="filter-step"><span class="num">&check;</span><span class="action">Year gap &ge; 20 (decades preferred, era midpoints fallback)</span></div>
+  <div class="filter-step"><span class="num">&times;</span><span class="action">Neither established &rarr; pair dropped</span><span class="result"></span></div>
+</div>
+
+<h3>Visual Echo Boundary (Pass 4)</h3>
+<div class="filter-chain">
+  <div class="filter-step"><span class="num">&check;</span><span class="action">Year gap &ge; 40 OR different culture</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Structural Scoring</h2>
+<p>15 Fashionpedia + cross-cultural fields, weights sum to 1.0. Two comparison methods.</p>
+
+<table>
+  <thead>
+    <tr><th>Field</th><th>Weight</th><th>Method</th><th>Category</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>construction_technique</code></td><td>0.14</td><td><span class="tag jaccard">Jaccard</span></td><td>Cross-cultural</td></tr>
+    <tr><td><code>social_function</code></td><td>0.12</td><td><span class="tag jaccard">Jaccard</span></td><td>Cross-cultural</td></tr>
+    <tr><td><code>motif_family</code></td><td>0.12</td><td><span class="tag jaccard">Jaccard</span></td><td>Cross-cultural</td></tr>
+    <tr><td><code>silhouette</code></td><td>0.10</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>fp_category</code></td><td>0.06</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>nickname</code></td><td>0.06</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>neckline</code></td><td>0.06</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>length</code></td><td>0.06</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>waistline</code></td><td>0.05</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>sleeve_length</code></td><td>0.05</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>textile_pattern</code></td><td>0.05</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>garment_parts</code></td><td>0.04</td><td><span class="tag jaccard">Jaccard</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>opening_type</code></td><td>0.03</td><td><span class="tag exact">Exact</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>decorations</code></td><td>0.03</td><td><span class="tag jaccard">Jaccard</span></td><td>Fashionpedia</td></tr>
+    <tr><td><code>textile_finishing</code></td><td>0.03</td><td><span class="tag jaccard">Jaccard</span></td><td>Fashionpedia</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>Inline Classification</h2>
+<p>Every bridge is classified at insertion time via <code>classify_bridge()</code>. Six dimensions stored on each row.</p>
+
+<div class="class-flow">
+  <div class="class-row">
+    <div class="dim-name">bridge_type</div>
+    <div class="dim-values">Which pass: <code>similarity</code> <code>opposition</code> <code>structural</code> <code>visual_echo</code></div>
+  </div>
+  <div class="class-row">
+    <div class="dim-name">temporal_type</div>
+    <div class="dim-values">Time distance: <code>echo</code> 80+ yr &middot; <code>transmission</code> 40-79 yr &middot; <code>continuation</code> 20-39 yr same era &middot; <code>contemporary</code> &lt;20 yr</div>
+  </div>
+  <div class="class-row">
+    <div class="dim-name">crossing_type</div>
+    <div class="dim-values">Context: <code>cross_category_culture</code> <code>cross_culture</code> <code>cross_category</code> <code>same_context</code></div>
+  </div>
+  <div class="class-row">
+    <div class="dim-name">connection_mode</div>
+    <div class="dim-values">
+      <code>contrast</code> opposite axis poles (struct &ge; 0.4) &middot;
+      <code>resonance</code> text_sim &ge; 0.80 + transmission/echo &middot;
+      <code>affinity</code> default
+    </div>
+  </div>
+  <div class="class-row">
+    <div class="dim-name">primary_axis</div>
+    <div class="dim-values">Design dimension: <code>volume</code> <code>ornament</code> <code>exposure</code> <code>gender</code> <code>register</code> <code>occasion</code></div>
+  </div>
+  <div class="class-row">
+    <div class="dim-name">contrast_pair</div>
+    <div class="dim-values">e.g. <code>Exaggerated Volume &lt;-&gt; Column Minimalism</code> &middot; null for non-contrast</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Connection Mode Priority</h2>
+
+<div class="flow"><span class="red">1. CONTRAST</span>   Is bridge_type == 'opposition'?
+              OR are products on opposite axis poles with structural &ge; 0.4?
+              <span class="dim">&rarr; connection_mode = 'contrast', axis from opposition pair</span>
+
+<span class="blue">2. RESONANCE</span>  text_sim &ge; 0.80 AND temporal_type in (transmission, echo)?
+              <span class="dim">&rarr; connection_mode = 'resonance', axes from shared attributes</span>
+
+<span class="dim">3. AFFINITY</span>   Everything else
+              <span class="dim">&rarr; connection_mode = 'affinity', axes from shared attributes</span></div>
+
+<!-- ============================================================ -->
+<h2>Opposition Pass Scoring</h2>
+<p>Pass 2 candidates are ranked by a composite that rewards bridges crossing the most boundaries:</p>
+
+<div class="flow"><span class="highlight">sort_score</span> = 0.40 &times; <span class="green">cross_cultural_overlap</span>   <span class="dim">(Jaccard across 3 fields, normalized)</span>
+             + 0.35 &times; <span class="blue">temporal_distance</span>       <span class="dim">(year gap / 200, capped at 1.0)</span>
+             + 0.25 &times; <span class="purple">structural_score</span>        <span class="dim">(Fashionpedia field overlap)</span></div>
+
+<p>Top 150 per axis pair kept, with participation cap of 8 per product. When a pole side has &gt;200 products, subsampled to 200 by cross-cultural field richness.</p>
+
+<!-- ============================================================ -->
+<h2>Too-Similar Gate</h2>
+<p>Prevents near-duplicate pairs from becoming bridges. A high score on one dimension is fine (visually similar but different description = interesting). Both high = same thing.</p>
+
+<table>
+  <thead>
+    <tr><th>image_sim</th><th>text_sim</th><th>Result</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>&ge; 0.95</td><td>&ge; 0.70</td><td style="color: var(--red);">Blocked</td><td>Both high &mdash; same thing</td></tr>
+    <tr><td>&ge; 0.90</td><td>&ge; 0.85</td><td style="color: var(--red);">Blocked</td><td>Both high enough &mdash; too similar</td></tr>
+    <tr><td>0.96</td><td>0.60</td><td style="color: var(--green);">Allowed</td><td>Looks alike but described differently</td></tr>
+    <tr><td>0.88</td><td>0.50</td><td style="color: var(--green);">Allowed</td><td>Visually similar, different context</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>Constants</h2>
+
+<div class="constants">
+  <div class="const-group">
+    <h4>Temporal Thresholds</h4>
+    <div class="const-item"><span class="name">BOUNDARY_YEAR_GAP</span><span class="val">20 yr</span></div>
+    <div class="const-item"><span class="name">CONTINUATION_DISTANCE</span><span class="val">20 yr</span></div>
+    <div class="const-item"><span class="name">TRANSMISSION_DISTANCE</span><span class="val">40 yr</span></div>
+    <div class="const-item"><span class="name">VISUAL_ECHO_YEAR_GAP</span><span class="val">40 yr</span></div>
+  </div>
+  <div class="const-group">
+    <h4>Participation Caps</h4>
+    <div class="const-item"><span class="name">Pass 1 (Similarity)</span><span class="val">8</span></div>
+    <div class="const-item"><span class="name">Pass 2 (Opposition)</span><span class="val">8</span></div>
+    <div class="const-item"><span class="name">Pass 3 (Structural)</span><span class="val">8</span></div>
+    <div class="const-item"><span class="name">Pass 4 (Visual Echo)</span><span class="val">6</span></div>
+    <div class="const-item"><span class="name">MAX_PER_SIDE</span><span class="val">200</span></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Downstream Pipeline</h2>
+
+<div class="flow"><span class="highlight">compute_bridges.py</span>          discover + classify + insert
+        &darr;
+<span class="highlight">generate_narratives.py</span>       Claude writes 2-3 sentence editorial with product images
+        &darr;                          quality gate: composite &ge; 0.35
+        &darr;                          retry on failure, 3 prompt variants by connection_mode
+<span class="highlight">bridge_queries.py</span>            mode-aware scoring at query time
+        &darr;                          contrast: 60% structural / resonance: 60% text / affinity: balanced
+<span class="highlight">api/routers/bridges.py</span>       REST API: /bridges/top, /bridges/{id}, /bridges/between/{a}/{b}</div>
+
+<hr class="divider">
+
+<p style="color: var(--text-dim); font-size: 0.75rem; text-align: center; margin-top: 2rem;">
+  Vintage Vestige &mdash; compute_bridges.py reference &mdash; generated 2026-03-15
+</p>
+
+</body>
+</html>

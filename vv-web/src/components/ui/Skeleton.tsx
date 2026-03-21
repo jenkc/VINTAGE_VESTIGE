@@ -6,6 +6,6 @@ interface SkeletonProps {
 
 export default function Skeleton({ className }: SkeletonProps) {
   return (
-    <div className={cn("animate-pulse rounded-md bg-border/50", className)} />
+    <div className={cn("animate-pulse bg-grey-100", className)} />
   );
 }

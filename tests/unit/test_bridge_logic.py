@@ -59,7 +59,7 @@ class TestStructuralScore:
             sleeve_length='sleeveless', textile_pattern='floral',
         )
         score, shared = compute_structural_score(a, b)
-        assert score > 0.5  # 8/15 weighted fields match
+        assert score > 0.4  # 8 non-set fields match (weights sum to ~0.49)
         assert 'fp_category' in shared
         assert shared['fp_category'] == 'dress'
 
@@ -87,8 +87,12 @@ class TestStructuralScore:
 
     def test_set_fields_use_jaccard(self):
         """garment_parts, decorations, textile_finishing use Jaccard similarity."""
+        # Set fields are pre-parsed into _{field}_set attributes by preparse_set_fields.
+        # Simulate that pre-parsing in the mock.
         a = MockProduct(garment_parts='["collar", "sleeve", "pocket"]')
         b = MockProduct(garment_parts='["collar", "sleeve"]')
+        a._garment_parts_set = {'collar', 'sleeve', 'pocket'}
+        b._garment_parts_set = {'collar', 'sleeve'}
         score, shared = compute_structural_score(a, b)
         assert score > 0.0
         assert 'garment_parts' in shared

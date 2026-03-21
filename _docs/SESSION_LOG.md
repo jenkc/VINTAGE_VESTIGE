@@ -1,7 +1,303 @@
 # Vintage Vestige — Session Handoff Document
 
-**Last updated: 2026-03-09**
+**Last updated: 2026-03-20**
 **Read this first in any new Claude Code session.**
+
+---
+
+## Current Priorities
+
+1. **Frontend refactor** — Phase 0 (API schema updates) is first. See `_docs/FRONTEND_REFACTOR_PLAN.md` for full 6-phase plan with checklists.
+2. **Generate more narratives** — only ~20 generated so far with new prompt. Lower score gate and run full batch after API is updated.
+3. **Replace `compute_bridges.py` with `better_bridges.py`** — rename when confident.
+
+## What to Work on Next
+
+Start Phase 0 of `_docs/FRONTEND_REFACTOR_PLAN.md`:
+- Update `api/schemas/bridge.py` and `api/schemas/product.py` for new bridge schema
+- Update `api/routers/bridges.py` — new connection_mode values, remove primary_axis filter
+- Update `analysis/bridge_queries.py` — new column names
+- Verify with curl
+
+## Known Bugs / Gaps
+
+- 61 V&A products have broken image URLs (truncated at bucket path) — no image embeddings
+- 2 products failed re-enrichment (id=1038 "Shirt", id=4134 "Dress fabric") — old data intact
+- `compute_bridges.py` (old) still exists alongside `better_bridges.py` (new) — need to rename
+- Tests (`tests/`) reference old bridge schema — will break until updated (Phase 5 of refactor)
+- `backfill_bridge_scores.py` exists but wasn't needed (better_bridges.py applies lineage bonus + blocklist natively)
+
+---
+
+## Session Log: 2026-03-19/20 — Complete Pipeline Rework (Vibes, Enrichment, Embeddings, Bridges, Narratives)
+
+### What Was Accomplished
+
+**Vibe System Rework:**
+- Scrapped 22 discrete vibe terms → 6 axes with pole pairs (Volume, Ornament, Exposure, Gender, Register, Occasion)
+- Pick-a-pole + confidence scoring format
+- Backfilled all 4,234 products with new format
+- Later discovered: axes useful for filtering, NOT for defining bridges
+
+**Enrichment Overhaul:**
+- Rewrote enrichment prompt: image-first, physical descriptions, no vibe terms in `ai_description`
+- Added 6 KG fields: `designer`, `influence_references`, `production_mode`, `material_origin`, `garment_system`, `named_movements`
+- Added `low_confidence_fields`, `display_title`
+- Cached system prompts (~30% API cost reduction)
+- Re-enriched all 4,234 products (~$50, ~18 min)
+- Backfilled display titles separately
+
+**Embedding Upgrades:**
+- Text: all-MiniLM-L6-v2 (384d) → all-mpnet-base-v2 (768d)
+- Image: clip-ViT-B-32 (512d) → clip-ViT-L-14 (768d)
+- ALTER TABLE pgvector columns from old dimensions to 768d
+- `build_rich_text` updated: includes display_title, KG fields, new vibe format
+- Rebuilt both embedding sets
+
+**Bridge System — Complete Rewrite (`better_bridges.py`):**
+- Entity-based discovery replaces embedding-similarity approach
+- Pass 1: Shared Entities — inverted index, IDF scoring, entity multipliers, blocklist, rarity gate
+- Pass 2: Lineage (directed) — influence_references matched to corpus, era parsing, embedding fallback, lineage bonus (+5.0)
+- Pass 3: Visual Echo — pgvector image similarity for unconnected pairs, batch commits
+- ~24,000 bridges with typed shared_entities JSON
+- Saves after each pass (resilient to Supabase pooler drops)
+- bridge_score: sigmoid-normalized (entity_score + context_score + embedding_bonus)
+
+**Narrative Generation Rework:**
+- One adaptive prompt replaces 6 mode-specific prompts
+- Shared entities as substance, not vibes/axes
+- Lineage note, visual echo fallback, distance line
+- Quality gate + per-product cap (5)
+- Ordering: lineage → visual_echo → shared_entity
+- Generated 20 test narratives — all excellent
+
+**Design & Planning:**
+- Updated `FIGMA_DESIGN_HANDOFF_V2.md` — entity-based bridge display, Thread Pull, Bridge of the Day, Movement Trails
+- Created `FRONTEND_REFACTOR_PLAN.md` — 6 phases, 15 days, 52 checkboxes
+- Created HTML artifact reference (`vintage_vestige_ui.html`)
+- Created `DEV_DIARY_03-19-20.md`
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tools/analysis/better_bridges.py` | Entity-based bridge computation (replaces compute_bridges.py) |
+| `tools/analysis/backfill_bridge_scores.py` | Patches existing bridges with lineage bonus + blocklist cleanup |
+| `tools/analysis/generate_narratives.py` | Rewritten for entity-based bridges |
+| `tools/enrichment/reenrich_creative_kg.py` | Targeted re-enrichment (creative + KG fields only) |
+| `tools/enrichment/backfill_display_titles.py` | Display title backfill |
+| `tools/enrichment/backfill_culture.py` | Culture field backfill (659 products) |
+| `_docs/FRONTEND_REFACTOR_PLAN.md` | 6-phase frontend implementation plan with checklists |
+| `_docs/DEV_DIARY_03-19-20.md` | Dev diary blog post |
+| `vintage_vestige_ui.html` | HTML artifact for design reference |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `storage/database.py` | StyleBridge model: added shared_entities, entity_score, directed; removed structural_score, bridge_type, primary_axis, secondary_axis, contrast_pair, shared_garment_fields, discovery_metadata, shared_designer, shared_movements, shared_influences |
+| `enrichment/claude.py` | New enrichment prompt (image-first, KG fields, cached system prompt); new narrative method (one adaptive prompt); `_format_shared_entities`; `build_rich_text` updated with display_title + KG fields as @staticmethod |
+| `tools/enrichment/enrich_async.py` | Updated for cached system prompt, new KG fields |
+| `tools/embeddings/rebuild_embeddings.py` | Batched fetching, error handling, truncation warnings |
+| `embeddings/generator.py` | Updated to all-mpnet-base-v2 (768d) |
+| `_docs/FIGMA_DESIGN_HANDOFF_V2.md` | Fully updated for entity-based bridges, Thread Pull, new browse modes |
+| `vv-web/src/app/layout.tsx` | Briefly had Figma capture script (added then removed) |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| 6-axis vibes replace 22 discrete terms | Cleaner model, opposition built into structure, but ultimately useful for filtering not bridging |
+| Entity-based bridges replace embedding-similarity | Every bridge has a typed "why" — shared designer, movement, technique. Not "these embeddings are close." |
+| IDF scoring for entities | Rare entities (Japonisme) worth more than common ones (hand-sewing). Information retrieval standard. |
+| Lineage bridges are directed (older → newer) | Time flows forward. The original is the source, the referencer is the target. |
+| Lineage bonus +5.0 | The influence reference itself is a high-value entity connection, equivalent to sharing a rare movement. |
+| ENTITY_BLOCKLIST | everyday-practical, status-signaling, hand-sewing etc. can tag along but can't be the sole reason for a bridge. |
+| Same-era stricter gate (8.0 vs 5.0) | Two items from the same era need more specific shared entities to be interesting. |
+| Per-era cap (300) | Prevents Victorian or Quiet Luxury from dominating. |
+| Boundary year gap raised to 30 | 20 years same-culture wasn't enough distance to be interesting. |
+| all-mpnet-base-v2 for text embeddings | 2x better than MiniLM, same library, minimal code change. |
+| clip-ViT-L-14 for image embeddings | Catches fine-grained visual distinctions (silhouette subtleties, fabric texture). |
+| One narrative prompt for all bridge types | Simpler, cacheable, entity data provides the substance. |
+| Thread Pull as signature frontend interaction | Vertical scroll through entity-connected garments — the graph picks the path. |
+| Scrapped Knowledge Graph for now | Outside Jen's expertise. Entity-based bridges are KG-ready when the time comes. |
+| 3-week deployment target (April 10) | Aggressive but achievable with the refactor plan. |
+
+### Problems Hit
+
+| Problem | Resolution |
+|---------|------------|
+| Supabase ALTER TABLE timeout | Increased compute, restarted project, ran columns one at a time |
+| Supabase pooler drops during CPU-bound work | ResilientSession retries; Pass 3 batch commits every 500 |
+| Port 6543 vs 5432 confusion | 6543 is pooler (required), 5432 is direct (requires IPv6) |
+| pgvector dimension mismatch on ALTER | NULL out old embeddings first, then ALTER TYPE |
+| Pass 2 lineage: 87% below narrative gate | Added LINEAGE_BONUS (+5.0 to entity_score) |
+| Top shared entities dominated by common terms | ENTITY_BLOCKLIST + demoted multipliers for common construction/garment_system |
+| better_bridges.py saved all bridges at end (crash = lose everything) | Save after each pass |
+| `_get_year` treats era midpoints same as decades | Added year_precision ('decade' vs 'era') with scoring discount |
+| old compute_bridges.py import path | `sys.path.insert` hack at top of better_bridges.py |
+| Figma MCP capture hung on pending | Abandoned, using Claude Desktop artifacts instead |
+
+---
+
+## Session Log: 2026-03-13 — Bridge Pipeline Completion + Test Suite Cleanup
+
+### What Was Accomplished
+
+**Bridge Pipeline — Fully Complete:**
+- **Opposition composite sort score** implemented in Pass 2: `0.40 * cc_norm + 0.35 * temporal_norm + 0.25 * structural_score` — rewards temporal distance and cross-cultural overlap over raw structural match
+- **Near-duplicate detection** added to all passes: (1) exact title match → always skip, (2) same-era + text_sim ≥ 0.95 → skip; Pass 1 extended to catch cross-platform near-duplicates
+- **Same-era vibe gate** added to passes 3 and 4: same-era pairs only included if `_vibes_diverge()` returns True
+- **Pass 3 group cap** set at 150 products per shared purpose (matching the cap in Pass 4)
+- **Social function consolidation** — 101 fragmented `social_function` values mapped to ~20 canonical clusters (`tools/analysis/consolidate_social_function.py` with `--apply`). Multi-cluster support (e.g. "wedding" → `["wedding-ceremonial"]`). Compute_bridges updated to handle `social_function` as array for all passes.
+- **Backfill core_vibes** — 866 enriched products missing `core_vibes` re-enriched via `enrichment/backfill_vibes.py` (targeted, uses existing enriched fields, safe to resume)
+- **Invalid vibe terms cleanup** — inline SQL stripped any term not in the 22-term controlled vocabulary; 72 products updated
+- **Bridge classifier** (`tools/analysis/classify_bridge_dimensions.py`) — ran successfully on all 14,223 bridges. 14,194/14,223 classified. Distribution: affinity 10,886 / contrast 3,314 / resonance 23
+- **Narrative generation** (`tools/analysis/generate_narratives.py`) — **ALL 14,223 bridges now have narratives**. Mode-specific prompts, classification context, varied closings.
+
+**Database State (post-pipeline):**
+- 14,223 style bridges (4 passes: cross_vibe 4,202, transmission 2,744, function 2,247, echo 1,714, structural 1,483, opposition 1,322, continuation 487, null 24)
+- crossing_type: cross_culture 6,277, same_context 4,111, cross_category_culture 2,430, cross_category 1,405
+- connection_mode: affinity 10,886, contrast 3,314, resonance 23
+- ALL 14,223 bridges have `bridge_narrative`
+
+**Data Integrity Tests — Created and Passing:**
+- Created `tests/data_integrity/test_db_integrity.py` — 35 tests across: TestProductCompleteness, TestVibeVocabulary, TestSocialFunction, TestBridgeInvariants, TestBridgeClassification, TestNarratives, TestNearDuplicates, TestPlatformDistribution
+
+**Full Test Suite — Clean:**
+- Fixed 8 test failures + 5 errors → **309 passed, 5 skipped, 0 failures**
+- `test_bridge_quality.py` — updated valid_types (added: opposition, function, structural, echo, contemporary) and expected_types (updated to actual pipeline passes)
+- `test_data_quality.py` — JSON field integrity handles native PostgreSQL arrays + null JSON; added `jewelry`, `ensemble`, `necklace` to valid fp_categories
+- `test_bridge_logic.py` — score threshold adjusted 0.5→0.4 (8 non-set fields weight to 0.49); set_fields test now pre-populates `_garment_parts_set` to match preparse pattern
+- `test_database_model.py` — in_memory_db tests skipped (SQLite can't compile pgvector ARRAY types); non-DB tests still run
+
+### Files Modified This Session
+
+| File | Changes |
+|------|---------|
+| `tools/analysis/compute_bridges.py` | Opposition composite sort score, near-duplicate detection (all passes), same-era vibe gate (passes 3+4), Pass 3 group cap 150, social_function as array, `preparse_set_fields` moved to module level |
+| `tools/analysis/consolidate_social_function.py` | New: maps 101 social_function values → ~20 canonical clusters |
+| `enrichment/backfill_vibes.py` | New: targeted re-enrichment for products missing core_vibes |
+| `tools/analysis/generate_narratives.py` | Fixed social_function deserialization |
+| `enrichment/claude.py` | Fixed social_function rendering (comma-sep string), added primary_axis to narrative prompt |
+| `tests/data_integrity/test_db_integrity.py` | New: 35 data integrity tests |
+| `tests/data_integrity/test_bridge_quality.py` | Updated valid_types and expected_types for new bridge type system |
+| `tests/data_integrity/test_data_quality.py` | JSON field test handles native arrays + null; added jewelry/ensemble/necklace to fp_categories |
+| `tests/unit/test_bridge_logic.py` | Score threshold 0.5→0.4; set_fields test pre-populates `_garment_parts_set` |
+| `tests/unit/test_database_model.py` | Skipped in_memory_db fixture (SQLite ARRAY incompatibility) |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| Opposition composite sort score | Raw structural_score rewards generic same-category garments; composite rewards temporal distance + cross-cultural field overlap |
+| Near-duplicate detection cross-platform | Cross-platform pairs with same title + same era + text_sim ≥ 0.95 are effectively duplicates — shouldn't waste bridge slots |
+| Same-era vibe gate on passes 3+4 | Same-era items without divergent vibes produce low-insight bridges in function/structural passes |
+| 150-product group cap on Pass 3 | Matches Pass 4 cap; prevents any single social function from dominating |
+| Social function as multi-value | Old single-value `social_function` conflated mixed-purpose garments; array supports multi-cluster (e.g. `["wedding-ceremonial", "status-display"]`) |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| `_sort_score` key in bridge dict → `CompileError: Unconsumed column names` | Pop `_sort_score` before passing bridge dict to `_batch_insert_bridges` |
+| `preparse_set_fields` NameError — function nested inside `compute_bridges()` | Moved to module level above `compute_bridges()` |
+| `ModuleNotFoundError` in `consolidate_social_function.py` | Added `sys.path.insert` with `os.path.dirname(os.path.dirname(...))` |
+| `test_bridge_type_values_valid` FAILED ('echo', 'opposition', 'function', 'structural' unknown) | Added all 4 new bridge types to valid_types set |
+| `test_json_fields_are_valid_json_arrays` FAILED (NoneType) | PostgreSQL ARRAY fields return Python lists; null JSON → None. Updated test to handle both |
+| SQLite ARRAY ERRORs in test_database_model.py | Skipped in_memory_db fixture; those tests are covered by data_integrity/ suite |
+
+### What's Left Open
+
+- **`_sort_score` CompileError** — still needs the pop-before-insert fix if Pass 2 is re-run
+- **Anthropic API monthly cap** — hit for March 2026; resets April 1. Narratives are done for now (all 14,223 complete).
+- **Frontend updates** — social function explorer page, bridge card connection mode badges, bridge filtering UI
+
+### Current State
+
+**Pipeline: COMPLETE.** All 4,234 products enriched + embedded. 14,223 bridges computed (4 passes). All bridges classified (6 dimensions) and have narratives. Full test suite passes (309/309 non-skipped). Ready for deployment.
+
+RESUME POINT: Deployment next. Phase 4 of reorg plan (Dockerfile, .dockerignore, .env.example) → Railway (API) + Vercel (frontend). See `_docs/DEPLOYMENT_PLAN.md`.
+
+---
+
+## Session Log: 2026-03-10 → 2026-03-12 — Bridge Rebuild + Tuning + Optimization
+
+### What Was Accomplished
+
+**Bridge Pipeline Debugging & Session Management:**
+- Fixed DetachedInstanceError on Pass 2 — eager-load all 15+ fields then `db.expunge(p)` before closing session
+- Fixed missing structural fields in eager-load (10 fields were missing from touch list)
+- Fixed summary queries using closed session
+- Fixed empty `existing_pairs` on resume — loads all existing `(source_id, target_id)` from DB at startup
+- Added `--start-pass=N` CLI flag to resume from a specific pass
+- ResilientSession upgraded to 3 retries with escalating delays (1s, 3s, 5s) + `engine.dispose()`
+- Refactored passes 2-4 to compute entirely in-memory, then batch-insert with fresh sessions (100 per batch)
+- Startup session cycling — each query uses its own throwaway session
+
+**Performance Improvements:**
+- `bulk_load_embeddings()` — loads all embeddings in one query into memory dict
+- `preparse_set_fields()` — pre-parses JSON array fields into Python sets at startup, eliminating millions of `json.loads()` calls during structural scoring
+- Group size cap of 100 products per group in Pass 4 (Pass 3 still needs this)
+
+**Structural Weight Rebalance:**
+- `fp_category` demoted from 0.16 → 0.06 (table stakes, not interesting)
+- Cross-cultural fields promoted: `construction_technique` 0.10→0.14, `social_function` 0.07→0.12, `motif_family` 0.07→0.12
+- Total cross-cultural weight: 0.24 → 0.38
+
+**Bridge Diversity:**
+- Per-product participation cap (`max_appearances=8`) with greedy diversified selection in passes 2-4
+- `top_per_pair` increased 20→150, `top_per_function` 15→150, `top_per_group` 10→30
+
+**Rebuild Results (15,619 total bridges):**
+- Pass 1 (similarity): 10,243 bridges (cross_vibe 4161, transmission 3416, echo 2107, continuation 533, null 26)
+- Pass 2 (opposition): 1,317 bridges
+- Pass 3 (function): 2,545 bridges
+- Pass 4 (structural): 1,514 bridges
+- Runtime: 1486.6s (~25 min)
+
+**Supabase Pro Upgrade:**
+- Upgraded from free tier to Pro ($25/mo) — egress cap was hit from repeated test runs
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `tools/analysis/compute_bridges.py` | Structural weight rebalance, participation caps, pre-parsed set fields, group size cap, batch inserts, session cycling, `--start-pass` flag, rebuild block restored, bulk embedding load |
+| `storage/database.py` | ResilientSession: 3 retries with escalating delays + `engine.dispose()` |
+
+### Decisions Made
+
+| Decision | Why |
+|----------|-----|
+| Demote `fp_category` weight from 0.16→0.06 | Two blazers trivially score 0.28 from category+silhouette alone — rewards "boring" matches |
+| Cross-cultural fields get 0.38 combined weight | `construction_technique`, `social_function`, `motif_family` are the interesting bridge signals |
+| Per-product participation cap of 8 | Prevents any single product from dominating top bridges |
+| Pre-parse JSON set fields at startup | Eliminates millions of redundant `json.loads()` calls during O(n²) passes |
+| Batch inserts (100 per batch, fresh session each) | Prevents pooler timeout during large insert phases |
+| Supabase Pro upgrade | Free tier egress limit hit from repeated bridge computation runs |
+
+### Problems Hit
+
+| Problem | Fix |
+|---------|-----|
+| DetachedInstanceError after session close | Eager-load all fields then `db.expunge(p)` before closing |
+| Connection drops during startup queries | Split into throwaway sessions per query |
+| `--rebuild` didn't actually delete bridges | Rebuild block was missing — restored it |
+| `embedding_cache` and `start_time` undefined | Lost during reorganization — re-added |
+| Duplicate expunge block crashed (products already detached) | Removed duplicate — startup already handles expunge |
+| Blazer domination in opposition bridges | Weight rebalance + participation caps |
+| Pass 1 counter shows 0 in summary | Logging bug: `total_by_pass['similarity']` not incremented (data is correct) |
+
+### What's Left Open
+
+- **Opposition composite sort score** — sorting by structural_score rewards generic garments. Proposed formula: `0.40 * cross_cultural_score_norm + 0.35 * temporal_distance_norm + 0.25 * structural_score`
+- **Pass 3 group cap** — needs same 100-product cap as Pass 4
+- **Pass 1 counter logging bug** — `total_by_pass['similarity']` not being incremented
+- **Classifier run** — `tools/analysis/classify_bridge_dimensions.py` (after opposition sort is fixed)
+- **Narrative generation** — `tools/analysis/generate_narratives.py` (after classifier)
+
+RESUME POINT: Implement opposition composite sort score (reward temporal distance + cross-cultural field overlap instead of raw structural score). Then add group cap to Pass 3. Then run classifier → generate narratives.
 
 ---
 
@@ -763,14 +1059,15 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 ---
 
-## Current State (2026-03-07)
+## Current State (2026-03-12)
 
 ### What Works
 
 - **4,234 products** in Supabase PostgreSQL across 4 platforms (va_museum 1,856, fashionpedia 1,000, smithsonian 778, met_museum 600)
 - **ALL 4,234 enriched** by Claude Sonnet 4 with 23 structured fields + core_vibes/bridge_vibes
 - **ALL 4,234 text embeddings** + **ALL 4,234 image embeddings** in pgvector columns (HNSW indexed)
-- **Bridge recomputation running** (`compute_bridges.py --rebuild`) — replacing old 3,367 bridges
+- **15,619 bridges computed** — 4 passes complete with rebalanced weights + participation caps
+- **Supabase Pro** — upgraded from free tier
 - **6-dimensional bridge classification** designed and coded (pending classifier run)
 - **Bridge query library** (`analysis/bridge_queries.py`) — supports 6 new dimension filters + `shared_function`
 - **FastAPI backend** — 16 endpoints across 5 routers, 16 Pydantic schemas, pgvector search
@@ -780,13 +1077,14 @@ venv/bin/pytest -m "not slow"             # Skip slow tests
 
 ### What's In Progress
 
-- **Bridge recomputation** — `compute_bridges.py --rebuild` running (775/4134 scanned at last check)
-- **Bridge classification** — classifier script ready, waiting for bridge computation to finish
+- **Opposition composite sort score** — current sort by structural_score rewards generic garments; implementing composite that rewards temporal distance + cross-cultural fields
 
 ### What's Incomplete
 
-- **Classifier run** — after bridges finish: `scripts/classify_bridge_dimensions.py --dry-run` then full run
-- **Narrative regeneration** — after classifier: `analysis/generate_narratives.py` (now with mode hints)
+- **Opposition sort score** — implement composite formula, re-run Pass 2
+- **Pass 3 group cap** — needs same 100-product cap as Pass 4
+- **Classifier run** — `tools/analysis/classify_bridge_dimensions.py`
+- **Narrative generation** — `tools/analysis/generate_narratives.py` (with mode hints)
 - **Frontend updates** — social function explorer page, bridge card connection mode badges, bridge filtering UI
 - **Image search frontend** — Backend API exists, frontend not yet implemented
 
