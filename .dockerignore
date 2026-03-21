@@ -1,0 +1,17 @@
+venv/
+vv-web/
+.git/
+__pycache__/
+*.pyc
+tests/
+_docs/
+tools/
+scripts/
+*.dump
+*.csv
+.claude/
+.env
+.DS_Store
+.pytest_cache/
+thread_pull_*.html
+vintage_vestige_ui*.html
