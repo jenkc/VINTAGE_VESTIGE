@@ -167,6 +167,9 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
 
                 {/* Score Breakdown */}
                 <div className="border-t border-grey-200 pt-[13px]">
+                    <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-grey-400">
+                        Match Breakdown
+                    </p>
                     <ScoreBreakdown
                         text={bridge.text_similarity}
                         image={bridge.image_similarity}
