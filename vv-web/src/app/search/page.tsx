@@ -30,29 +30,43 @@ function SearchContent() {
         return () => clearTimeout(t);
     }, [loading]);
 
-    async function handleSearch(q: string) {
-        const trimmed = q.trim();
-        if (!trimmed) return;
-
-        setLoading(true);
-        setError("");
-        try {
-            const data = await searchByText(trimmed, undefined, DEFAULT_SEARCH_LIMIT);
-            setResults(data.results);
-            setTotal(data.total);
-            setHasSearched(true);
-            router.replace(`/search?q=${encodeURIComponent(trimmed)}`, { scroll: false });
-        } catch {
-            setError("Something went wrong. Please try again.");
-        } finally {
-            setLoading(false);
-        }
-    }
+    // The URL's ?q= is the single source of truth. The form only updates the URL
+    // (one path for Enter, button, and shared links); this effect does the search
+    // whenever ?q= changes. Avoids the Enter-vs-click race from navigating mid-search.
+    const activeQuery = searchParams.get("q") ?? "";
 
     useEffect(() => {
-        const initial = searchParams.get("q");
-        if (initial) handleSearch(initial);
-    }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+        const trimmed = activeQuery.trim();
+        if (!trimmed) {
+            setResults([]);
+            setTotal(0);
+            setHasSearched(false);
+            return;
+        }
+        let cancelled = false;
+        setLoading(true);
+        setError("");
+        searchByText(trimmed, undefined, DEFAULT_SEARCH_LIMIT)
+            .then((data) => {
+                if (cancelled) return;
+                setResults(data.results);
+                setTotal(data.total);
+                setHasSearched(true);
+            })
+            .catch(() => {
+                if (!cancelled) setError("Something went wrong. Please try again.");
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [activeQuery]);
+
+    function submitSearch(q: string) {
+        const trimmed = q.trim();
+        if (!trimmed) return;
+        router.push(`/search?q=${encodeURIComponent(trimmed)}`, { scroll: false });
+    }
 
     return (
         <div className="min-h-screen bg-white px-6 pt-12 pb-20 md:px-12">
@@ -62,7 +76,7 @@ function SearchContent() {
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
-                        handleSearch(query);
+                        submitSearch(query);
                     }}
                     className="mx-auto max-w-[600px]"
                     role="search"
