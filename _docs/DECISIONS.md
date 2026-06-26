@@ -737,3 +737,71 @@
 **Alternatives considered:** Enumerate clusters manually without script (fragile, not reproducible); normalize to single value per garment (loses nuance for mixed-purpose items)
 **Outcome:** Applied to database. `compute_bridges.py` Pass 3 uses array containment for group matching.
 
+---
+
+### 47. Thread Pull v2 — Branching Model: Replace-the-Tail (Not Fork)
+
+**Date:** 2026-06-25
+**Context:** Thread Pull v2 lets the user diverge from the graph's auto-pick at a node. Two models: **fork**
+(hold multiple parallel threads at once) or **replace-the-tail** (one visible thread; picking an alternative
+truncates the path at that node and continues down the new branch).
+**Decision:** Replace-the-tail for v2. One `steps` array, always. Picking a branch = `steps.slice(0, nodeIndex+1)`
+then append the chosen step. Fork noted as a future option, not built.
+**Rationale:**
+- One visible thread keeps the "you are pulling *a* thread" metaphor intact — a fork would turn the signature
+  interaction into a tree view, a different (and heavier) UX.
+- Far simpler state and no canvas/branch-layout problem on mobile (375px is a real audience).
+- Makes the cycle guard correct-by-construction: `visitedIds` is derived from the (single) path via `useMemo`,
+  so a truncate automatically frees the garments below and they become revisitable on the new branch, while
+  anything currently on the path stays blocked.
+**Alternatives considered:** Fork into parallel threads (richer, but tree UX + layout + much more state — wrong
+weight for v2); keep no branching (the documented intent has always been to let the user diverge).
+**Outcome:** Planned in `_docs/THREADPULL_V2_IMPLEMENTATION_PLAN.md`. Also fixes a latent cycle-guard bug: the
+v1 code mutates a per-render-derived `visitedIds` inside the async `pullNext`, which works for linear pull but
+would break under truncation — moving to a `useMemo`-derived set is the fix.
+
+---
+
+### 48. Thread Pull v2 — Pull Trigger: Button-Primary, Scroll as Optional Accelerator
+
+**Date:** 2026-06-25
+**Context:** The brief's documented "lazy-load on scroll" vs keeping the explicit "Pull next" button. Should
+reaching the end of the thread auto-pull, or only the button pull?
+**Decision:** The button is the deliberate, primary control and keeps the "you decide to keep pulling" agency.
+Scroll-to-end may *optionally* trigger a pull as an accelerator, but it is not the primary mechanism and is the
+first thing to cut if it feels like auto-play. For v2 we ship button-only and treat scroll-trigger as a flagged
+enhancement.
+**Rationale:**
+- Auto-advance is explicitly out of scope; a scroll trigger that fires too eagerly reads as auto-play.
+- The manual pull *is* the agency of the interaction — the user choosing to keep going is the point.
+- Smooth `scrollIntoView` on each pull already gives the "it brings me along" feel without surrendering control.
+**Alternatives considered:** Scroll-primary (risks feeling like an infinite feed / auto-play); no scroll at all
+(loses the optional accelerator for power users).
+**Outcome:** Button-primary in the plan; smooth scroll-into-view on pull; scroll-trigger noted as optional.
+
+---
+
+### 49. Thread Pull v2 — Shareable Thread: Path in Query, Replayed Client-Side via `getBridgeBetween`
+
+**Date:** 2026-06-25
+**Context:** A thread is a sequence of product IDs and is the product's best demo, so it must be shareable by URL
+with **no backend change**. Need to decide how to encode the path and how to recover the edges (the "why") on
+replay.
+**Decision:** Encode the path as a query param on the existing `/thread/[id]` route, origin id first, dot-joined:
+`/thread/123?path=123.456.789`. The dynamic segment stays the origin (preserves title + "back to product").
+On load, replay client-side by walking consecutive id pairs and calling the **existing** `getBridgeBetween(a, b)`
+(`/bridges/between/{a}/{b}`) to recover each connecting bridge, rebuilding the full `steps` with edges — so the
+shared thread re-unspools with its reasons intact, not just bare nodes. Fallback: if a pair's bridge can't be
+fetched, render the node without an edge rather than fail.
+**Rationale:**
+- Query-param path needs no new route and no backend endpoint — confirmed against `api.ts` (`getBridgeBetween`,
+  `getProduct` both already exist).
+- Recovering edges (not just nodes) preserves the "the entities tell you why" principle on a shared link — the
+  "why" is the actual product.
+- Replaying the draw animation on a shared link is a strong portfolio moment.
+**Alternatives considered:** Path as a route catch-all segment (uglier URL, breaks the origin-based title/back
+link); nodes-only replay (cheaper, but a shared thread loses its reasons); new backend "resolve path" endpoint
+(violates the no-backend guardrail).
+**Outcome:** Planned with pure `encodePath`/`decodePath` utils + a client replay effect. N-1 small fetches on a
+shared load, acceptable for the demo use case.
+
