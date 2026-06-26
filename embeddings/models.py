@@ -5,36 +5,33 @@ import requests
 from io import BytesIO
 
 class EmbeddingModels:
-  """Singleton class to manage embedding models"""
-  
+  """Singleton; each model loads lazily on first use (keeps RAM low on the server)."""
+
   _instance = None
-  
+
   def __new__(cls):
     if cls._instance is None:
       cls._instance = super().__new__(cls)
-      cls._instance._initialized = False
+      cls._instance._clip = None
+      cls._instance._text = None
     return cls._instance
   
-  def __init__(self):
-    if self._initialized:
-      return
-    
-    print("🔄 Loading embedding models...")
-    print("   (First time takes 5-10 minutes to download)")
-    
-    # CLIP model for images (768-dim embeddings)
-    print("\n📦 Loading CLIP model...")
-    self.clip = SentenceTransformer('clip-ViT-L-14')
-    print("✅ CLIP loaded")
-    
-    # Text embedding model (768-dim embeddings)
-    print("\n📦 Loading text model...")
-    self.text = SentenceTransformer('all-mpnet-base-v2')
-    print("✅ Text model loaded")
-    
-    self._initialized = True
-    print("\n🎉 All models ready!\n")
-    
+  @property
+  def clip(self):
+    if self._clip is None:
+      print("📦 Loading CLIP model (clip-ViT-L-14)...")
+      self._clip = SentenceTransformer('clip-ViT-L-14')
+      print("✅ CLIP loaded")
+    return self._clip
+
+  @property
+  def text(self):
+    if self._text is None:
+      print("📦 Loading text model (all-mpnet-base-v2)...")
+      self._text = SentenceTransformer('all-mpnet-base-v2')
+      print("✅ Text model loaded")
+    return self._text
+
   def encode_image(self, image_input):
     """
     Encode an image into a vector embedding.
@@ -88,13 +85,13 @@ if __name__ == "__main__":
   print(f"✅ Text embedding shape: {text_emb.shape}")
   print(f"   First 5 values: {text_emb[:5]}\n")
   
-# Test image embedding (using a placeholder)
-try:
-  test_url = "https://via.placeholder.com/400x400.png?text=Test"
-  image_emb = models.encode_image(test_url)
-  print(f"✅ Image embedding shape: {image_emb.shape}")
-  print(f"   First 5 values: {image_emb[:5]}\n")
-except Exception as e:
-  print(f"⚠️  Image test skipped: {e}\n")
-    
-print("🎉 Models working correctly!")
+  # Test image embedding (using a placeholder)
+  try:
+    test_url = "https://via.placeholder.com/400x400.png?text=Test"
+    image_emb = models.encode_image(test_url)
+    print(f"✅ Image embedding shape: {image_emb.shape}")
+    print(f"   First 5 values: {image_emb[:5]}\n")
+  except Exception as e:
+    print(f"⚠️  Image test skipped: {e}\n")
+
+  print("🎉 Models working correctly!")
