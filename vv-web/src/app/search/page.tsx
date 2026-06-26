@@ -78,9 +78,6 @@ function SearchContent() {
                 <div className="mx-auto mt-8 flex max-w-[600px] gap-0 border-b border-grey-200">
                     {[
                         { label: "All", href: "/search" },
-                        { label: "By Era", href: "/search?tab=era" },
-                        { label: "By Culture", href: "/search?tab=culture" },
-                        { label: "By Movement", href: "/search?tab=movement" },
                         { label: "By Function", href: "/explore/functions" },
                     ].map((tab) => (
                         <Link

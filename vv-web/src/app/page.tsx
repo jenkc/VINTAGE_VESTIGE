@@ -66,16 +66,6 @@ export default async function HomePage() {
                 <div className="mt-0 flex flex-col">
                     {[
                         {
-                            title: "Browse by Era",
-                            desc: "Where design ideas traveled · 1400s to present",
-                            href: "/search?tab=era",
-                        },
-                        {
-                            title: "Browse by Culture",
-                            desc: "Independent inventions · cross-cultural lineage · shared technique",
-                            href: "/search?tab=culture",
-                        },
-                        {
                             title: "Browse by Function",
                             desc: "Ceremonial · Mourning · Labor · Courtship · Military · Performance",
                             href: "/explore/functions",
