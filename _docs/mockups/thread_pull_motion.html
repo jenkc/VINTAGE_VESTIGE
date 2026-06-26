@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<title>Thread Pull — Motion / Branch / Wayfinding Prototype</title>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  SOREN — DESIGN EXPLORATION PROTOTYPE (interactive)
+  Vintage Vestige · Thread Pull v2
+
+  This is a FEEL-ABLE prototype, not production code. It exists so the
+  three problem areas can be SEEN before Iris wires them in React:
+
+    1. MOTION — the connector line draws itself between nodes
+       (animated stroke-dashoffset on an SVG path), the new node + edge
+       fade + rise in with a gentle stagger (line reaches first, then
+       the metadata reveals just after). Manual pull only — no autoplay.
+
+    2. BRANCHING — at the last node, "Other paths from here" expands the
+       runners-up (top N bridges minus the auto-pick), each showing its
+       OWN connecting entities + score so the choice is informed. Picking
+       one REPLACES THE TAIL (one visible thread at a time).
+
+    3. WAYFINDING — a slim sticky step-rail on the left edge (one dot per
+       step, the current one filled), a share affordance, start-over, and
+       a graceful "exhaustion" ending that offers the next move.
+
+  All motion respects prefers-reduced-motion (instant / fade-only).
+  Reuses the established tokens (theme.ts), mono labels, editorial serif
+  narrative, the connection-mode colors. Iris owns final CSS/React.
+  ════════════════════════════════════════════════════════════════════
+-->
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white: #FFFFFF; --off-white: #F5F5F0; --black: #0A0A0A; --dark: #1A1A1A;
+    --grey-600: #6B6B6B; --grey-400: #9B9B9B; --grey-200: #E0E0E0; --grey-100: #F0F0F0;
+    --accent: #C4553A; --accent-hover: #A8432E;
+    --met: #8B2332; --smithsonian: #2E5A88; --fashionpedia: #6B6B6B; --va: #4A4A4A;
+    /* connection-mode colors (theme.ts CONNECTION_MODE_COLORS) */
+    --conn-shared: #6B6B6B; --conn-lineage: #C4553A; --conn-visual: #8B5E3C;
+
+    /* motion timing — editorial / restrained. No bounce. */
+    --draw-ms: 680ms;        /* line drawing itself */
+    --reveal-ms: 460ms;      /* node + edge fade/rise */
+    --reveal-ease: cubic-bezier(0.22, 0.61, 0.36, 1); /* ease-out, no overshoot */
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--white); color: var(--black); line-height: 1.5; }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px; background: rgba(255,255,255,0.96);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .nav-wordmark { font-size: 15px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; text-decoration: none; color: var(--black); }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; color: var(--grey-600); }
+
+  /* ── HEADER ── */
+  .thread-header { padding: 116px 48px 40px; max-width: 800px; margin: 0 auto; }
+  .thread-back { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey-400); text-decoration: none; display: inline-block; margin-bottom: 28px; }
+  .thread-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .thread-title { font-size: 44px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.06; margin-bottom: 14px; }
+  .thread-subtitle { font-family: 'Cormorant Garamond', serif; font-size: 21px; font-style: italic; color: var(--dark); max-width: 580px; line-height: 1.45; }
+
+  /* ── STICKY STEP-RAIL (wayfinding) ── */
+  .rail {
+    position: fixed; top: 50%; left: 24px; transform: translateY(-50%);
+    z-index: 90; display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  .rail-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--grey-200);
+    border: none; cursor: pointer; padding: 0;
+    transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+    position: relative;
+  }
+  .rail-dot:hover { transform: scale(1.5); }
+  .rail-dot.filled { background: var(--grey-400); }
+  .rail-dot.current {
+    background: var(--accent); transform: scale(1.45);
+    box-shadow: 0 0 0 3px rgba(196,85,58,0.15);
+  }
+  .rail-dot .rail-tip {
+    position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+    white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey-600);
+    background: var(--white); padding: 2px 6px; border: 1px solid var(--grey-200);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .rail-dot:hover .rail-tip { opacity: 1; }
+  .rail-count {
+    margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 8px;
+    letter-spacing: 0.1em; color: var(--grey-400); writing-mode: vertical-rl;
+  }
+
+  /* ── THREAD CONTAINER ── */
+  .thread { max-width: 800px; margin: 0 auto; padding: 0 48px 40px; position: relative; }
+
+  /* ── STEP (edge + node) ── */
+  .step { position: relative; }
+
+  /* arrival animation — fade + slight upward translate */
+  .step.arriving { animation: stepIn var(--reveal-ms) var(--reveal-ease) forwards; }
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── EDGE (the connector that drew itself + the "why") ── */
+  .edge {
+    position: relative;
+    padding: 34px 0 34px 32px;
+    margin-left: 110px;
+  }
+  /* the drawn line lives in an SVG so stroke-dashoffset can animate it */
+  .edge-line {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 2px; overflow: visible;
+  }
+  .edge-line path { stroke: var(--grey-200); stroke-width: 1.5; fill: none; }
+  /* animated draw */
+  .edge.drawing .edge-line path {
+    stroke-dasharray: var(--len); stroke-dashoffset: var(--len);
+    animation: drawLine var(--draw-ms) var(--reveal-ease) forwards;
+  }
+  @keyframes drawLine { to { stroke-dashoffset: 0; } }
+  /* the bead that rides the line down as it draws, then settles */
+  .edge-bead {
+    position: absolute; left: -3.5px; top: -4px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent); opacity: 0;
+  }
+  .edge.drawing .edge-bead { animation: beadRide var(--draw-ms) var(--reveal-ease) forwards; }
+  @keyframes beadRide {
+    0%   { opacity: 1; top: -4px; }
+    85%  { opacity: 1; }
+    100% { opacity: 1; top: calc(100% - 4px); background: var(--grey-200); width: 7px; height: 7px; }
+  }
+  /* the metadata block reveals JUST AFTER the line arrives (staggered) */
+  .edge-meta { opacity: 1; }
+  .edge.drawing .edge-meta {
+    opacity: 0;
+    animation: stepIn var(--reveal-ms) var(--reveal-ease) forwards;
+    animation-delay: calc(var(--draw-ms) * 0.55);
+  }
+
+  .edge-ref { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+  .edge-ref.lineage { color: var(--accent); }
+  .edge-ref.shared { color: var(--grey-600); }
+  .edge-entities { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .entity-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.06em;
+    text-transform: uppercase; border: 1px solid var(--grey-200); border-radius: 999px;
+    padding: 4px 11px; color: var(--grey-600); transition: border-color 0.2s;
+  }
+  .entity-tag:hover { border-color: var(--grey-400); }
+  .edge-distance { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--grey-400); margin-bottom: 12px; }
+  .edge-narrative { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic; line-height: 1.5; color: var(--dark); max-width: 540px; }
+
+  /* ── NODE (garment) ── */
+  .node { padding: 38px 0 0; }
+  .node-number { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--grey-400); margin-bottom: 14px; }
+  .node-inner { display: grid; grid-template-columns: 180px 1fr; gap: 32px; align-items: start; }
+  .node-image { width: 180px; aspect-ratio: 3/4; background: var(--off-white); overflow: hidden; cursor: pointer; }
+  .node-image img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.4s ease; }
+  .node-image:hover img { transform: scale(1.03); }
+  .node-platform { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .node-title { font-size: 21px; font-weight: 600; line-height: 1.2; margin-bottom: 7px; }
+  .node-era { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--grey-600); }
+
+  /* ── PULL AFFORDANCE (tactile, thread metaphor) ── */
+  .pull-zone { margin-top: 30px; margin-left: 110px; padding-left: 32px; position: relative; padding-bottom: 8px; }
+  /* a short loose "slack" of thread hanging from the last node, inviting the pull */
+  .pull-zone::before {
+    content: ''; position: absolute; left: 0; top: -30px; height: 38px; width: 1.5px;
+    background: linear-gradient(var(--grey-200), transparent);
+  }
+  .pull-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--grey-600); background: none; border: none;
+    cursor: pointer; padding: 6px 0; transition: color 0.2s;
+  }
+  .pull-btn:hover { color: var(--black); }
+  .pull-btn .pull-arrow { display: inline-block; transition: transform 0.25s ease; }
+  .pull-btn:hover .pull-arrow { transform: translateX(6px); }
+  .pull-btn .pull-thread {
+    display: inline-block; width: 26px; height: 1.5px; background: var(--grey-400);
+    transition: width 0.25s ease, background 0.2s;
+  }
+  .pull-btn:hover .pull-thread { width: 40px; background: var(--accent); }
+
+  .pull-loading {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--grey-400);
+  }
+  .pull-loading .dot { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  /* ── BRANCH (other paths from here) ── */
+  .branch { margin-top: 14px; }
+  .branch-toggle {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--grey-400); background: none; border: none;
+    cursor: pointer; padding: 4px 0; transition: color 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .branch-toggle:hover { color: var(--accent); }
+  .branch-toggle .chev { transition: transform 0.25s; display: inline-block; }
+  .branch-toggle.open .chev { transform: rotate(90deg); }
+
+  .branch-options {
+    overflow: hidden; max-height: 0; transition: max-height 0.35s var(--reveal-ease);
+    margin-top: 0;
+  }
+  .branch-options.open { max-height: 800px; margin-top: 16px; }
+  .branch-list { display: flex; flex-direction: column; gap: 2px; }
+  .branch-opt {
+    display: grid; grid-template-columns: 56px 1fr auto; gap: 16px; align-items: center;
+    text-align: left; background: none; border: none; border-top: 1px solid var(--grey-100);
+    padding: 14px 4px; cursor: pointer; width: 100%; transition: background 0.15s;
+  }
+  .branch-opt:hover { background: var(--off-white); }
+  .branch-opt:hover .branch-opt-title { color: var(--accent); }
+  .branch-opt-thumb { width: 56px; height: 72px; object-fit: contain; background: var(--off-white); }
+  .branch-opt-body {}
+  .branch-opt-title { font-size: 15px; font-weight: 600; line-height: 1.25; transition: color 0.2s; }
+  .branch-opt-why { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey-600); margin-top: 5px; }
+  .branch-opt-why .swatch { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .branch-opt-score { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--grey-400); }
+  .branch-opt:hover .branch-opt-score { color: var(--dark); }
+
+  /* ── EXHAUSTION ENDING ── */
+  .thread-end { margin-top: 30px; margin-left: 110px; padding: 40px 0 0 32px; border-top: 1px solid var(--grey-200); }
+  .thread-end-text { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-style: italic; color: var(--dark); margin-bottom: 6px; max-width: 480px; }
+  .thread-end-summary { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--grey-400); letter-spacing: 0.08em; margin-bottom: 28px; }
+  .end-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .end-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--black); background: none; border: 1px solid var(--grey-200);
+    padding: 12px 22px; cursor: pointer; border-radius: 2px; transition: all 0.2s;
+  }
+  .end-btn:hover { border-color: var(--black); }
+  .end-btn.primary { border-color: var(--black); }
+  .end-btn.primary:hover { background: var(--black); color: var(--white); }
+
+  /* ── SHARE / OVERVIEW BAR (sticky bottom, lightweight) ── */
+  .thread-toolbar {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 95; display: flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.97); border: 1px solid var(--grey-200);
+    border-radius: 4px; padding: 6px; backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  .toolbar-stat { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--grey-600); padding: 6px 12px; white-space: nowrap; }
+  .toolbar-sep { width: 1px; height: 18px; background: var(--grey-200); }
+  .toolbar-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--grey-600); background: none; border: none;
+    cursor: pointer; padding: 6px 12px; border-radius: 2px; transition: all 0.15s; white-space: nowrap;
+  }
+  .toolbar-btn:hover { color: var(--black); background: var(--grey-100); }
+  .toolbar-btn.shared { color: var(--accent); }
+
+  /* ── DEMO CONTROL STRIP (prototype only — not part of the design) ── */
+  .demo-strip {
+    position: fixed; top: 72px; right: 16px; z-index: 110;
+    background: var(--black); color: var(--white); border-radius: 4px; padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.05em;
+    max-width: 230px;
+  }
+  .demo-strip b { color: var(--accent); }
+  .demo-strip label { display: flex; align-items: center; gap: 6px; margin-top: 8px; cursor: pointer; color: var(--grey-200); }
+  .demo-strip p { color: var(--grey-400); margin-top: 6px; line-height: 1.5; }
+
+  /* ── REDUCED MOTION — instant / fade-only fallback ── */
+  @media (prefers-reduced-motion: reduce) {
+    .step.arriving { animation: fadeOnly 0.001ms forwards; }
+    .edge.drawing .edge-line path { animation: none; stroke-dashoffset: 0; }
+    .edge.drawing .edge-bead { animation: none; opacity: 1; top: calc(100% - 4px); background: var(--grey-200); }
+    .edge.drawing .edge-meta { animation: none; opacity: 1; }
+    @keyframes fadeOnly { to { opacity: 1; } }
+  }
+  /* the demo toggle forces the same fallback regardless of OS setting */
+  body.force-reduced .step.arriving { animation: none !important; opacity: 1 !important; transform: none !important; }
+  body.force-reduced .edge.drawing .edge-line path { animation: none !important; stroke-dashoffset: 0 !important; }
+  body.force-reduced .edge.drawing .edge-bead { animation: none !important; opacity: 1 !important; top: calc(100% - 4px) !important; background: var(--grey-200) !important; }
+  body.force-reduced .edge.drawing .edge-meta { animation: none !important; opacity: 1 !important; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-wordmark" href="#">Vintage Vestige</a>
+  <ul class="nav-links">
+    <li><a href="#">Search</a></li>
+    <li><a href="#">Explore</a></li>
+    <li><a href="#">Connections</a></li>
+    <li><a href="#">About</a></li>
+  </ul>
+</nav>
+
+<!-- DEMO CONTROL STRIP (prototype affordance, not part of the design) -->
+<div class="demo-strip">
+  <b>PROTOTYPE</b> — pull the thread.
+  <p>Click <b>↦ pull</b> to draw the next step. Try <b>Other paths</b> on the last node to branch. Watch the left rail + bottom bar.</p>
+  <label><input type="checkbox" id="reducedToggle"> simulate reduced-motion</label>
+</div>
+
+<!-- HEADER -->
+<div class="thread-header">
+  <a class="thread-back" href="#">← Back to garment</a>
+  <div class="thread-label">Pull the Thread</div>
+  <div class="thread-title">The Silk Road Thread</div>
+  <div class="thread-subtitle">Start from one garment and let the connections lead. The graph chooses the strongest bridge each time — you decide whether to keep pulling.</div>
+</div>
+
+<!-- STICKY STEP-RAIL -->
+<div class="rail" id="rail"></div>
+
+<!-- THREAD -->
+<div class="thread" id="thread"></div>
+
+<!-- STICKY TOOLBAR -->
+<div class="thread-toolbar" id="toolbar" style="display:none;">
+  <span class="toolbar-stat" id="toolbarStat">1 garment · 0 connections</span>
+  <span class="toolbar-sep"></span>
+  <button class="toolbar-btn" id="shareBtn">↗ Share thread</button>
+  <span class="toolbar-sep"></span>
+  <button class="toolbar-btn" id="restartBtn">↺ Start over</button>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   PROTOTYPE DATA — stands in for getProductBridges() responses.
+   Each node carries its FULL bridge list (the API returns up to `limit`
+   sorted by bridge_score desc). pullNext() auto-picks index 0 to an
+   unvisited target; the rest become the branch options. Real shapes:
+   { target, bridge_score, connection_mode, shared_entities (the "why"),
+     bridge_narrative, year_gap, crossing_type }.
+   ════════════════════════════════════════════════════════════════════ */
+const IMG = id => `https://tusswxlrdoamintvswjs.supabase.co/storage/v1/object/public/product-images/${id}.jpg`;
+const CONN = { shared_entity: '#6B6B6B', lineage: '#C4553A', visual_echo: '#8B5E3C' };
+
+const START = {
+  id: 3578, platform: 'smithsonian', platformLabel: 'Smithsonian', platformColor: 'var(--smithsonian)',
+  title: 'Deep Red Silk Velvet Fragment with Thistle Motifs', era: 'Elizabethan · Italian', img: IMG(3578),
+};
+
+// keyed by product id -> ordered bridge list (score desc). #0 is the graph's pick.
+const BRIDGES = {
+  3578: [
+    { mode:'shared_entity', score:0.81, narrative:'The deep red velvet and this handwoven sari speak the same loom — brocade and hand-weaving techniques that traveled the Silk Road westward into Italian workshops centuries before reappearing, preserved, in their original South Asian context.',
+      ref:'Connected through: brocade-weaving + hand-weaving', why:[['Technique','Brocade-weaving'],['Technique','Hand-weaving']], dist:'410 years · cross-culture',
+      target:{ id:4553, platformLabel:'V&A Museum', platformColor:'var(--va)', title:'Deep Green Burgundy Tasar Silk Sari', era:'Dark Academia · Indian', img:IMG(4553) } },
+    { mode:'shared_entity', score:0.74, narrative:'Two textiles bound by the same dense pile weave — the Italian velvet and a Persian carpet fragment share a structural vocabulary older than either nation.',
+      ref:'Connected through: pile-weaving', why:[['Technique','Pile-weaving'],['Motif','Floral repeat']], dist:'380 years · cross-culture',
+      target:{ id:201, platformLabel:'The Met', platformColor:'var(--met)', title:'Crimson Persian Knotted Pile Fragment', era:'Safavid · Persian', img:IMG(201) } },
+    { mode:'visual_echo', score:0.69, narrative:'A pure visual rhyme — the thistle repeat finds its echo in a 19th-century paisley shawl despite four centuries and no shared maker.',
+      ref:'Visual echo: thistle ↔ paisley repeat', why:[['Motif','Botanical repeat']], dist:'300 years · cross-category',
+      target:{ id:88, platformLabel:'V&A Museum', platformColor:'var(--va)', title:'Woven Paisley Cashmere Shawl', era:'Victorian · British', img:IMG(88) } },
+  ],
+  4553: [
+    { mode:'shared_entity', score:0.78, narrative:'The same garment system threads forward — the sari\'s blouse-and-petticoat construction reappears, reinterpreted, in a Chinese-woven silk sari made for the Indian market a century earlier.',
+      ref:'Connected through: garment system', why:[['System','Blouse'],['System','Petticoat']], dist:'90 years · cross-culture',
+      target:{ id:4556, platformLabel:'V&A Museum', platformColor:'var(--va)', title:'Navy Blue Silk Sari with Gold Embroidered Florals', era:'Art Deco · Chinese', img:IMG(4556) } },
+    { mode:'lineage', score:0.72, narrative:'A directed line — this contemporary sari explicitly cites the Mughal brocade tradition, claiming a four-hundred-year inheritance in its weave.',
+      ref:'Lineage: "Mughal brocade tradition"', why:[['Influence','Mughal brocade']], dist:'400 years · same-culture',
+      target:{ id:330, platformLabel:'The Met', platformColor:'var(--met)', title:'Gold Mughal Brocade Coat Panel', era:'Mughal · Indian', img:IMG(330) } },
+  ],
+  4556: [
+    { mode:'lineage', score:0.75, narrative:'The thread crosses an ocean of trade — this navy sari descends from the Chinese export textile tradition, silk woven in Canton specifically for foreign markets, the Silk Road running in reverse.',
+      ref:'Lineage: "Chinese export textile tradition"', why:[['Influence','Chinese export textile']], dist:'180 years · cross-category',
+      target:{ id:104, platformLabel:'The Met', platformColor:'var(--met)', title:'Cream Quilted Silk Diamond Pattern Shawl', era:'Rococo · Chinese', img:IMG(104) } },
+    { mode:'shared_entity', score:0.66, narrative:'Gold-thread embroidery binds them — couching technique shared between the sari and an Ottoman ceremonial sash.',
+      ref:'Connected through: gold couching', why:[['Technique','Couching'],['Motif','Floral']], dist:'120 years · cross-culture',
+      target:{ id:412, platformLabel:'Smithsonian', platformColor:'var(--smithsonian)', title:'Gold-Couched Ottoman Ceremonial Sash', era:'Ottoman · Turkish', img:IMG(412) } },
+  ],
+  104: [
+    { mode:'shared_entity', score:0.70, narrative:'Chinoiserie names the connection — the European appetite for Chinese motif carried from this quilted export shawl into a French couture coat dress two centuries on.',
+      ref:'Connected through: Chinoiserie movement', why:[['Movement','Chinoiserie']], dist:'210 years · cross-culture',
+      target:{ id:2439, platformLabel:'V&A Museum', platformColor:'var(--va)', title:'Black White Silk Chinoiserie Coat Dress', era:'New Look · French', img:IMG(2439) } },
+  ],
+  2439: [], // exhaustion happens here for the demo
+};
+
+/* ── STATE ── */
+let steps = [];           // [{ product, bridge|null }]
+let visited = new Set();
+let branchOpen = false;
+let shared = false;
+const thread = document.getElementById('thread');
+const rail = document.getElementById('rail');
+const toolbar = document.getElementById('toolbar');
+
+function reduced() {
+  return document.body.classList.contains('force-reduced') ||
+         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function reset() {
+  steps = [{ product: START, bridge: null }];
+  visited = new Set([START.id]);
+  branchOpen = false; shared = false;
+  render(false);
+}
+
+/* find the auto-pick (first unvisited) + the runners-up (other unvisited) */
+function nextOptions(productId) {
+  const list = BRIDGES[productId] || [];
+  const unvisited = list.filter(b => !visited.has(b.target.id));
+  return { pick: unvisited[0] || null, alts: unvisited.slice(1) };
+}
+
+function pullNext() {
+  const last = steps[steps.length - 1];
+  const { pick } = nextOptions(last.product.id);
+  if (!pick) { exhausted = true; render(false); return; }
+  visited.add(pick.target.id);
+  steps.push({ product: pick.target, bridge: pick });
+  branchOpen = false;
+  render(true); // animate the newly arrived step
+}
+
+/* branch: replace the tail below the current last node, then take this alt */
+function takeBranch(alt) {
+  visited.add(alt.target.id);
+  steps.push({ product: alt.target, bridge: alt });
+  branchOpen = false;
+  render(true);
+}
+
+let exhausted = false;
+
+function render(animateLast) {
+  exhausted = exhausted && true;
+  thread.innerHTML = '';
+  const lastIdx = steps.length - 1;
+
+  steps.forEach((step, i) => {
+    const stepEl = document.createElement('div');
+    stepEl.className = 'step' + (animateLast && i === lastIdx ? ' arriving' : '');
+
+    // EDGE (skip on the origin node)
+    if (step.bridge) {
+      const b = step.bridge;
+      const refClass = b.mode === 'lineage' ? 'lineage' : 'shared';
+      const drawing = animateLast && i === lastIdx && !reduced();
+      stepEl.innerHTML += `
+        <div class="edge${drawing ? ' drawing' : ''}" style="--len:200">
+          <svg class="edge-line" preserveAspectRatio="none"><path d="M1,0 L1,9999" pathLength="200"/></svg>
+          <span class="edge-bead"></span>
+          <div class="edge-meta">
+            <div class="edge-ref ${refClass}">${b.ref}</div>
+            <div class="edge-entities">${b.why.map(w => `<span class="entity-tag">${w[0]} · ${w[1]}</span>`).join('')}</div>
+            <div class="edge-distance">${b.dist} · score ${(b.score).toFixed(2)}</div>
+            <div class="edge-narrative">${b.narrative}</div>
+          </div>
+        </div>`;
+    }
+
+    // NODE
+    const p = step.product;
+    stepEl.innerHTML += `
+      <div class="node">
+        <div class="node-number">${String(i+1).padStart(2,'0')}</div>
+        <div class="node-inner">
+          <a class="node-image"><img src="${p.img}" alt="" onerror="this.style.opacity=0"></a>
+          <div>
+            <div class="node-platform" style="color:${p.platformColor}">${p.platformLabel}</div>
+            <div class="node-title">${p.title}</div>
+            <div class="node-era">${p.era}</div>
+          </div>
+        </div>
+      </div>`;
+    thread.appendChild(stepEl);
+  });
+
+  // PULL ZONE / BRANCH / END under the last node
+  const last = steps[lastIdx];
+  const { pick, alts } = nextOptions(last.product.id);
+  const zone = document.createElement('div');
+  zone.className = 'pull-zone';
+
+  if (pick) {
+    zone.innerHTML = `
+      <button class="pull-btn" id="pullBtn">
+        <span class="pull-thread"></span>↦ pull <span class="pull-arrow">→</span>
+      </button>`;
+    if (alts.length) {
+      zone.innerHTML += `
+        <div class="branch">
+          <button class="branch-toggle ${branchOpen?'open':''}" id="branchToggle">
+            <span class="chev">›</span> ${alts.length} other path${alts.length>1?'s':''} from here
+          </button>
+          <div class="branch-options ${branchOpen?'open':''}">
+            <div class="branch-list">
+              ${alts.map((a,ai)=>`
+                <button class="branch-opt" data-alt="${ai}">
+                  <img class="branch-opt-thumb" src="${a.target.img}" alt="" onerror="this.style.opacity=0">
+                  <div class="branch-opt-body">
+                    <div class="branch-opt-title">${a.target.title}</div>
+                    <div class="branch-opt-why"><span class="swatch" style="background:${CONN[a.mode]}"></span>${a.ref.replace(/^(Connected through:|Lineage:|Visual echo:)\s*/,'')}</div>
+                  </div>
+                  <div class="branch-opt-score">${a.score.toFixed(2)}</div>
+                </button>`).join('')}
+            </div>
+          </div>
+        </div>`;
+    }
+  } else {
+    // GRACEFUL EXHAUSTION — an ending, not a dead-end
+    zone.innerHTML = `
+      <div class="thread-end">
+        <div class="thread-end-text">The thread ends here — for now. ${steps.length} garments, ${steps.length-1} connections, ${spanText()}.</div>
+        <div class="thread-end-summary">No unvisited bridge from this garment. The next move is yours.</div>
+        <div class="end-actions">
+          ${branchableEarlier() ? `<button class="end-btn primary" id="branchBackBtn">Branch from an earlier garment</button>` : ''}
+          <button class="end-btn" id="shareEndBtn">↗ Share this thread</button>
+          <button class="end-btn" id="restartEndBtn">↺ Start a new thread</button>
+          <a class="end-btn" href="#" style="text-decoration:none;display:inline-block">Return to garment</a>
+        </div>
+      </div>`;
+  }
+  thread.appendChild(zone);
+
+  renderRail();
+  renderToolbar();
+  wire();
+
+  // bring the new step into view smoothly (motion spec: don't jump)
+  if (animateLast && !reduced()) {
+    requestAnimationFrame(() => {
+      thread.lastElementChild.previousElementSibling?.scrollIntoView({ behavior:'smooth', block:'center' });
+    });
+  }
+}
+
+function spanText() {
+  // tiny flavor for the ending — first → last era
+  const a = steps[0].product.era.split('·')[0].trim();
+  const b = steps[steps.length-1].product.era.split('·')[0].trim();
+  return `${a} → ${b}`;
+}
+function branchableEarlier() {
+  // is there any earlier node with an unvisited alternative?
+  return steps.slice(0,-1).some(s => {
+    const list = BRIDGES[s.product.id] || [];
+    return list.some(x => !visited.has(x.target.id));
+  });
+}
+
+function renderRail() {
+  rail.innerHTML = steps.map((s,i)=>`
+    <button class="rail-dot ${i===steps.length-1?'current':'filled'}" data-step="${i}">
+      <span class="rail-tip">${String(i+1).padStart(2,'0')} · ${s.product.title.split(' ').slice(0,3).join(' ')}</span>
+    </button>`).join('') + `<span class="rail-count">${steps.length}</span>`;
+  rail.querySelectorAll('.rail-dot').forEach(d=>{
+    d.onclick = ()=> thread.children[+d.dataset.step]?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+}
+
+function renderToolbar() {
+  toolbar.style.display = 'flex';
+  document.getElementById('toolbarStat').textContent =
+    `${steps.length} garment${steps.length>1?'s':''} · ${steps.length-1} connection${steps.length-1!==1?'s':''}`;
+  const sb = document.getElementById('shareBtn');
+  sb.textContent = shared ? '✓ Link copied' : '↗ Share thread';
+  sb.classList.toggle('shared', shared);
+  sb.onclick = ()=> {
+    // a thread IS its path of ids — encode client-side, no backend
+    const path = steps.map(s=>s.product.id).join('-');
+    const url = `${location.origin}${location.pathname}#thread=${path}`;
+    navigator.clipboard?.writeText(url).catch(()=>{});
+    shared = true; renderToolbar();
+    setTimeout(()=>{ shared=false; renderToolbar(); }, 2200);
+  };
+  document.getElementById('restartBtn').onclick = ()=>{ exhausted=false; reset(); window.scrollTo({top:0,behavior:'smooth'}); };
+}
+
+function wire() {
+  const pb = document.getElementById('pullBtn');
+  if (pb) pb.onclick = simulatePull;
+  const bt = document.getElementById('branchToggle');
+  if (bt) bt.onclick = ()=>{ branchOpen = !branchOpen; render(false); };
+  thread.querySelectorAll('.branch-opt').forEach(btn=>{
+    btn.onclick = ()=>{ const last=steps[steps.length-1]; const {alts}=nextOptions(last.product.id); takeBranch(alts[+btn.dataset.alt]); };
+  });
+  const seb = document.getElementById('shareEndBtn'); if (seb) seb.onclick = ()=>document.getElementById('shareBtn').click();
+  const reb = document.getElementById('restartEndBtn'); if (reb) reb.onclick = ()=>{ exhausted=false; reset(); window.scrollTo({top:0,behavior:'smooth'}); };
+  const bbb = document.getElementById('branchBackBtn');
+  if (bbb) bbb.onclick = ()=>{
+    // jump the rail to the earliest node that still has an unvisited path
+    const idx = steps.findIndex(s => (BRIDGES[s.product.id]||[]).some(x=>!visited.has(x.target.id)));
+    if (idx>=0){ thread.children[idx].scrollIntoView({behavior:'smooth',block:'center'}); }
+  };
+}
+
+/* show the "Following the thread…" beat, then draw — feels like a deliberate pull */
+function simulatePull() {
+  const zone = document.querySelector('.pull-zone');
+  if (reduced()) { exhausted=false; pullNext(); return; }
+  zone.innerHTML = `<span class="pull-loading">Following the thread<span class="dot">.</span><span class="dot" style="animation-delay:.2s">.</span><span class="dot" style="animation-delay:.4s">.</span></span>`;
+  setTimeout(()=>{ exhausted=false; pullNext(); }, 480);
+}
+
+document.getElementById('reducedToggle').addEventListener('change', e=>{
+  document.body.classList.toggle('force-reduced', e.target.checked);
+});
+
+reset();
+</script>
+</body>
+</html>

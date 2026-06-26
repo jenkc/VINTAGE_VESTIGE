@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getProduct, getProductBridges } from "@/lib/api";
+import { getProduct } from "@/lib/api";
 import ThreadPull from "@/components/explore/ThreadPull";
+import { decodePath } from "@/lib/threadPath";
 import type { ProductSummary } from "@/types";
 import type { Metadata } from "next";
 
 interface Props {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ path?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -22,10 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 }
 
-export default async function ThreadPage({ params }: Props) {
+export default async function ThreadPage({ params, searchParams }: Props) {
     const { id } = await params;
+    const { path } = await searchParams;
     const numId = Number(id);
     if (Number.isNaN(numId)) notFound();
+
+    // Shared-link replay: a path of product ids, origin first. Only honored
+    // when it actually starts from this route's origin garment.
+    const decoded = decodePath(path);
+    const initialPathIds =
+        decoded.length > 1 && decoded[0] === numId ? decoded : undefined;
 
     let product;
     try {
@@ -82,7 +91,7 @@ export default async function ThreadPage({ params }: Props) {
 
                 {/* Thread */}
                 <div className="mt-4">
-                    <ThreadPull startProduct={startProduct} />
+                    <ThreadPull startProduct={startProduct} initialPathIds={initialPathIds} />
                 </div>
             </div>
         </div>

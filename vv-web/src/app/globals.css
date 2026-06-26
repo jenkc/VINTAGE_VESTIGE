@@ -33,3 +33,74 @@
     text-wrap: balance;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+   Thread Pull v2 — motion
+   Editorial / restrained. No bounce, no spring. The line draws itself
+   (stroke-dashoffset), a bead rides it down, then the node + its "why"
+   reveal just after the line lands. All of it collapses to a fade under
+   prefers-reduced-motion. Timings from Soren's design direction.
+   ─────────────────────────────────────────────────────────────────── */
+:root {
+  --thread-draw-ms: 680ms;
+  --thread-reveal-ms: 460ms;
+  --thread-ease: cubic-bezier(0.22, 0.61, 0.36, 1); /* ease-out, no overshoot */
+}
+
+/* the connector drawing itself: dash covers the whole line, offset → 0 */
+@keyframes thread-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* the accent bead riding the line down, settling into the grey dot */
+@keyframes thread-bead {
+  0%   { opacity: 1; top: -4px; }
+  85%  { opacity: 1; }
+  100% { opacity: 1; top: calc(100% - 4px); background: var(--color-grey-200, #E0E0E0); width: 7px; height: 7px; }
+}
+
+/* node + edge arrival: fade and rise */
+@keyframes thread-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes thread-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* applied only to the newest step while it arrives */
+.thread-arriving { animation: thread-rise var(--thread-reveal-ms) var(--thread-ease) both; }
+
+.thread-line-path {
+  stroke-dasharray: var(--thread-len, 400);
+  stroke-dashoffset: var(--thread-len, 400);
+}
+.thread-drawing .thread-line-path {
+  animation: thread-draw var(--thread-draw-ms) var(--thread-ease) forwards;
+}
+
+.thread-bead { opacity: 0; }
+.thread-drawing .thread-bead {
+  animation: thread-bead var(--thread-draw-ms) var(--thread-ease) forwards;
+}
+
+/* the "why" reveals just after the line reaches the node (~55% of the draw) */
+.thread-meta { opacity: 1; }
+.thread-drawing .thread-meta {
+  opacity: 0;
+  animation: thread-rise var(--thread-reveal-ms) var(--thread-ease) forwards;
+  animation-delay: calc(var(--thread-draw-ms) * 0.55);
+}
+
+/* ── reduced motion: instant line, fade-only, no ride, no rise ── */
+@media (prefers-reduced-motion: reduce) {
+  .thread-arriving { animation: thread-fade 1ms linear both; }
+  .thread-drawing .thread-line-path { animation: none; stroke-dashoffset: 0; }
+  .thread-drawing .thread-bead {
+    animation: none; opacity: 1; top: calc(100% - 4px);
+    background: var(--color-grey-200, #E0E0E0); width: 7px; height: 7px;
+  }
+  .thread-drawing .thread-meta { animation: none; opacity: 1; }
+}
