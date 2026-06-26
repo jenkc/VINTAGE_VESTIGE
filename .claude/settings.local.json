@@ -4,7 +4,7 @@
       "Bash(ls:*)",
       "mcp__filesystem__list_directory",
       "mcp__filesystem__read_text_file",
-      "mcp__filesystem__get_file_info",
+      "mcp__filesystem__get_file_info"
     ]
   }
 }

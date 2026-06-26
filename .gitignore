@@ -33,3 +33,6 @@ logs/
 **/node_modules
 
 **/fashionpedia_train2020.json
+
+# Local conversation export (not for public repo)
+claude-export/
