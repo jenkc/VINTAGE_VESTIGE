@@ -136,6 +136,20 @@ export default async function ProductDetailPage({ params }: Props) {
                         </p>
                     )}
 
+                    {/* Pull the Thread CTA — the signature interaction, surfaced in the hero */}
+                    <div className="mt-8">
+                        <Link
+                            href={`/thread/${numId}`}
+                            className="group inline-flex items-center gap-3 border border-black px-6 py-3 font-mono text-[12px] uppercase tracking-[0.12em] text-black no-underline transition-colors hover:bg-black hover:text-white"
+                        >
+                            Pull the Thread
+                            <span className="transition-transform duration-200 group-hover:translate-x-1.5">→</span>
+                        </Link>
+                        <p className="mt-2 font-mono text-[10px] tracking-[0.06em] text-grey-400">
+                            Follow this garment wherever the graph leads
+                        </p>
+                    </div>
+
                     {/* Attribute tags */}
                     {product.fp_category && (
                         <div className="mt-6 flex flex-wrap gap-2">
@@ -193,21 +207,6 @@ export default async function ProductDetailPage({ params }: Props) {
                 </section>
             )}
 
-            {/* Pull the Thread CTA */}
-            <section className="border-t border-grey-200 px-6 py-12 md:px-12">
-                <div className="mx-auto max-w-[1200px]">
-                    <Link
-                        href={`/thread/${numId}`}
-                        className="group flex items-center gap-3 font-mono text-[13px] uppercase tracking-[0.12em] text-black no-underline"
-                    >
-                        Pull the Thread
-                        <span className="transition-transform duration-200 group-hover:translate-x-2">→</span>
-                    </Link>
-                    <p className="mt-2 font-mono text-[10px] text-grey-400 tracking-[0.06em]">
-                        Follow this garment wherever the graph leads
-                    </p>
-                </div>
-            </section>
         </div>
     );
 }

@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { searchByText } from "@/lib/api";
 import { DEFAULT_SEARCH_LIMIT } from "@/lib/constants";
 import ProductCard from "@/components/search/ProductCard";
@@ -73,22 +72,6 @@ function SearchContent() {
                         </button>
                     </div>
                 </form>
-
-                {/* Browse Tabs */}
-                <div className="mx-auto mt-8 flex max-w-[600px] gap-0 border-b border-grey-200">
-                    {[
-                        { label: "All", href: "/search" },
-                        { label: "By Function", href: "/explore/functions" },
-                    ].map((tab) => (
-                        <Link
-                            key={tab.label}
-                            href={tab.href}
-                            className="border-b-2 border-transparent px-0 py-3 pr-6 font-mono text-[11px] uppercase tracking-[0.12em] text-grey-400 transition-all hover:text-black"
-                        >
-                            {tab.label}
-                        </Link>
-                    ))}
-                </div>
 
                 {/* Results header */}
                 {hasSearched && (

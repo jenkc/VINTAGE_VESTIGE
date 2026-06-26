@@ -58,7 +58,7 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
             className
         )}>
             {/* Image Pair */}
-            <div className="relative flex aspect-[2/1]">
+            <div className="flex aspect-[2/1]">
                 <Link href={`/product/${source.id}`} className="relative flex-1 overflow-hidden bg-off-white transition-opacity hover:opacity-90">
                     {source.primary_image ? (
                         <ImageWithFallback
@@ -71,12 +71,6 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     ) : (
                         <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
-                    <div className="absolute left-2 top-2">
-                        <PlatformBadge platform={source.platform} />
-                    </div>
-                    <div className="absolute bottom-2 left-2">
-                        <EraBadge era={source.era ?? "Unknown"} date={source.decade} />
-                    </div>
                 </Link>
 
                 <Link href={`/product/${target.id}`} className="relative flex-1 overflow-hidden bg-off-white transition-opacity hover:opacity-90">
@@ -91,13 +85,19 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     ) : (
                         <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
-                    <div className="absolute right-2 top-2">
-                        <PlatformBadge platform={target.platform} />
-                    </div>
-                    <div className="absolute bottom-2 right-2">
-                        <EraBadge era={target.era ?? "Unknown"} date={target.decade} />
-                    </div>
                 </Link>
+            </div>
+
+            {/* Metadata row — platform + era under each image, aligned in two columns */}
+            <div className="grid grid-cols-2 gap-px border-t border-grey-200 bg-grey-200">
+                <div className="flex flex-col gap-1 bg-white px-5 py-3">
+                    <PlatformBadge platform={source.platform} />
+                    <EraBadge era={source.era ?? "Unknown"} date={source.decade} />
+                </div>
+                <div className="flex flex-col gap-1 bg-white px-5 py-3">
+                    <PlatformBadge platform={target.platform} />
+                    <EraBadge era={target.era ?? "Unknown"} date={target.decade} />
+                </div>
             </div>
 
             {/* Content */}

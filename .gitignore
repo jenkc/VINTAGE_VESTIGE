@@ -36,3 +36,5 @@ logs/
 
 # Local conversation export (not for public repo)
 claude-export/
+__pycache__/
+*.pyc
