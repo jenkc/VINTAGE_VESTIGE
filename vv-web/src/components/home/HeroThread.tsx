@@ -83,8 +83,8 @@ export default function HeroThread() {
                         ["--i" as string]: i,
                         top: `${(n.cy / VB_HEIGHT) * 100}%`,
                         ...(n.side === "right"
-                            ? { left: "calc(50% + 16px)" }
-                            : { right: "calc(50% + 16px)" }),
+                            ? { left: "calc(50% + 8px)" }
+                            : { right: "calc(50% + 8px)" }),
                     }}
                 />
             ))}

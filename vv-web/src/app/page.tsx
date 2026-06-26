@@ -28,7 +28,7 @@ export default async function HomePage() {
             <section className="relative flex min-h-[85vh] flex-col justify-end overflow-hidden px-6 pb-16 md:px-12 md:pb-20">
                 {/* Decorative looping thread — fills the blank right/upper space */}
                 <div
-                    className="pointer-events-none absolute right-[9%] top-[8%] hidden h-[70%] w-[240px] opacity-80 lg:block"
+                    className="pointer-events-none absolute right-[8%] top-[20%] hidden h-[62%] w-[200px] opacity-80 md:block lg:right-[16%] lg:top-[14%] lg:h-[66%]"
                     aria-hidden="true"
                 >
                     <HeroThread />
