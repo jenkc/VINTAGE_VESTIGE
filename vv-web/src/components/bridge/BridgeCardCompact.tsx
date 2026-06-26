@@ -29,16 +29,15 @@ export default function BridgeCardCompact({ bridge, className }: BridgeCardCompa
     const score = bridge.bridge_score != null ? Math.round(bridge.bridge_score * 100) : null;
 
     return (
-        <Link
-            href={`/product/${source.id}`}
+        <div
             className={cn(
                 "snap-start block w-[240px] md:w-[280px] flex-shrink-0 overflow-hidden border-b border-grey-200",
                 className
             )}
         >
-            {/* Image Pair */}
+            {/* Image Pair — links to each product; thread pill is a sibling (no nested <a>) */}
             <div className="relative flex h-[140px]">
-                <div className="relative flex-1 overflow-hidden">
+                <Link href={`/product/${source.id}`} className="relative flex-1 overflow-hidden">
                     {source.primary_image ? (
                         <ImageWithFallback
                             src={source.primary_image}
@@ -49,8 +48,8 @@ export default function BridgeCardCompact({ bridge, className }: BridgeCardCompa
                     ) : (
                         <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
-                </div>
-                <div className="relative flex-1 overflow-hidden">
+                </Link>
+                <Link href={`/product/${target.id}`} className="relative flex-1 overflow-hidden">
                     {target.primary_image ? (
                         <ImageWithFallback
                             src={target.primary_image}
@@ -61,11 +60,21 @@ export default function BridgeCardCompact({ bridge, className }: BridgeCardCompa
                     ) : (
                         <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
-                </div>
+                </Link>
+
+                {/* Pull the thread from THIS bridge — seeds source → target */}
+                <Link
+                    href={`/thread/${source.id}?path=${source.id}.${target.id}`}
+                    aria-label="Pull the thread from this connection"
+                    className="absolute bottom-1.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full border border-grey-200 bg-white/90 px-2.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-grey-600 backdrop-blur-sm transition-colors hover:border-accent hover:bg-white hover:text-accent"
+                >
+                    <span aria-hidden>↦</span>
+                    Thread
+                </Link>
             </div>
 
-            {/* Content */}
-            <div className="px-3.5 py-3">
+            {/* Content — links to the source product */}
+            <Link href={`/product/${source.id}`} className="block px-3.5 py-3">
                 {/* Era + distance + score */}
                 <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] text-grey-600">
@@ -108,7 +117,7 @@ export default function BridgeCardCompact({ bridge, className }: BridgeCardCompa
                         ))}
                     </div>
                 )}
-            </div>
-        </Link>
+            </Link>
+        </div>
     );
 }

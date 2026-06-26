@@ -59,8 +59,8 @@ export default async function ProductDetailPage({ params }: Props) {
         <div className="bg-white">
             {/* Hero */}
             <section className="mx-auto grid max-w-[1200px] gap-12 px-6 pt-12 pb-16 md:grid-cols-2 md:px-12">
-                {/* Image */}
-                <div className="relative aspect-[3/4] overflow-hidden bg-off-white">
+                {/* Image — capped height so a portrait frame doesn't dominate the hero */}
+                <div className="relative aspect-[3/4] max-h-[600px] w-full overflow-hidden bg-off-white md:self-start">
                     {product.primary_image && (
                         <Image
                             src={product.primary_image}

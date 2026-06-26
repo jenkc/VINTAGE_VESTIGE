@@ -29,41 +29,53 @@ export default function ProductCard({
         PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#6B6B6B";
 
     return (
-        <Link
-            href={`/product/${product.id}`}
+        <div
             className={cn(
                 "group block overflow-hidden",
                 "transition-all duration-300",
                 className
             )}
         >
-            {/* Image container - 3:4 ratio */}
+            {/* Image container - 3:4 ratio. Product link + thread pill are siblings
+                (not nested) so each is a valid <a> with its own destination. */}
             <div className="relative aspect-[3/4] overflow-hidden bg-off-white">
-                {product.primary_image ? (
-                    <ImageWithFallback
-                        src={product.primary_image ?? ""}
-                        alt={product.title}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-grey-100 to-grey-200">
-                        <span className="font-mono text-sm text-grey-400">No image</span>
-                    </div>
-                )}
+                <Link href={`/product/${product.id}`} className="block size-full">
+                    {product.primary_image ? (
+                        <ImageWithFallback
+                            src={product.primary_image ?? ""}
+                            alt={product.title}
+                            fill
+                            sizes="(max-width: 768px) 50vw, 25vw"
+                            className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        />
+                    ) : (
+                        <div className="flex h-full items-center justify-center bg-gradient-to-br from-grey-100 to-grey-200">
+                            <span className="font-mono text-sm text-grey-400">No image</span>
+                        </div>
+                    )}
+                </Link>
 
                 {/* Platform label - top left */}
                 <span
-                    className="absolute top-2 left-2 font-mono text-[10px] uppercase tracking-wider"
+                    className="pointer-events-none absolute top-2 left-2 font-mono text-[10px] uppercase tracking-wider"
                     style={{ color: platformColor }}
                 >
                     {platformName}
                 </span>
+
+                {/* Thread-pull pill - bottom right, overlay link to this garment's thread */}
+                <Link
+                    href={`/thread/${product.id}`}
+                    aria-label={`Pull the thread from ${product.title}`}
+                    className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-grey-200 bg-white/90 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-grey-600 backdrop-blur-sm transition-colors hover:border-accent hover:bg-white hover:text-accent"
+                >
+                    <span aria-hidden>↦</span>
+                    Thread
+                </Link>
             </div>
 
             {/* Card body */}
-            <div className="py-3">
+            <Link href={`/product/${product.id}`} className="block py-3">
                 <h3 className="font-display text-sm font-bold leading-tight text-black line-clamp-2">
                     {'display_title' in product && product.display_title ? product.display_title : product.title}
                 </h3>
@@ -94,7 +106,7 @@ export default function ProductCard({
                         ))}
                     </div>
                 )}
-            </div>
-        </Link>
+            </Link>
+        </div>
     );
 }

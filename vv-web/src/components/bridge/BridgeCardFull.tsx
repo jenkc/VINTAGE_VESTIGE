@@ -58,7 +58,7 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
             className
         )}>
             {/* Image Pair */}
-            <div className="flex aspect-[2/1]">
+            <div className="relative flex aspect-[2/1]">
                 <Link href={`/product/${source.id}`} className="relative flex-1 overflow-hidden bg-off-white transition-opacity hover:opacity-90">
                     {source.primary_image ? (
                         <ImageWithFallback
@@ -85,6 +85,16 @@ export default function BridgeCardFull({ bridge, className }: BridgeCardFullProp
                     ) : (
                         <div className="size-full bg-gradient-to-br from-grey-100 to-grey-200" />
                     )}
+                </Link>
+
+                {/* Pull the thread from THIS bridge — seeds the thread with source → target */}
+                <Link
+                    href={`/thread/${source.id}?path=${source.id}.${target.id}`}
+                    aria-label="Pull the thread from this connection"
+                    className="absolute bottom-2 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-grey-200 bg-white/90 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-grey-600 backdrop-blur-sm transition-colors hover:border-accent hover:bg-white hover:text-accent"
+                >
+                    <span aria-hidden>↦</span>
+                    Pull the thread
                 </Link>
             </div>
 

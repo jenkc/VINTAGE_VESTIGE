@@ -15,8 +15,20 @@ function SearchContent() {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [slow, setSlow] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [error, setError] = useState("");
+
+    // After a few seconds of loading, reassure the user (first search wakes the
+    // search engine — the embedding model cold-loads on an idle server ~once).
+    useEffect(() => {
+        if (!loading) {
+            setSlow(false);
+            return;
+        }
+        const t = setTimeout(() => setSlow(true), 4000);
+        return () => clearTimeout(t);
+    }, [loading]);
 
     async function handleSearch(q: string) {
         const trimmed = q.trim();
@@ -85,9 +97,17 @@ function SearchContent() {
 
                 {/* Loading */}
                 {loading && (
-                    <p className="mt-16 text-center font-mono text-[11px] uppercase tracking-wider text-grey-400">
-                        Searching...
-                    </p>
+                    <div className="mt-16 text-center">
+                        <p className="font-mono text-[11px] uppercase tracking-wider text-grey-400 animate-pulse">
+                            Searching...
+                        </p>
+                        {slow && (
+                            <p className="mt-3 font-editorial text-base italic text-grey-400">
+                                Waking the search engine — the first query after a quiet spell
+                                takes a few seconds. Hang tight.
+                            </p>
+                        )}
+                    </div>
                 )}
 
                 {/* Error */}

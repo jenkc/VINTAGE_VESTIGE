@@ -38,3 +38,5 @@ logs/
 claude-export/
 __pycache__/
 *.pyc
+
+_docs/DEPLOYMENT_CHEATSHEET.md
