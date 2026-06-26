@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTopBridges } from "@/lib/api";
 import { BridgeCardFull } from "@/components/bridge";
+import HeroThread from "@/components/home/HeroThread";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -24,8 +25,16 @@ export default async function HomePage() {
     return (
         <div>
             {/* Hero */}
-            <section className="flex min-h-[85vh] flex-col justify-end px-6 pb-16 md:px-12 md:pb-20">
-                <div className="max-w-[720px]">
+            <section className="relative flex min-h-[85vh] flex-col justify-end overflow-hidden px-6 pb-16 md:px-12 md:pb-20">
+                {/* Decorative looping thread — fills the blank right/upper space */}
+                <div
+                    className="pointer-events-none absolute right-[9%] top-[8%] hidden h-[70%] w-[240px] opacity-80 lg:block"
+                    aria-hidden="true"
+                >
+                    <HeroThread />
+                </div>
+
+                <div className="relative max-w-[720px]">
                     <h1 className="font-display text-[clamp(56px,10vw,120px)] font-bold uppercase leading-[0.9] tracking-tight text-black">
                         Vintage<br />Vestige
                     </h1>
