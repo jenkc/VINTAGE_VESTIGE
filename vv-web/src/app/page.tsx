@@ -36,10 +36,10 @@ export default async function HomePage() {
                         3,700+ garments · 21,000+ connections · 500 years
                     </p>
                     <Link
-                        href="/search"
+                        href="/bridges"
                         className="mt-10 inline-block bg-black px-8 py-3.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:bg-dark"
                     >
-                        Explore
+                        Explore Connections
                     </Link>
                 </div>
             </section>
